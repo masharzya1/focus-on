@@ -5,6 +5,9 @@ import { StudyProvider } from '@/contexts/StudyContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { View } from 'react-native';
+import { useAutoBlocking } from '@/hooks/useAutoBlocking';
+
+useAutoBlocking();
 
 function InnerLayout() {
   const { colors, isDark } = useTheme();
@@ -15,6 +18,8 @@ function InnerLayout() {
     </View>
   );
 }
+
+
 
 export default function RootLayout() {
   return (

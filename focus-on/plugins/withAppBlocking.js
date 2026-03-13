@@ -6,13 +6,14 @@
  *   1. Copies Kotlin files to the Android project
  *   2. Adds required permissions to AndroidManifest.xml
  *   3. Registers the AccessibilityService in AndroidManifest.xml
- *   4. Registers the NativeModule in MainApplication.kt
+ *   4. Registers BlockOverlayActivity in AndroidManifest.xml
+ *   5. Registers the NativeModule in MainApplication.kt
  *
  * Usage in app.json:
  *   "plugins": ["./plugins/withAppBlocking"]
  */
 
-const { withAndroidManifest, withDangerousMod, withAppBuildGradle } = require('@expo/config-plugins');
+const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -33,6 +34,7 @@ function withKotlinFiles(config) {
         'AppBlockingModule.kt',
         'AppBlockingPackage.kt',
         'AppBlockerAccessibilityService.kt',
+        'BlockOverlayActivity.kt',   // ← new
       ];
 
       for (const file of kotlinFiles) {
@@ -40,7 +42,6 @@ function withKotlinFiles(config) {
         const dest = path.join(kotlinDir, file);
         if (fs.existsSync(src)) {
           let content = fs.readFileSync(src, 'utf8');
-          // Replace placeholder package name with actual package name
           content = content.replace(/PACKAGE_NAME_PLACEHOLDER/g, packageName);
           fs.writeFileSync(dest, content);
           console.log(`✅ Copied ${file} → ${dest}`);
@@ -66,14 +67,14 @@ function withKotlinFiles(config) {
   ]);
 }
 
-// ── Step 2: Add permissions & service to AndroidManifest.xml ────────────────
+// ── Step 2: Add permissions, service & overlay activity to AndroidManifest ──
 function withManifest(config) {
   return withAndroidManifest(config, async (config) => {
     const manifest = config.modResults;
     const application = manifest.manifest.application[0];
     const packageName = config.android?.package || 'com.focuson';
 
-    // Add permissions
+    // Permissions
     const requiredPermissions = [
       'android.permission.QUERY_ALL_PACKAGES',
       'android.permission.FOREGROUND_SERVICE',
@@ -93,11 +94,10 @@ function withManifest(config) {
       }
     }
 
-    // Add AccessibilityService declaration
-    if (!application.service) {
-      application.service = [];
-    }
+    if (!application.service) application.service = [];
+    if (!application.activity) application.activity = [];
 
+    // AccessibilityService
     const serviceName = `${packageName}.AppBlockerAccessibilityService`;
     const serviceExists = application.service.some(
       (s) => s.$?.['android:name'] === serviceName
@@ -110,27 +110,37 @@ function withManifest(config) {
           'android:permission': 'android.permission.BIND_ACCESSIBILITY_SERVICE',
           'android:exported': 'true',
         },
-        'intent-filter': [
-          {
-            action: [
-              {
-                $: {
-                  'android:name': 'android.accessibilityservice.AccessibilityService',
-                },
-              },
-            ],
+        'intent-filter': [{
+          action: [{ $: { 'android:name': 'android.accessibilityservice.AccessibilityService' } }],
+        }],
+        'meta-data': [{
+          $: {
+            'android:name': 'android.accessibilityservice',
+            'android:resource': '@xml/accessibility_service_config',
           },
-        ],
-        'meta-data': [
-          {
-            $: {
-              'android:name': 'android.accessibilityservice',
-              'android:resource': '@xml/accessibility_service_config',
-            },
-          },
-        ],
+        }],
       });
       console.log(`✅ Added AccessibilityService to AndroidManifest`);
+    }
+
+    // BlockOverlayActivity
+    const overlayActivityName = `${packageName}.BlockOverlayActivity`;
+    const overlayExists = application.activity.some(
+      (a) => a.$?.['android:name'] === overlayActivityName
+    );
+
+    if (!overlayExists) {
+      application.activity.push({
+        $: {
+          'android:name': overlayActivityName,
+          'android:exported': 'false',
+          'android:theme': '@android:style/Theme.Black.NoTitleBar.Fullscreen',
+          'android:launchMode': 'singleInstance',
+          'android:excludeFromRecents': 'true',
+          'android:showOnLockScreen': 'true',
+        },
+      });
+      console.log(`✅ Added BlockOverlayActivity to AndroidManifest`);
     }
 
     return config;
@@ -159,15 +169,16 @@ function withMainApplication(config) {
 
       let content = fs.readFileSync(mainAppPath, 'utf8');
 
-      // Only patch if not already patched
       if (!content.includes('AppBlockingPackage')) {
-        // Add import after the last import line
-        content = content.replace(
-          /(import [^\n]+\n)(?!import)/,
-          `$1import ${packageName}.AppBlockingPackage\n`
-        );
+        // Find the last import line and insert after it
+        const lastImportIndex = content.lastIndexOf('\nimport ');
+        const insertAfter = content.indexOf('\n', lastImportIndex + 1);
+        content =
+          content.slice(0, insertAfter) +
+          `\nimport ${packageName}.AppBlockingPackage` +
+          content.slice(insertAfter);
 
-        // Add AppBlockingPackage to the packages list
+        // Add to packages list
         content = content.replace(
           /PackageList\(this\)\.packages/,
           'PackageList(this).packages.also { it.add(AppBlockingPackage()) }'
@@ -176,7 +187,7 @@ function withMainApplication(config) {
         fs.writeFileSync(mainAppPath, content);
         console.log('✅ Registered AppBlockingPackage in MainApplication.kt');
       } else {
-        console.log('ℹ️  AppBlockingPackage already registered in MainApplication.kt');
+        console.log('ℹ️  AppBlockingPackage already registered');
       }
 
       return config;
