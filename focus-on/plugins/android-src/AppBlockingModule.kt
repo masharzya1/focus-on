@@ -34,18 +34,24 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         try {
             val pm = reactApplicationContext.packageManager
             val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            val result = WritableNativeArray()
+            val sb = StringBuilder("[")
+            var first = true
             for (appInfo in packages) {
                 val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
                 val isOurApp = appInfo.packageName == reactApplicationContext.packageName
                 if (isUserApp && !isOurApp) {
-                    val map = WritableNativeMap()
-                    map.putString("packageName", appInfo.packageName)
-                    map.putString("name", pm.getApplicationLabel(appInfo).toString())
-                    result.pushMap(map)
+                    val name = pm.getApplicationLabel(appInfo).toString()
+                        .replace("\\", "\\\\").replace("\"", "\\\"")
+                    val pkg = appInfo.packageName
+                        .replace("\\", "\\\\").replace("\"", "\\\"")
+                    if (!first) sb.append(",")
+                    sb.append("{\"packageName\":\"$pkg\",\"name\":\"$name\"}")
+                    first = false
                 }
             }
-            promise.resolve(result)
+            sb.append("]")
+            // Return as JSON string so JS side can JSON.parse() it
+            promise.resolve(sb.toString())
         } catch (e: Exception) {
             promise.reject("GET_APPS_ERROR", e.message)
         }
@@ -99,4 +105,4 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         val json = prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]"
         promise.resolve(json)
     }
-}
+    }
