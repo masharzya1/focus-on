@@ -124,15 +124,24 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     private fun parseBlockedApps(json: String): Set<String> {
         return try {
-            val trimmed = json.trim().removePrefix("[").removeSuffix("]")
-            if (trimmed.isEmpty()) emptySet()
-            else trimmed.split(",")
-                .map { it.trim().removeSurrounding("\"") }
-                .filter { it.isNotEmpty() }
-                .toSet()
+            val arr = org.json.JSONArray(json)
+            val set = mutableSetOf<String>()
+            for (i in 0 until arr.length()) {
+                val s = arr.optString(i, "")
+                if (s.isNotEmpty()) set.add(s)
+            }
+            set
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing blocked apps: $e")
-            emptySet()
+            Log.e(TAG, "Error parsing blocked apps JSON: $e")
+            // fallback manual parse
+            try {
+                val trimmed = json.trim().removePrefix("[").removeSuffix("]")
+                if (trimmed.isEmpty()) emptySet()
+                else trimmed.split(",")
+                    .map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
+            } catch (e2: Exception) { emptySet() }
         }
     }
 
