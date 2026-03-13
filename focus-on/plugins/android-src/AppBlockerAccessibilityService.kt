@@ -10,14 +10,6 @@ import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
-/**
- * AppBlockerAccessibilityService
- *
- * Monitors foreground app. When a blocked app is detected:
- * → Launches BlockOverlayActivity (10s countdown + random quote)
- *
- * Also handles Reels/Shorts inside apps via TYPE_WINDOW_CONTENT_CHANGED.
- */
 class AppBlockerAccessibilityService : AccessibilityService() {
 
     companion object {
@@ -25,18 +17,16 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         const val PREFS_NAME = "AppBlockingPrefs"
         const val KEY_BLOCKED_APPS = "blocked_apps"
         const val KEY_IS_BLOCKING = "is_blocking"
+        const val KEY_SERVICE_RUNNING = "service_running"
         const val NOTIFICATION_CHANNEL_ID = "focus_on_blocking"
         const val NOTIFICATION_ID = 1001
 
-        // Reel/Shorts class names to detect in-app navigation
         private val REEL_CLASS_NAMES = setOf(
             "com.instagram.igtv.igtv_gui.IgtvActivity",
             "com.instagram.reels.activity.ReelsActivity",
             "com.google.android.apps.youtube.app.watchwhile.WatchWhileActivity",
             "com.facebook.reels.player.container.ReelsPlayerContainerActivity"
         )
-
-        // Packages where we check class names for reel detection
         private val REEL_PACKAGES = setOf(
             "com.instagram.android",
             "com.google.android.youtube",
@@ -53,6 +43,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
+        // Mark service as running so JS side can read this
+        prefs.edit().putBoolean(KEY_SERVICE_RUNNING, true).apply()
+
         serviceInfo = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                          AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -62,7 +55,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             notificationTimeout = 100
         }
 
-        Log.d(TAG, "AppBlocker Accessibility Service connected!")
+        Log.d(TAG, "AppBlocker Service connected!")
         createNotificationChannel()
     }
 
@@ -76,28 +69,25 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         val ourPackage = applicationContext.packageName
         if (packageName == ourPackage) return
 
-        // Don't spam overlays — 3s cooldown per package
+        // Cooldown: don't spam overlays for same app within 3s
         val now = System.currentTimeMillis()
         if (packageName == lastBlockedPackage && now - lastOverlayTime < 3000) return
 
-        val blockedAppsJson = prefs.getString(KEY_BLOCKED_APPS, "[]") ?: "[]"
-        val blockedApps = parseBlockedApps(blockedAppsJson)
+        val blockedApps = parseBlockedApps(prefs.getString(KEY_BLOCKED_APPS, "[]") ?: "[]")
 
-        // Case 1: Whole app is blocked
         if (blockedApps.contains(packageName)) {
-            Log.d(TAG, "Blocked app detected: $packageName")
+            Log.d(TAG, "Blocked: $packageName")
             showOverlay(packageName)
             return
         }
 
-        // Case 2: Reel/Shorts inside a non-blocked app (TYPE_WINDOW_STATE_CHANGED only)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             packageName in REEL_PACKAGES &&
             blockedApps.contains("reels:$packageName")
         ) {
             val className = event.className?.toString() ?: return
             if (REEL_CLASS_NAMES.any { className.contains(it) }) {
-                Log.d(TAG, "Reel detected in $packageName: $className")
+                Log.d(TAG, "Reel detected: $packageName / $className")
                 showOverlay(packageName)
             }
         }
@@ -115,32 +105,23 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             packageName.split(".").last()
         }
 
-        val intent = Intent(applicationContext, BlockOverlayActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(BlockOverlayActivity.EXTRA_APP_NAME, appName)
-        }
-        applicationContext.startActivity(intent)
+        applicationContext.startActivity(
+            Intent(applicationContext, BlockOverlayActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(BlockOverlayActivity.EXTRA_APP_NAME, appName)
+            }
+        )
     }
 
     private fun parseBlockedApps(json: String): Set<String> {
         return try {
             val arr = org.json.JSONArray(json)
-            val set = mutableSetOf<String>()
-            for (i in 0 until arr.length()) {
-                val s = arr.optString(i, "")
-                if (s.isNotEmpty()) set.add(s)
-            }
-            set
+            (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotEmpty() } }.toSet()
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing blocked apps JSON: $e")
-            // fallback manual parse
             try {
-                val trimmed = json.trim().removePrefix("[").removeSuffix("]")
-                if (trimmed.isEmpty()) emptySet()
-                else trimmed.split(",")
-                    .map { it.trim().removeSurrounding("\"") }
-                    .filter { it.isNotEmpty() }
-                    .toSet()
+                json.trim().removePrefix("[").removeSuffix("]")
+                    .split(",").map { it.trim().removeSurrounding("\"") }
+                    .filter { it.isNotEmpty() }.toSet()
             } catch (e2: Exception) { emptySet() }
         }
     }
@@ -148,23 +129,18 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Focus On - App Blocking",
+                NOTIFICATION_CHANNEL_ID, "Focus On - App Blocking",
                 NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows when Focus On is actively blocking apps"
-            }
-            getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
+            ).apply { description = "Shows when Focus On is actively blocking apps" }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
-    override fun onInterrupt() {
-        Log.d(TAG, "AppBlocker Service interrupted")
-    }
+    override fun onInterrupt() { Log.d(TAG, "Service interrupted") }
 
     override fun onDestroy() {
+        prefs.edit().putBoolean(KEY_SERVICE_RUNNING, false).apply()
         super.onDestroy()
-        Log.d(TAG, "AppBlocker Service destroyed")
+        Log.d(TAG, "Service destroyed")
     }
 }
