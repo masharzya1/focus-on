@@ -7,10 +7,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { View } from 'react-native';
 import { useAutoBlocking } from '@/hooks/useAutoBlocking';
 
-useAutoBlocking();
-
 function InnerLayout() {
   const { colors, isDark } = useTheme();
+  useAutoBlocking(); // ✅ hook must be inside a component
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Stack screenOptions={{ headerShown: false }} />
@@ -18,8 +17,6 @@ function InnerLayout() {
     </View>
   );
 }
-
-
 
 export default function RootLayout() {
   return (
