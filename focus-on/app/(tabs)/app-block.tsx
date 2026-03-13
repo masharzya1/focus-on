@@ -439,8 +439,8 @@ export default function AppBlockScreen() {
 }
 
 const tps = StyleSheet.create({
-  timePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', minWidth: 40 },
-  timePillText: { fontSize: 13, fontWeight: '700' },
+  adj:  { width: 32, height: 28, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
+  ampm: { paddingHorizontal: 10, paddingVertical: 20, borderRadius: RADIUS.md, marginLeft: 6, alignItems: 'center', justifyContent: 'center' },
 });
 
 const ab = StyleSheet.create({
