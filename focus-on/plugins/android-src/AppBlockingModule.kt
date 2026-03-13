@@ -1,17 +1,12 @@
 package PACKAGE_NAME_PLACEHOLDER
 
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.util.Log
 import com.facebook.react.bridge.*
 
-/**
- * AppBlockingModule — New Architecture compatible.
- * All methods use Promise (no isBlockingSynchronousMethod).
- */
 class AppBlockingModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
@@ -20,7 +15,7 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         const val MODULE_NAME = "AppBlockingModule"
     }
 
-    private val prefs: SharedPreferences by lazy {
+    private val prefs by lazy {
         reactApplicationContext.getSharedPreferences(
             AppBlockerAccessibilityService.PREFS_NAME,
             android.content.Context.MODE_PRIVATE
@@ -33,25 +28,18 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
     fun getInstalledApps(promise: Promise) {
         try {
             val pm = reactApplicationContext.packageManager
-            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            val sb = StringBuilder("[")
-            var first = true
-            for (appInfo in packages) {
-                val isUserApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
-                val isOurApp = appInfo.packageName == reactApplicationContext.packageName
-                if (isUserApp && !isOurApp) {
-                    val name = pm.getApplicationLabel(appInfo).toString()
-                        .replace("\\", "\\\\").replace("\"", "\\\"")
-                    val pkg = appInfo.packageName
-                        .replace("\\", "\\\\").replace("\"", "\\\"")
-                    if (!first) sb.append(",")
-                    sb.append("{\"packageName\":\"$pkg\",\"name\":\"$name\"}")
-                    first = false
+            val result = WritableNativeArray()
+            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { appInfo ->
+                if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
+                    appInfo.packageName != reactApplicationContext.packageName) {
+                    WritableNativeMap().apply {
+                        putString("packageName", appInfo.packageName)
+                        putString("name", pm.getApplicationLabel(appInfo).toString())
+                        result.pushMap(this)
+                    }
                 }
             }
-            sb.append("]")
-            // Return as JSON string so JS side can JSON.parse() it
-            promise.resolve(sb.toString())
+            promise.resolve(result)
         } catch (e: Exception) {
             promise.reject("GET_APPS_ERROR", e.message)
         }
@@ -68,9 +56,7 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun stopBlocking() {
-        prefs.edit()
-            .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false)
-            .apply()
+        prefs.edit().putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false).apply()
         Log.d(TAG, "Blocking stopped")
     }
 
@@ -83,26 +69,25 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
     fun isAccessibilityEnabled(promise: Promise) {
         val context = reactApplicationContext
         val packageName = context.packageName
-        val serviceName = "$packageName/${packageName}.AppBlockerAccessibilityService"
         val enabledServices = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: run { promise.resolve(false); return }
-        promise.resolve(
-            enabledServices.split(":").any { it.equals(serviceName, ignoreCase = true) }
-        )
+
+        val isEnabled = enabledServices.split(":").any { it.contains(packageName, ignoreCase = true) }
+        promise.resolve(isEnabled)
     }
 
     @ReactMethod
     fun openAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        reactApplicationContext.startActivity(intent)
+        reactApplicationContext.startActivity(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
     }
 
     @ReactMethod
     fun getBlockedApps(promise: Promise) {
-        val json = prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]"
-        promise.resolve(json)
+        promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]")
     }
     }
