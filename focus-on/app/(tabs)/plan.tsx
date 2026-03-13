@@ -20,61 +20,72 @@ function fmtDate(d: string) {
 
 function DatePicker({ value, onChange, colors }: { value: string; onChange: (v: string) => void; colors: any }) {
   const now = new Date();
-  const [year, setYear] = React.useState(value ? parseInt(value.split('-')[0]) : now.getFullYear());
-  const [month, setMonth] = React.useState(value ? parseInt(value.split('-')[1]) : now.getMonth() + 1);
-  const [day, setDay] = React.useState(value ? parseInt(value.split('-')[2]) : now.getDate());
+  const init = value ? new Date(value + 'T00:00:00') : now;
+  const [year, setYear] = React.useState(init.getFullYear());
+  const [month, setMonth] = React.useState(init.getMonth() + 1);
+  const [day, setDay] = React.useState(init.getDate());
 
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const update = (y: number, m: number, d: number) => {
-    const safeDay = Math.min(d, new Date(y, m, 0).getDate());
-    setYear(y); setMonth(m); setDay(safeDay);
-    onChange(`${y}-${String(m).padStart(2,'0')}-${String(safeDay).padStart(2,'0')}`);
+  const emit = (y: number, mo: number, d: number) => {
+    const safe = Math.min(d, new Date(y, mo, 0).getDate());
+    onChange(`${y}-${String(mo).padStart(2,'0')}-${String(safe).padStart(2,'0')}`);
+    return safe;
   };
 
+  const adjYear  = (n: number) => { const y = Math.max(now.getFullYear(), year + n); setYear(y); setDay(emit(y, month, day)); };
+  const adjMonth = (n: number) => { let mo = month + n; if (mo > 12) { mo = 1; setYear(y => { const ny = y+1; return ny; }); } if (mo < 1) { mo = 12; setYear(y => y-1); } setMonth(mo); setDay(emit(year, mo, day)); };
+  const adjDay   = (n: number) => { const max = new Date(year, month, 0).getDate(); const d = ((day - 1 + n + max) % max) + 1; setDay(d); emit(year, month, d); };
+
   return (
-    <View style={{ backgroundColor: colors.inputBg, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 10 }}>
-      {/* Year */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {years.map(y => (
-          <TouchableOpacity key={y} onPress={() => update(y, month, day)}
-            style={[dpStyles.pill, { backgroundColor: year === y ? colors.accent : colors.bgSecondary }]}>
-            <Text style={[dpStyles.pillText, { color: year === y ? '#fff' : colors.textMuted }]}>{y}</Text>
+    <View style={{ backgroundColor: colors.inputBg, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: colors.border, padding: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, alignItems: 'center' }}>
+        {/* Day */}
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textFaint, letterSpacing: 1 }}>DAY</Text>
+          <TouchableOpacity onPress={() => adjDay(1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-up" size={16} color={colors.accent} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-      {/* Month */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {months.map(m => (
-          <TouchableOpacity key={m} onPress={() => update(year, m, day)}
-            style={[dpStyles.pill, { backgroundColor: month === m ? colors.accent : colors.bgSecondary }]}>
-            <Text style={[dpStyles.pillText, { color: month === m ? '#fff' : colors.textMuted }]}>{monthNames[m-1]}</Text>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, minWidth: 40, textAlign: 'center' }}>{day}</Text>
+          <TouchableOpacity onPress={() => adjDay(-1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-down" size={16} color={colors.accent} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-      {/* Day */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {days.map(d => (
-          <TouchableOpacity key={d} onPress={() => update(year, month, d)}
-            style={[dpStyles.pill, { backgroundColor: day === d ? colors.accent : colors.bgSecondary, minWidth: 36 }]}>
-            <Text style={[dpStyles.pillText, { color: day === d ? '#fff' : colors.textMuted }]}>{d}</Text>
+        </View>
+
+        {/* Month */}
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textFaint, letterSpacing: 1 }}>MONTH</Text>
+          <TouchableOpacity onPress={() => adjMonth(1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-up" size={16} color={colors.accent} />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-      <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 16, textAlign: 'center' }}>
-        {monthNames[month-1]} {day}, {year}
+          <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, minWidth: 52, textAlign: 'center' }}>{MONTHS[month-1]}</Text>
+          <TouchableOpacity onPress={() => adjMonth(-1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-down" size={16} color={colors.accent} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Year */}
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.textFaint, letterSpacing: 1 }}>YEAR</Text>
+          <TouchableOpacity onPress={() => adjYear(1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-up" size={16} color={colors.accent} />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, minWidth: 60, textAlign: 'center' }}>{year}</Text>
+          <TouchableOpacity onPress={() => adjYear(-1)} style={[dpS.adj, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="chevron-down" size={16} color={colors.accent} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 14, textAlign: 'center', marginTop: 14 }}>
+        {MONTHS[month-1]} {day}, {year}
       </Text>
     </View>
   );
 }
 
-const dpStyles = StyleSheet.create({
-  pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.md, marginRight: 6, alignItems: 'center' },
-  pillText: { fontSize: 13, fontWeight: '700' },
+const dpS = StyleSheet.create({
+  adj: { width: 34, height: 28, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default function PlanScreen() {
