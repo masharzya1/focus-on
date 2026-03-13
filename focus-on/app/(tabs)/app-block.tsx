@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, Platform, FlatList,
+  Modal, Alert, Platform, FlatList, TextInput,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,10 +13,81 @@ import AppBlocking from '@/modules/AppBlocking';
 import type { AppBlockRoutine } from '@/types/study';
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES = ['00', '15', '30', '45'];
 
 function getCurrentTime() {
   const n = new Date();
   return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+
+function to24(h: number, m: string, period: 'AM'|'PM'): string {
+  let hour = h;
+  if (period === 'AM' && h === 12) hour = 0;
+  if (period === 'PM' && h !== 12) hour = h + 12;
+  return `${String(hour).padStart(2,'0')}:${m}`;
+}
+
+function from24(time: string): { h: number; m: string; period: 'AM'|'PM' } {
+  const [hStr, mStr] = time.split(':');
+  const h24 = parseInt(hStr, 10);
+  const period: 'AM'|'PM' = h24 < 12 ? 'AM' : 'PM';
+  let h = h24 % 12;
+  if (h === 0) h = 12;
+  return { h, m: mStr || '00', period };
+}
+
+function TimePicker({
+  value, onChange, label, colors,
+}: { value: string; onChange: (v: string) => void; label: string; colors: any }) {
+  const { h, m, period } = from24(value);
+  const [selH, setSelH] = useState(h);
+  const [selM, setSelM] = useState(m);
+  const [selP, setSelP] = useState<'AM'|'PM'>(period);
+
+  const update = (newH: number, newM: string, newP: 'AM'|'PM') => {
+    setSelH(newH); setSelM(newM); setSelP(newP);
+    onChange(to24(newH, newM, newP));
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={[{ fontSize: 11, marginBottom: 6, color: colors.textFaint }]}>{label}</Text>
+      <View style={[{ backgroundColor: colors.inputBg, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: colors.border, padding: 10 }]}>
+        {/* Hour */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
+          {HOURS.map(hh => (
+            <TouchableOpacity key={hh} onPress={() => update(hh, selM, selP)}
+              style={[tps.timePill, { backgroundColor: selH === hh ? colors.accent : colors.bgSecondary }]}>
+              <Text style={[tps.timePillText, { color: selH === hh ? '#fff' : colors.textMuted }]}>{hh}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {/* Minute */}
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          {MINUTES.map(mm => (
+            <TouchableOpacity key={mm} onPress={() => update(selH, mm, selP)}
+              style={[tps.timePill, { backgroundColor: selM === mm ? colors.accent : colors.bgSecondary, flex: 1 }]}>
+              <Text style={[tps.timePillText, { color: selM === mm ? '#fff' : colors.textMuted }]}>:{mm}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* AM/PM */}
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {(['AM','PM'] as const).map(p => (
+            <TouchableOpacity key={p} onPress={() => update(selH, selM, p)}
+              style={[tps.timePill, { backgroundColor: selP === p ? colors.accent : colors.bgSecondary, flex: 1 }]}>
+              <Text style={[tps.timePillText, { color: selP === p ? '#fff' : colors.textMuted }]}>{p}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* Preview */}
+        <Text style={{ color: colors.accent, textAlign: 'center', fontWeight: '800', fontSize: 18, marginTop: 8 }}>
+          {selH}:{selM} {selP}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function AppBlockScreen() {
@@ -37,8 +108,13 @@ export default function AppBlockScreen() {
   const [editingId, setEditingId] = useState<string|null>(null);
 
   useFocusEffect(useCallback(() => {
-    if (Platform.OS === 'android') AppBlocking.isAccessibilityEnabled().then(setAccessibilityEnabled);
-    AppBlocking.getInstalledApps().then(apps => setInstalledApps(apps.sort((a,b) => a.name.localeCompare(b.name))));
+    // Re-check accessibility every time screen is focused (fixes issue #5)
+    if (Platform.OS === 'android') {
+      AppBlocking.isAccessibilityEnabled().then(setAccessibilityEnabled);
+    }
+    AppBlocking.getInstalledApps().then(apps =>
+      setInstalledApps(apps.sort((a, b) => a.name.localeCompare(b.name)))
+    );
   }, []));
 
   useFocusEffect(useCallback(() => { applyActiveRoutines(); }, [state.blockRoutines]));
@@ -46,10 +122,15 @@ export default function AppBlockScreen() {
   function applyActiveRoutines() {
     if (Platform.OS !== 'android') return;
     const now = getCurrentTime(), today = new Date().getDay();
-    const active = state.blockRoutines.filter(r => r.enabled && (r.days.length === 0 || r.days.includes(today)) && now >= r.startTime && now <= r.endTime);
+    const active = state.blockRoutines.filter(r =>
+      r.enabled && (r.days.length === 0 || r.days.includes(today)) &&
+      now >= r.startTime && now <= r.endTime
+    );
     if (active.length > 0) {
       AppBlocking.startBlocking([...new Set(active.flatMap(r => r.blockedApps))], active.some(r => r.blockShorts));
-    } else AppBlocking.stopBlocking();
+    } else {
+      AppBlocking.stopBlocking();
+    }
   }
 
   function resetForm() {
@@ -89,20 +170,26 @@ export default function AppBlockScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(400)} style={ab.header}>
+        {/* Header — paddingTop 56 for status bar gap (issue #11) */}
+        <Animated.View entering={FadeInDown.duration(400)} style={[ab.header, { paddingTop: 56 }]}>
           <Text style={[ab.title, { color: c.text }]}>App Block</Text>
           <Text style={[ab.subtitle, { color: c.textMuted }]}>Stay focused, stay in control</Text>
         </Animated.View>
 
         {/* Permission warning */}
         {Platform.OS === 'android' && !accessibilityEnabled && (
-          <TouchableOpacity style={[ab.warnCard, { backgroundColor: '#FFF3E0', borderColor: '#FF9500' + '44' }]} onPress={() => AppBlocking.openAccessibilitySettings()}>
-            <View style={[ab.warnIcon, { backgroundColor: '#FF9500' + '20' }]}>
+          <TouchableOpacity
+            style={[ab.warnCard, { backgroundColor: '#FFF3E0', borderColor: '#FF950044' }]}
+            onPress={() => AppBlocking.openAccessibilitySettings()}
+          >
+            <View style={[ab.warnIcon, { backgroundColor: '#FF950020' }]}>
               <Ionicons name="warning-outline" size={22} color="#FF9500" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[ab.warnTitle, { color: '#FF9500' }]}>Permission Required</Text>
-              <Text style={[ab.warnSub, { color: c.textMuted }]}>Tap to enable Focus On in Accessibility Settings</Text>
+              <Text style={[ab.warnSub, { color: c.textMuted }]}>
+                Tap → Enable "Focus On" in Accessibility Settings, then come back
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#FF9500" />
           </TouchableOpacity>
@@ -110,7 +197,10 @@ export default function AppBlockScreen() {
 
         {/* Active now banner */}
         {(() => {
-          const activeNow = state.blockRoutines.filter(r => r.enabled && now >= r.startTime && now <= r.endTime && (r.days.length === 0 || r.days.includes(todayIdx)));
+          const activeNow = state.blockRoutines.filter(r =>
+            r.enabled && now >= r.startTime && now <= r.endTime &&
+            (r.days.length === 0 || r.days.includes(todayIdx))
+          );
           if (!activeNow.length) return null;
           return (
             <View style={[ab.activeBanner, { backgroundColor: c.success + '15', borderColor: c.success + '40' }]}>
@@ -125,7 +215,10 @@ export default function AppBlockScreen() {
         })()}
 
         <View style={{ padding: 16 }}>
-          <TouchableOpacity style={[ab.createBtn, { backgroundColor: c.accent, borderBottomWidth: 4, borderBottomColor: c.accentDark }]} onPress={() => { resetForm(); setShowCreate(true); }}>
+          <TouchableOpacity
+            style={[ab.createBtn, { backgroundColor: c.accent, borderBottomWidth: 4, borderBottomColor: c.accentDark }]}
+            onPress={() => { resetForm(); setShowCreate(true); }}
+          >
             <Ionicons name="add-circle-outline" size={20} color="#fff" />
             <Text style={ab.createBtnText}>New Block Routine</Text>
           </TouchableOpacity>
@@ -163,7 +256,10 @@ export default function AppBlockScreen() {
                         {routine.days.length > 0 ? ` · ${routine.days.map(d => DAY_NAMES[d]).join(', ')}` : ' · Every day'}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => toggleRoutine(routine.id)} style={[ab.toggle, { backgroundColor: routine.enabled ? c.accent : c.bgSecondary }]}>
+                    <TouchableOpacity
+                      onPress={() => toggleRoutine(routine.id)}
+                      style={[ab.toggle, { backgroundColor: routine.enabled ? c.accent : c.bgSecondary }]}
+                    >
                       <View style={[ab.toggleThumb, { marginLeft: routine.enabled ? 22 : 2 }]} />
                     </TouchableOpacity>
                   </View>
@@ -180,7 +276,7 @@ export default function AppBlockScreen() {
                       </View>
                     )}
                     {routine.blockShorts && (
-                      <View style={[ab.chip, { backgroundColor: '#8B5CF6' + '18', borderColor: '#8B5CF6' + '30', borderWidth: 1 }]}>
+                      <View style={[ab.chip, { backgroundColor: '#8B5CF618', borderColor: '#8B5CF630', borderWidth: 1 }]}>
                         <Ionicons name="videocam-off-outline" size={11} color="#8B5CF6" />
                         <Text style={[ab.chipText, { color: '#8B5CF6' }]}>Shorts/Reels</Text>
                       </View>
@@ -212,7 +308,8 @@ export default function AppBlockScreen() {
       </ScrollView>
 
       {/* Create/Edit Modal */}
-      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { resetForm(); setShowCreate(false); }}>
+      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => { resetForm(); setShowCreate(false); }}>
         <View style={{ flex: 1, backgroundColor: c.bg }}>
           <View style={[ab.modalHeader, { borderBottomColor: c.border }]}>
             <TouchableOpacity onPress={() => { resetForm(); setShowCreate(false); }}>
@@ -226,42 +323,53 @@ export default function AppBlockScreen() {
 
           <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
             <Text style={[ab.fieldLabel, { color: c.textMuted }]}>ROUTINE NAME</Text>
-            <TextInput style={[ab.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]} placeholder="e.g. Evening Study Block" placeholderTextColor={c.textFaint} value={formName} onChangeText={setFormName} />
+            <TextInput
+              style={[ab.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
+              placeholder="e.g. Evening Study Block"
+              placeholderTextColor={c.textFaint}
+              value={formName}
+              onChangeText={setFormName}
+            />
 
+            {/* Time pickers — AM/PM (issue #6) */}
             <Text style={[ab.fieldLabel, { color: c.textMuted }]}>TIME RANGE</Text>
-            <View style={ab.timeRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[ab.timeLabel, { color: c.textFaint }]}>Start</Text>
-                <TextInput style={[ab.timeInput, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]} value={formStart} onChangeText={setFormStart} placeholder="09:00" placeholderTextColor={c.textFaint} keyboardType="numbers-and-punctuation" maxLength={5} />
-              </View>
-              <Ionicons name="arrow-forward" size={18} color={c.textFaint} style={{ marginTop: 24 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[ab.timeLabel, { color: c.textFaint }]}>End</Text>
-                <TextInput style={[ab.timeInput, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]} value={formEnd} onChangeText={setFormEnd} placeholder="22:00" placeholderTextColor={c.textFaint} keyboardType="numbers-and-punctuation" maxLength={5} />
-              </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TimePicker value={formStart} onChange={setFormStart} label="Start" colors={c} />
+              <TimePicker value={formEnd} onChange={setFormEnd} label="End" colors={c} />
             </View>
 
             <Text style={[ab.fieldLabel, { color: c.textMuted }]}>DAYS (empty = every day)</Text>
             <View style={ab.daysRow}>
               {DAY_NAMES.map((day, i) => (
-                <TouchableOpacity key={i} onPress={() => setFormDays(p => p.includes(i) ? p.filter(d => d !== i) : [...p, i])}
-                  style={[ab.dayChip, { backgroundColor: formDays.includes(i) ? c.accent : c.bgSecondary, borderBottomWidth: formDays.includes(i) ? 2 : 0, borderBottomColor: c.accentDark }]}>
+                <TouchableOpacity key={i}
+                  onPress={() => setFormDays(p => p.includes(i) ? p.filter(d => d !== i) : [...p, i])}
+                  style={[ab.dayChip, {
+                    backgroundColor: formDays.includes(i) ? c.accent : c.bgSecondary,
+                    borderBottomWidth: formDays.includes(i) ? 2 : 0,
+                    borderBottomColor: c.accentDark,
+                  }]}>
                   <Text style={[ab.dayChipText, { color: formDays.includes(i) ? '#fff' : c.textMuted }]}>{day}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             <Text style={[ab.fieldLabel, { color: c.textMuted }]}>BLOCKED APPS</Text>
-            <TouchableOpacity style={[ab.pickBtn, { backgroundColor: c.bgSecondary, borderColor: c.border }]} onPress={() => setShowAppPicker(true)}>
+            <TouchableOpacity
+              style={[ab.pickBtn, { backgroundColor: c.bgSecondary, borderColor: c.border }]}
+              onPress={() => setShowAppPicker(true)}
+            >
               <Ionicons name="apps-outline" size={18} color={c.textMuted} />
-              <Text style={[ab.pickBtnText, { color: formApps.length ? c.text : c.textMuted }]}>{formApps.length ? `${formApps.length} app${formApps.length>1?'s':''} selected` : 'Tap to select apps...'}</Text>
+              <Text style={[ab.pickBtnText, { color: formApps.length ? c.text : c.textMuted }]}>
+                {formApps.length ? `${formApps.length} app${formApps.length>1?'s':''} selected` : 'Tap to select apps...'}
+              </Text>
               <Ionicons name="chevron-forward" size={16} color={c.textFaint} />
             </TouchableOpacity>
 
             {formApps.length > 0 && (
               <View style={ab.selectedApps}>
                 {formApps.map(pkg => (
-                  <TouchableOpacity key={pkg} onPress={() => setFormApps(p => p.filter(x => x !== pkg))} style={[ab.chip, { backgroundColor: c.destructive + '15', borderColor: c.destructive + '30', borderWidth: 1 }]}>
+                  <TouchableOpacity key={pkg} onPress={() => setFormApps(p => p.filter(x => x !== pkg))}
+                    style={[ab.chip, { backgroundColor: c.destructive + '15', borderColor: c.destructive + '30', borderWidth: 1 }]}>
                     <Text style={[ab.chipText, { color: c.destructive }]}>{getAppName(pkg)} ✕</Text>
                   </TouchableOpacity>
                 ))}
@@ -282,8 +390,9 @@ export default function AppBlockScreen() {
         </View>
       </Modal>
 
-      {/* App Picker Modal */}
-      <Modal visible={showAppPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAppPicker(false)}>
+      {/* App Picker */}
+      <Modal visible={showAppPicker} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setShowAppPicker(false)}>
         <View style={{ flex: 1, backgroundColor: c.bg }}>
           <View style={[ab.modalHeader, { borderBottomColor: c.border }]}>
             <View />
@@ -294,7 +403,9 @@ export default function AppBlockScreen() {
           </View>
           <View style={[ab.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
             <Ionicons name="search-outline" size={16} color={c.textMuted} />
-            <TextInput style={{ color: c.text, flex: 1, marginLeft: 8 }} placeholder="Search apps..." placeholderTextColor={c.textFaint} value={appSearch} onChangeText={setAppSearch} />
+            <TextInput style={{ color: c.text, flex: 1, marginLeft: 8 }}
+              placeholder="Search apps..." placeholderTextColor={c.textFaint}
+              value={appSearch} onChangeText={setAppSearch} />
           </View>
           <FlatList
             data={installedApps.filter(a => a.name.toLowerCase().includes(appSearch.toLowerCase()))}
@@ -303,8 +414,10 @@ export default function AppBlockScreen() {
             renderItem={({ item }) => {
               const sel = formApps.includes(item.packageName);
               return (
-                <TouchableOpacity style={[ab.appItem, { backgroundColor: sel ? c.accentSoft : c.bgCard, borderColor: sel ? c.accent + '44' : c.border }]}
-                  onPress={() => setFormApps(p => sel ? p.filter(x => x !== item.packageName) : [...p, item.packageName])}>
+                <TouchableOpacity
+                  style={[ab.appItem, { backgroundColor: sel ? c.accentSoft : c.bgCard, borderColor: sel ? c.accent + '44' : c.border }]}
+                  onPress={() => setFormApps(p => sel ? p.filter(x => x !== item.packageName) : [...p, item.packageName])}
+                >
                   <View style={[ab.appIcon, { backgroundColor: sel ? c.accent + '22' : c.bgSecondary }]}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: sel ? c.accent : c.textMuted }}>{item.name[0]}</Text>
                   </View>
@@ -325,8 +438,13 @@ export default function AppBlockScreen() {
   );
 }
 
+const tps = StyleSheet.create({
+  timePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', minWidth: 40 },
+  timePillText: { fontSize: 13, fontWeight: '700' },
+});
+
 const ab = StyleSheet.create({
-  header:   { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12 },
+  header:   { paddingHorizontal: 20, paddingBottom: 12 },
   title:    { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { fontSize: 13, marginTop: 2 },
   warnCard: { marginHorizontal: 16, marginBottom: 8, borderRadius: RADIUS.xl, borderWidth: 1, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -334,7 +452,7 @@ const ab = StyleSheet.create({
   warnTitle: { fontSize: 14, fontWeight: '700' },
   warnSub:   { fontSize: 12, marginTop: 2 },
   activeBanner: { marginHorizontal: 16, marginBottom: 8, borderRadius: RADIUS.xl, borderWidth: 1, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  activeDot:  { width: 10, height: 10, borderRadius: 5 },
+  activeDot: { width: 10, height: 10, borderRadius: 5 },
   activeBannerTitle: { fontSize: 14, fontWeight: '700' },
   activeBannerSub: { fontSize: 12, marginTop: 2 },
   createBtn: { borderRadius: RADIUS.xl, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 16 },
@@ -361,9 +479,6 @@ const ab = StyleSheet.create({
   modalTitle: { fontSize: 17, fontWeight: '700' },
   fieldLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10, marginTop: 20 },
   input: { borderRadius: RADIUS.lg, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 13, fontSize: 15 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  timeLabel: { fontSize: 11, marginBottom: 6 },
-  timeInput: { borderRadius: RADIUS.lg, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 13, fontSize: 20, fontWeight: '800', textAlign: 'center' },
   daysRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   dayChip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: RADIUS.lg },
   dayChipText: { fontSize: 12, fontWeight: '700' },
