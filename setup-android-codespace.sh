@@ -20,17 +20,20 @@ echo ""
 # ── 1. JDK 17 ───────────────────────────────────────────────
 log "Step 1: JDK 17 set করছি..."
 
-if ! update-alternatives --list java 2>/dev/null | grep -q "java-17"; then
-  warn "JDK 17 পাওয়া যাচ্ছে না, install করছি..."
+# Java যেখানেই থাকুক (sdkman, apt, অন্য জায়গা) খুঁজে বের করো
+JAVA_BIN=$(which java 2>/dev/null || true)
+
+if [ -z "$JAVA_BIN" ]; then
+  warn "Java নেই, install করছি..."
   sudo apt-get update -qq && sudo apt-get install -y -qq openjdk-17-jdk
+  JAVA_BIN=$(which java)
 fi
 
-sudo update-alternatives --set java  /usr/lib/jvm/java-17-openjdk-amd64/bin/java  2>/dev/null || true
-sudo update-alternatives --set javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac 2>/dev/null || true
-
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+# JAVA_HOME auto-detect — sdkman বা apt যেকোনো installation এ কাজ করবে
+export JAVA_HOME=$(dirname $(dirname $(readlink -f $JAVA_BIN)))
 export PATH=$JAVA_HOME/bin:$PATH
 
+log "JAVA_HOME: $JAVA_HOME"
 log "Java: $(java -version 2>&1 | head -1)"
 
 # ── 2. Android SDK ───────────────────────────────────────────
@@ -160,7 +163,7 @@ log "local.properties set"
 sed -i '/# FocusOn Android Setup/,/# End FocusOn Setup/d' ~/.bashrc
 cat >> ~/.bashrc << 'BASHEOF'
 # FocusOn Android Setup
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
 export ANDROID_HOME=$HOME/android-sdk
 export ANDROID_SDK_ROOT=$ANDROID_HOME
 export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
