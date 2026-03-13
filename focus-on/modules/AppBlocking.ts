@@ -16,7 +16,23 @@ const AppBlocking = {
   startBlocking(blockedApps: string[], blockShorts = false): void {
     if (Platform.OS !== 'android') return;
     try {
-      AppBlockingModule.startBlocking(JSON.stringify({ blockedApps, blockShorts }));
+      // When blockShorts=true, also add "reels:<pkg>" entries for reel-capable apps
+      const reelPackages = [
+        'com.instagram.android',
+        'com.google.android.youtube',
+        'com.facebook.katana',
+        'com.facebook.orca',
+      ];
+      const finalApps = [...blockedApps];
+      if (blockShorts) {
+        for (const pkg of reelPackages) {
+          // Only add reels:<pkg> if the whole app is NOT already blocked
+          if (!blockedApps.includes(pkg)) {
+            finalApps.push(`reels:${pkg}`);
+          }
+        }
+      }
+      AppBlockingModule.startBlocking(JSON.stringify(finalApps));
     } catch {}
   },
 
