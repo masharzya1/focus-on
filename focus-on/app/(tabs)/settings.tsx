@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useStudy } from '@/contexts/StudyContext';
@@ -10,6 +10,7 @@ export default function SettingsScreen() {
   const { state, updateSettings } = useStudy();
   const { colors: c } = useTheme();
   const { settings } = state;
+  const [isPro, setIsPro] = useState(false);
 
   const allTopics = state.subjects.flatMap(s => s.chapters.flatMap(ch => ch.topics));
   const sessions = state.sessions.filter(s => s.completed);
@@ -129,6 +130,90 @@ export default function SettingsScreen() {
           ))}
         </Animated.View>
 
+
+        {/* Subscription */}
+        <Animated.View entering={FadeInDown.delay(230).duration(400)} style={[se.section, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+          <View style={se.sectionHeader}>
+            <View style={[se.sectionIcon, { backgroundColor: '#FFD70020' }]}>
+              <Ionicons name="star" size={18} color="#FFD700" />
+            </View>
+            <Text style={[se.sectionTitle, { color: c.text }]}>Plan</Text>
+          </View>
+
+          {/* Free tier */}
+          {!isPro && (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              <View style={[se.planCard, { backgroundColor: c.bgSecondary, borderColor: c.border }]}>
+                <View style={se.planRow}>
+                  <View>
+                    <Text style={[se.planName, { color: c.text }]}>Free</Text>
+                    <Text style={[se.planPrice, { color: c.textMuted }]}>Current plan</Text>
+                  </View>
+                  <View style={[se.planBadge, { backgroundColor: c.border }]}>
+                    <Text style={[se.planBadgeText, { color: c.textMuted }]}>Active</Text>
+                  </View>
+                </View>
+                {[
+                  '1 block routine',
+                  '3 apps max per routine',
+                  'Basic overlay',
+                  'Manual focus only',
+                ].map((f, i) => (
+                  <View key={i} style={se.featureRow}>
+                    <Ionicons name="checkmark-circle-outline" size={15} color={c.textMuted} />
+                    <Text style={[se.featureText, { color: c.textMuted }]}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Pro card */}
+              <View style={[se.planCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '60', marginTop: 12 }]}>
+                <View style={se.planRow}>
+                  <View>
+                    <Text style={[se.planName, { color: c.accent }]}>Pro ⭐</Text>
+                    <Text style={[se.planPrice, { color: c.accent }]}>৳199 / month</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[se.upgradeBtn, { backgroundColor: c.accent, borderBottomColor: c.accentDark }]}
+                    onPress={() => Alert.alert('Coming Soon', 'Payment integration coming soon! 🚀')}
+                  >
+                    <Text style={se.upgradeBtnText}>Upgrade</Text>
+                  </TouchableOpacity>
+                </View>
+                {[
+                  'Unlimited routines & apps',
+                  'Auto-blocking by schedule',
+                  'Custom overlay quotes',
+                  'Focus stats & streaks',
+                  'Reels / Shorts blocking',
+                  'No ads in overlay',
+                  'Homescreen widget (soon)',
+                ].map((f, i) => (
+                  <View key={i} style={se.featureRow}>
+                    <Ionicons name="checkmark-circle" size={15} color={c.accent} />
+                    <Text style={[se.featureText, { color: c.text }]}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Pro active */}
+          {isPro && (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              <View style={[se.planCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '60' }]}>
+                <View style={se.planRow}>
+                  <View>
+                    <Text style={[se.planName, { color: c.accent }]}>Pro ⭐ Active</Text>
+                    <Text style={[se.planPrice, { color: c.textMuted }]}>All features unlocked</Text>
+                  </View>
+                  <Ionicons name="shield-checkmark" size={28} color={c.accent} />
+                </View>
+              </View>
+            </View>
+          )}
+        </Animated.View>
+
         {/* About */}
         <Animated.View entering={FadeInDown.delay(260).duration(400)} style={[se.section, { backgroundColor: c.bgCard, borderColor: c.border }]}>
           <View style={se.sectionHeader}>
@@ -174,4 +259,14 @@ const se = StyleSheet.create({
   stepVal: { fontSize: 16, fontWeight: '800', minWidth: 40, textAlign: 'center' },
   statIconWrap: { width: 30, height: 30, borderRadius: RADIUS.sm, alignItems: 'center', justifyContent: 'center' },
   statValue: { fontSize: 13, fontWeight: '600' },
+  planCard: { borderRadius: RADIUS.lg, borderWidth: 1, padding: 16, gap: 10 },
+  planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  planName: { fontSize: 17, fontWeight: '800' },
+  planPrice: { fontSize: 13, marginTop: 2 },
+  planBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: RADIUS.full },
+  planBadgeText: { fontSize: 12, fontWeight: '700' },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 },
+  featureText: { fontSize: 13 },
+  upgradeBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: RADIUS.lg, borderBottomWidth: 3 },
+  upgradeBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 });
