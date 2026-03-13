@@ -1,25 +1,21 @@
-/**
- * hooks/useAutoBlocking.ts
- *
- * Background hook that:
- *  - Every 60s checks if any routine is active right now
- *  - If yes → automatically starts blocking (no need to press Start Focus)
- *  - If no  → stops blocking if it was auto-started
- *
- * Usage: call useAutoBlocking() in your root layout or focus-mode screen.
- */
-
 import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppBlocking from '@/modules/AppBlocking';
 
-interface Routine {
+interface BlockRoutine {
   id: string;
   name: string;
   startTime: string;
   endTime: string;
+  days: number[];
   blockedApps: string[];
+  blockShorts: boolean;
+  enabled: boolean;
+}
+
+interface AppStateData {
+  blockRoutines?: BlockRoutine[];
 }
 
 function getCurrentTime(): string {
@@ -28,61 +24,53 @@ function getCurrentTime(): string {
 }
 
 export function useAutoBlocking() {
-  // Track whether blocking was started by this hook (not by user pressing Start Focus)
   const autoStarted = useRef(false);
 
   const checkAndSync = async () => {
     if (Platform.OS !== 'android') return;
-
     try {
-      const data = await AsyncStorage.getItem('focus_on_routines');
-      if (!data) {
-        // No routines — stop if we auto-started
-        if (autoStarted.current) {
-          AppBlocking.stopBlocking();
-          autoStarted.current = false;
-        }
-        return;
-      }
+      const raw = await AsyncStorage.getItem('focuson_data_v2');
+      if (!raw) { stopIfNeeded(); return; }
 
-      const routines: Routine[] = JSON.parse(data);
+      const data: AppStateData = JSON.parse(raw);
+      const routines = data.blockRoutines || [];
+
       const now = getCurrentTime();
-      const activeRoutine = routines.find(r => now >= r.startTime && now <= r.endTime);
+      const todayIdx = new Date().getDay();
 
-      const isCurrentlyBlocking = await AppBlocking.isBlockingActive();
+      const activeRoutines = routines.filter(r =>
+        r.enabled &&
+        now >= r.startTime &&
+        now <= r.endTime &&
+        (r.days.length === 0 || r.days.includes(todayIdx))
+      );
 
-      if (activeRoutine && activeRoutine.blockedApps.length > 0) {
-        if (!isCurrentlyBlocking) {
-          // Auto-start blocking for this routine
-          AppBlocking.startBlocking(activeRoutine.blockedApps);
-          autoStarted.current = true;
-          console.log(`[AutoBlocking] Started for routine: ${activeRoutine.name}`);
-        }
+      if (activeRoutines.length > 0) {
+        const allApps = [...new Set(activeRoutines.flatMap(r => r.blockedApps))];
+        const blockShorts = activeRoutines.some(r => r.blockShorts);
+        AppBlocking.startBlocking(allApps, blockShorts);
+        autoStarted.current = true;
       } else {
-        // No active routine
-        if (isCurrentlyBlocking && autoStarted.current) {
-          AppBlocking.stopBlocking();
-          autoStarted.current = false;
-          console.log('[AutoBlocking] Stopped — no active routine');
-        }
+        stopIfNeeded();
       }
     } catch (err) {
       console.error('[AutoBlocking] Error:', err);
     }
   };
 
+  function stopIfNeeded() {
+    if (autoStarted.current) {
+      AppBlocking.stopBlocking();
+      autoStarted.current = false;
+    }
+  }
+
   useEffect(() => {
-    // Check immediately on mount
     checkAndSync();
-
-    // Check every 60 seconds
-    const interval = setInterval(checkAndSync, 60_000);
-
-    // Also check when app comes to foreground
+    const interval = setInterval(checkAndSync, 30_000); // check every 30s
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') checkAndSync();
     });
-
     return () => {
       clearInterval(interval);
       sub.remove();
