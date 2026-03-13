@@ -1,15 +1,36 @@
-import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Platform } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withSpring, withTiming, interpolateColor, useDerivedValue,
+import { Tabs, useRouter, usePathname } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Platform, Animated } from 'react-native';
+import Animated2, {
+  useSharedValue, useAnimatedStyle, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS } from '@/constants/theme';
 
-// ── Animated tab icon with pill background ───────────────────────────────────
+const TAB_NAMES = ['index', 'subjects', 'timer', 'plan', 'more-placeholder'];
+
+// Sliding indicator that moves between tabs
+function SlideIndicator({ activeIndex, color }: { activeIndex: number; color: string }) {
+  const x = useSharedValue(0);
+  const TAB_WIDTH = 72; // approximate
+
+  useEffect(() => {
+    x.value = withSpring(activeIndex * TAB_WIDTH, { damping: 18, stiffness: 260 });
+  }, [activeIndex]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  return (
+    <Animated2.View
+      pointerEvents="none"
+      style={[styles.indicator, style, { backgroundColor: color + '22', width: TAB_WIDTH }]}
+    />
+  );
+}
+
 function TabIcon({
   name, focused, color,
 }: {
@@ -17,40 +38,40 @@ function TabIcon({
   focused: boolean; color: string;
 }) {
   const scale = useSharedValue(1);
-  const width = useSharedValue(36);
-
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.1 : 1, { damping: 12, stiffness: 300 });
-    // Pill expands when focused
-    width.value = withSpring(focused ? 52 : 36, { damping: 14, stiffness: 280 });
-  }, [focused]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    width: width.value,
-    backgroundColor: focused ? color + '22' : 'transparent',
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.View style={[styles.pill, pillStyle]}>
-      <Ionicons name={name} size={22} color={color} />
-    </Animated.View>
-  );
-}
-
-// ── Center Focus button ───────────────────────────────────────────────────────
-function CenterBtn({ focused, color }: { focused: boolean; color: string }) {
-  const scale = useSharedValue(1);
-  useEffect(() => {
-    scale.value = withSpring(focused ? 1.08 : 1, { damping: 10, stiffness: 300 });
+    scale.value = withSpring(focused ? 1.15 : 1, { damping: 12, stiffness: 300 });
   }, [focused]);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
-    <Animated.View style={[styles.centerBtn, { backgroundColor: focused ? color : color + 'CC' }, anim]}>
-      <Ionicons name="timer" size={26} color="#fff" />
+    <Animated2.View style={[styles.iconWrap, anim]}>
+      <Ionicons name={name} size={22} color={color} />
+    </Animated2.View>
+  );
+}
+
+function CenterBtn({ focused, color }: { focused: boolean; color: string }) {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.1 : 1, { damping: 10, stiffness: 300 });
+  }, [focused]);
+  const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  // Deep solid color, darker bottom border for 3D effect
+  return (
+    <Animated2.View style={[
+      styles.centerBtn,
+      {
+        backgroundColor: focused ? color : color,
+        borderBottomColor: focused ? '#3730A3' : '#4B42D6',
+        shadowColor: color,
+        shadowOpacity: focused ? 0.55 : 0.3,
+      },
+      anim,
+    ]}>
+      <Ionicons name="timer" size={24} color="#fff" />
       <Text style={styles.centerLabel}>Focus</Text>
-    </Animated.View>
+    </Animated2.View>
   );
 }
 
@@ -64,7 +85,17 @@ const MORE_ITEMS = [
 export default function TabLayout() {
   const { colors } = useTheme();
   const router = useRouter();
+  const pathname = usePathname();
   const [showMore, setShowMore] = React.useState(false);
+
+  // Which tab index is active — for the sliding bg
+  const activeIndex = React.useMemo(() => {
+    if (pathname === '/' || pathname.includes('index')) return 0;
+    if (pathname.includes('subjects')) return 1;
+    if (pathname.includes('timer')) return 2;
+    if (pathname.includes('plan')) return 3;
+    return 4;
+  }, [pathname]);
 
   return (
     <>
@@ -76,18 +107,18 @@ export default function TabLayout() {
           tabBarShowLabel: true,
           tabBarLabelStyle: styles.label,
           animation: 'shift',
+          tabBarBackground: () => (
+            <View style={[styles.tabBg, { backgroundColor: colors.tabBg, borderTopColor: colors.tabBorder }]}>
+              <SlideIndicator activeIndex={activeIndex} color={colors.accent} />
+            </View>
+          ),
           tabBarStyle: {
-            backgroundColor: colors.tabBg,
-            borderTopWidth: 1,
-            borderTopColor: colors.tabBorder,
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
             height: 62 + (Platform.OS === 'ios' ? 22 : 0),
             paddingBottom: Platform.OS === 'ios' ? 22 : 8,
             paddingTop: 4,
             elevation: 0,
-            shadowColor: colors.accent,
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
           },
         }}
       >
@@ -121,8 +152,6 @@ export default function TabLayout() {
             ),
           }}
         />
-
-        {/* Hidden tabs */}
         <Tabs.Screen name="calendar"  options={{ href: null }} />
         <Tabs.Screen name="analytics" options={{ href: null }} />
         <Tabs.Screen name="app-block" options={{ href: null }} />
@@ -134,7 +163,7 @@ export default function TabLayout() {
             title: 'More',
             tabBarButton: () => (
               <TouchableOpacity style={styles.moreBtn} onPress={() => setShowMore(true)} activeOpacity={0.7}>
-                <View style={styles.pill}>
+                <View style={styles.iconWrap}>
                   <Ionicons name="ellipsis-horizontal-circle-outline" size={22} color={colors.textFaint} />
                 </View>
                 <Text style={[styles.label, { color: colors.textFaint }]}>More</Text>
@@ -168,25 +197,30 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  pill: {
-    height: 32, borderRadius: 16,
+  tabBg: {
+    flex: 1,
+    borderTopWidth: 1,
+  },
+  indicator: {
+    position: 'absolute',
+    top: 4, bottom: 4,
+    borderRadius: RADIUS.lg,
+  },
+  iconWrap: {
+    height: 32, minWidth: 36,
     alignItems: 'center', justifyContent: 'center',
-    minWidth: 36, overflow: 'hidden',
   },
   label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
-  // Center Focus button — taller so text fits
   centerBtn: {
-    width: 58, height: 58, borderRadius: 29,
+    width: 58, height: 56, borderRadius: 28,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#6C63FF',
+    marginBottom: 14,
+    borderBottomWidth: 4,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+    shadowRadius: 10, elevation: 10,
     gap: 1,
   },
-  centerLabel: {
-    color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.3,
-  },
+  centerLabel: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.3 },
   moreBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
   overlay: { flex: 1, backgroundColor: '#00000055', justifyContent: 'flex-end', paddingBottom: 90, paddingHorizontal: 16 },
   menu: { borderRadius: RADIUS.xl, borderWidth: 1, overflow: 'hidden', paddingTop: 4 },
