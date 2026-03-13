@@ -89,10 +89,10 @@ function DuoButton({ label, icon, onPress, color, darkColor }: {
   onPress: () => void; color: string; darkColor: string;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ flex: 1 }}>
       <View style={[ts.btnOuter, { backgroundColor: darkColor }]}>
         <View style={[ts.btnInner, { backgroundColor: color }]}>
-          {icon && <Ionicons name={icon} size={20} color="#fff" />}
+          {icon && <Ionicons name={icon} size={22} color="#fff" />}
           <Text style={ts.btnText}>{label}</Text>
         </View>
       </View>
@@ -495,7 +495,7 @@ export default function TimerScreen() {
 }
 
 const ts = StyleSheet.create({
-  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 12 },
+  header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12 },
   title:   { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   subtitle: { fontSize: 13 },
@@ -507,7 +507,7 @@ const ts = StyleSheet.create({
   modeTabText: { fontSize: 14, fontWeight: '700' },
   timerSection: { alignItems: 'center', paddingVertical: 24 },
   controls: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16 },
-  btnOuter: { borderRadius: RADIUS.xl, paddingBottom: 5, flex: 1 },
+  btnOuter: { borderRadius: RADIUS.xl, paddingBottom: 5 },
   btnInner: { flex: 1, borderRadius: RADIUS.xl, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnText:  { color: '#fff', fontSize: 17, fontWeight: '800' },
   pauseBtn: { flex: 1, borderRadius: RADIUS.xl, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, borderWidth: 1.5 },
