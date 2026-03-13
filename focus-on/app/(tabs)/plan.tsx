@@ -17,6 +17,66 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+
+function DatePicker({ value, onChange, colors }: { value: string; onChange: (v: string) => void; colors: any }) {
+  const now = new Date();
+  const [year, setYear] = React.useState(value ? parseInt(value.split('-')[0]) : now.getFullYear());
+  const [month, setMonth] = React.useState(value ? parseInt(value.split('-')[1]) : now.getMonth() + 1);
+  const [day, setDay] = React.useState(value ? parseInt(value.split('-')[2]) : now.getDate());
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
+
+  const update = (y: number, m: number, d: number) => {
+    const safeDay = Math.min(d, new Date(y, m, 0).getDate());
+    setYear(y); setMonth(m); setDay(safeDay);
+    onChange(`${y}-${String(m).padStart(2,'0')}-${String(safeDay).padStart(2,'0')}`);
+  };
+
+  return (
+    <View style={{ backgroundColor: colors.inputBg, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 10 }}>
+      {/* Year */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {years.map(y => (
+          <TouchableOpacity key={y} onPress={() => update(y, month, day)}
+            style={[dpStyles.pill, { backgroundColor: year === y ? colors.accent : colors.bgSecondary }]}>
+            <Text style={[dpStyles.pillText, { color: year === y ? '#fff' : colors.textMuted }]}>{y}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      {/* Month */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {months.map(m => (
+          <TouchableOpacity key={m} onPress={() => update(year, m, day)}
+            style={[dpStyles.pill, { backgroundColor: month === m ? colors.accent : colors.bgSecondary }]}>
+            <Text style={[dpStyles.pillText, { color: month === m ? '#fff' : colors.textMuted }]}>{monthNames[m-1]}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      {/* Day */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {days.map(d => (
+          <TouchableOpacity key={d} onPress={() => update(year, month, d)}
+            style={[dpStyles.pill, { backgroundColor: day === d ? colors.accent : colors.bgSecondary, minWidth: 36 }]}>
+            <Text style={[dpStyles.pillText, { color: day === d ? '#fff' : colors.textMuted }]}>{d}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 16, textAlign: 'center' }}>
+        {monthNames[month-1]} {day}, {year}
+      </Text>
+    </View>
+  );
+}
+
+const dpStyles = StyleSheet.create({
+  pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.md, marginRight: 6, alignItems: 'center' },
+  pillText: { fontSize: 13, fontWeight: '700' },
+});
+
 export default function PlanScreen() {
   const { state, addStudyPlan, deleteStudyPlan, completePlanTask } = useStudy();
   const { colors: c } = useTheme();
@@ -181,15 +241,8 @@ export default function PlanScreen() {
                   value={examName}
                   onChangeText={setExamName}
                 />
-                <Text style={[ps.fieldLabel, { color: c.textMuted }]}>EXAM DATE (YYYY-MM-DD)</Text>
-                <TextInput
-                  style={[ps.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-                  placeholder="2025-12-31"
-                  placeholderTextColor={c.textFaint}
-                  value={examDate}
-                  onChangeText={setExamDate}
-                  keyboardType="numbers-and-punctuation"
-                />
+                <Text style={[ps.fieldLabel, { color: c.textMuted }]}>EXAM DATE</Text>
+                <DatePicker value={examDate} onChange={setExamDate} colors={c} />
               </View>
             )}
             {step === 1 && (
