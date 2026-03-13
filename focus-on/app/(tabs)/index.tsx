@@ -143,13 +143,21 @@ export default function HomeScreen() {
           <Text style={[styles.greeting, { color: c.textMuted }]}>{getGreeting()} 👋</Text>
           <Text style={[styles.appName, { color: c.text }]}>Focus On</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.streakBadge, { backgroundColor: c.bgCard, borderColor: c.border }]}
-          onPress={() => router.push('/(tabs)/analytics')}
-        >
-          <Ionicons name="flame" size={20} color={c.streakColor} />
-          <Text style={[styles.streakNum, { color: c.text }]}>{streak}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity
+            style={[styles.streakBadge, { backgroundColor: c.bgCard, borderColor: c.border }]}
+            onPress={() => router.push('/(tabs)/analytics')}
+          >
+            <Ionicons name="flame" size={20} color={c.streakColor} />
+            <Text style={[styles.streakNum, { color: c.text }]}>{streak}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.profileBtn, { backgroundColor: c.accent }]}
+            onPress={() => router.push('/(tabs)/profile' as any)}
+          >
+            <Ionicons name="person" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       <View style={styles.body}>
@@ -331,6 +339,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12,
   },
   greeting:  { fontSize: 13, fontWeight: '500' },
+  profileBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   appName:   { fontSize: 28, fontWeight: '800', marginTop: 2, letterSpacing: -0.5 },
   streakBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
