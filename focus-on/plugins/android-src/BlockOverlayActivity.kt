@@ -86,6 +86,34 @@ class BlockOverlayActivity : Activity() {
         countdownTextRef = ct
         card.addView(ct)
 
+        // Ad banner (shown for free users)
+        // Replace adText content with real AdMob view when ready
+        val adBanner = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xFF_1C1A3E.toInt())
+            setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = (20*dp).toInt() }
+        }
+        val adLabel = TextView(this).apply {
+            text = "AD"
+            textSize = 9f
+            setTextColor(0xFF_6B7280.toInt())
+            setPadding(0, 0, (8*dp).toInt(), 0)
+        }
+        val adText = TextView(this).apply {
+            text = "Remove ads — upgrade to Pro ⭐"
+            textSize = 12f
+            setTextColor(0xFF_A78BFA.toInt())
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        adBanner.addView(adLabel)
+        adBanner.addView(adText)
+        card.addView(adBanner)
+
         root.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER
