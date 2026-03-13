@@ -71,6 +71,7 @@ export default function TabLayout() {
           tabBarInactiveTintColor: colors.textFaint,
           tabBarShowLabel: true,
           tabBarLabelStyle: styles.tabLabel,
+          animation: 'shift',
           tabBarStyle: {
             backgroundColor: colors.tabBg,
             borderTopWidth: 1,
