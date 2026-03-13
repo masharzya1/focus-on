@@ -10,20 +10,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 
-/**
- * BlockOverlayActivity
- *
- * Full-screen overlay shown for 10 seconds when a blocked app is detected.
- * Displays a random motivational quote and a countdown.
- * After 10s, automatically closes (blocked app goes to background).
- */
 class BlockOverlayActivity : Activity() {
 
     companion object {
         const val EXTRA_APP_NAME = "blocked_app_name"
-
         private val QUOTES = arrayOf(
             "তুমি এটার চেয়ে ভালো কিছু করতে পারো। 💪",
             "১০ সেকেন্ড ধরো, তারপর ফিরে যাও কাজে।",
@@ -41,126 +32,93 @@ class BlockOverlayActivity : Activity() {
     }
 
     private var countdown: CountDownTimer? = null
+    private var progressBarRef: ProgressBar? = null
+    private var countdownTextRef: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Make it full-screen and draw over other apps
         window.addFlags(
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
-
-        val appName = intent.getStringExtra(EXTRA_APP_NAME) ?: "এই app"
-        val quote = QUOTES.random()
-
-        buildUI(appName, quote)
+        buildUI(
+            intent.getStringExtra(EXTRA_APP_NAME) ?: "এই app",
+            QUOTES.random()
+        )
     }
 
     private fun buildUI(appName: String, quote: String) {
         val dp = resources.displayMetrics.density
-
-        // Root: dark semi-transparent background
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(0xF0_0F0F1A.toInt())
-        }
-
-        // Center card
+        val root = FrameLayout(this).apply { setBackgroundColor(0xF0_0F0F1A.toInt()) }
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(
-                (32 * dp).toInt(), (40 * dp).toInt(),
-                (32 * dp).toInt(), (40 * dp).toInt()
-            )
+            setPadding((32*dp).toInt(), (40*dp).toInt(), (32*dp).toInt(), (40*dp).toInt())
         }
 
-        // Lock icon emoji
-        val icon = TextView(this).apply {
-            text = "🔒"
-            textSize = 52f
-            gravity = Gravity.CENTER
-        }
+        card.addView(TextView(this).apply { text = "\uD83D\uDD12"; textSize = 52f; gravity = Gravity.CENTER })
+        card.addView(TextView(this).apply {
+            text = "$appName \u098F\u0996\u09A8 blocked"; textSize = 14f
+            setTextColor(0xFF_6C63FF.toInt()); gravity = Gravity.CENTER
+            setPadding(0, (16*dp).toInt(), 0, (4*dp).toInt()); letterSpacing = 0.08f
+        })
+        card.addView(TextView(this).apply {
+            text = quote; textSize = 22f; setTextColor(0xFF_FFFFFF.toInt())
+            gravity = Gravity.CENTER; setLineSpacing(0f, 1.4f)
+            setPadding(0, (8*dp).toInt(), 0, (32*dp).toInt())
+        })
 
-        // "Blocked" label
-        val blockedLabel = TextView(this).apply {
-            text = "$appName এখন blocked"
-            textSize = 14f
-            setTextColor(0xFF_6C63FF.toInt())
-            gravity = Gravity.CENTER
-            setPadding(0, (16 * dp).toInt(), 0, (4 * dp).toInt())
-            letterSpacing = 0.08f
-        }
-
-        // Quote text
-        val quoteText = TextView(this).apply {
-            text = quote
-            textSize = 22f
-            setTextColor(0xFF_FFFFFF.toInt())
-            gravity = Gravity.CENTER
-            setLineSpacing(0f, 1.4f)
-            setPadding(0, (8 * dp).toInt(), 0, (32 * dp).toInt())
-        }
-
-        // Progress bar (countdown visual)
-        val progressBar = ProgressBar(
-            this, null, android.R.attr.progressBarStyleHorizontal
-        ).apply {
-            max = 100
-            progress = 100
+        val pb = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000; progress = 1000
             progressDrawable?.setTint(0xFF_6C63FF.toInt())
-            layoutParams = LinearLayout.LayoutParams(
-                (260 * dp).toInt(),
-                (6 * dp).toInt()
-            ).also { it.gravity = Gravity.CENTER_HORIZONTAL }
+            layoutParams = LinearLayout.LayoutParams((260*dp).toInt(), (6*dp).toInt())
+                .also { it.gravity = Gravity.CENTER_HORIZONTAL }
         }
+        progressBarRef = pb
+        card.addView(pb)
 
-        // Countdown text
-        val countdownText = TextView(this).apply {
-            text = "10 সেকেন্ড পরে বন্ধ হবে"
-            textSize = 13f
-            setTextColor(0xFF_6B7280.toInt())
-            gravity = Gravity.CENTER
-            setPadding(0, (12 * dp).toInt(), 0, 0)
+        val ct = TextView(this).apply {
+            text = "10 \u09B8\u09C7\u0995\u09C7\u09A8\u09CD\u09A1 \u09AA\u09B0\u09C7 \u09AC\u09A8\u09CD\u09A7 \u09B9\u09AC\u09C7"
+            textSize = 13f; setTextColor(0xFF_6B7280.toInt())
+            gravity = Gravity.CENTER; setPadding(0, (12*dp).toInt(), 0, 0)
         }
+        countdownTextRef = ct
+        card.addView(ct)
 
-        card.addView(icon)
-        card.addView(blockedLabel)
-        card.addView(quoteText)
-        card.addView(progressBar)
-        card.addView(countdownText)
-
-        val cardParams = FrameLayout.LayoutParams(
+        root.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER
-        )
-        root.addView(card, cardParams)
+            FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER
+        ))
         setContentView(root)
 
-        // Start 10s countdown
+        // Start AFTER setContentView — views must be attached first
         countdown = object : CountDownTimer(10_000, 100) {
             override fun onTick(millisLeft: Long) {
-                val seconds = (millisLeft / 1000).toInt() + 1
-                val progress = (millisLeft / 100).toInt()
-                progressBar.progress = progress
-                countdownText.text = "${seconds} সেকেন্ড পরে বন্ধ হবে"
+                progressBarRef?.progress = (millisLeft / 10.0).toInt().coerceIn(0, 1000)
+                countdownTextRef?.text = "${(millisLeft / 1000).toInt() + 1} \u09B8\u09C7\u0995\u09C7\u09A8\u09CD\u09A1 \u09AA\u09B0\u09C7 \u09AC\u09A8\u09CD\u09A7 \u09B9\u09AC\u09C7"
             }
             override fun onFinish() {
-                progressBar.progress = 0
-                finish()
+                progressBarRef?.progress = 0
+                goHome()
             }
         }.start()
     }
 
+    private fun goHome() {
+        startActivity(Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        })
+        finish()
+    }
+
     override fun onDestroy() {
         countdown?.cancel()
+        progressBarRef = null; countdownTextRef = null
         super.onDestroy()
     }
 
-    // Back button = stay in overlay (can't escape early)
-    override fun onBackPressed() {
-        // Do nothing — wait for countdown
-    }
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() { /* block back during countdown */ }
 }
