@@ -138,7 +138,7 @@ export default function CalendarScreen() {
               </View>
             ) : null}
             {selectedTasks.length === 0 && !selectedData?.mins ? (
-              <Text style={[styles.noData, { color: c.textFaint }]}>Nothing scheduled this day.
+              <Text style={[styles.noData, { color: c.textFaint }]}>Nothing scheduled this day.</Text>
             ) : null}
             {selectedTasks.map(task => {
               const subject = state.subjects.find(s => s.id === task.subjectId);
