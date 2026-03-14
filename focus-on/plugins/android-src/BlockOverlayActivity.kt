@@ -42,13 +42,19 @@ class BlockOverlayActivity : Activity() {
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
+
+        // Check Pro status from SharedPreferences
+        val prefs = getSharedPreferences(AppBlockerAccessibilityService.PREFS_NAME, MODE_PRIVATE)
+        val isPro = prefs.getBoolean("is_pro", false)
+
         buildUI(
             intent.getStringExtra(EXTRA_APP_NAME) ?: "এই app",
-            QUOTES.random()
+            QUOTES.random(),
+            showAd = !isPro
         )
     }
 
-    private fun buildUI(appName: String, quote: String) {
+    private fun buildUI(appName: String, quote: String, showAd: Boolean) {
         val dp = resources.displayMetrics.density
         val root = FrameLayout(this).apply { setBackgroundColor(0xF0_0F0F1A.toInt()) }
         val card = LinearLayout(this).apply {
@@ -86,33 +92,32 @@ class BlockOverlayActivity : Activity() {
         countdownTextRef = ct
         card.addView(ct)
 
-        // Ad banner (shown for free users)
-        // Replace adText content with real AdMob view when ready
-        val adBanner = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(0xFF_1C1A3E.toInt())
-            setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).also { it.topMargin = (20*dp).toInt() }
+        // Show ad banner only for free users
+        if (showAd) {
+            val adBanner = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(0xFF_1C1A3E.toInt())
+                setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.topMargin = (20*dp).toInt() }
+            }
+            val adLabel = TextView(this).apply {
+                text = "AD"; textSize = 9f
+                setTextColor(0xFF_6B7280.toInt())
+                setPadding(0, 0, (8*dp).toInt(), 0)
+            }
+            val adText = TextView(this).apply {
+                text = "Remove ads — upgrade to Pro ⭐"
+                textSize = 12f; setTextColor(0xFF_A78BFA.toInt())
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            adBanner.addView(adLabel)
+            adBanner.addView(adText)
+            card.addView(adBanner)
         }
-        val adLabel = TextView(this).apply {
-            text = "AD"
-            textSize = 9f
-            setTextColor(0xFF_6B7280.toInt())
-            setPadding(0, 0, (8*dp).toInt(), 0)
-        }
-        val adText = TextView(this).apply {
-            text = "Remove ads — upgrade to Pro ⭐"
-            textSize = 12f
-            setTextColor(0xFF_A78BFA.toInt())
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        adBanner.addView(adLabel)
-        adBanner.addView(adText)
-        card.addView(adBanner)
 
         root.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -120,7 +125,6 @@ class BlockOverlayActivity : Activity() {
         ))
         setContentView(root)
 
-        // Start AFTER setContentView — views must be attached first
         countdown = object : CountDownTimer(10_000, 100) {
             override fun onTick(millisLeft: Long) {
                 progressBarRef?.progress = (millisLeft / 10.0).toInt().coerceIn(0, 1000)
