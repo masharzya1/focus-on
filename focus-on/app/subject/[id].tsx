@@ -123,7 +123,7 @@ export default function SubjectDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {subject.chapters.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={{ fontSize: 48, marginBottom: 16 }}>📂</Text>
+            <Ionicons name="folder-open" size={48} color={c.textFaint} style={{ marginBottom: 16 }} />
             <Text style={[styles.emptyTxt, { color: c.textMuted }]}>
               Tap + to add your first chapter
             </Text>

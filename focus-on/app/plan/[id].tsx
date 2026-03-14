@@ -65,7 +65,7 @@ export default function PlanDetailScreen() {
               <View style={styles.dateHeader}>
                 <Text style={[styles.dateLabel, { color: isToday ? c.accent : c.textMuted },
                   isToday && styles.todayLabel]}>
-                  {isToday ? '📌 Today' : date}
+                  {isToday ? 'Today' : date}
                 </Text>
               </View>
 

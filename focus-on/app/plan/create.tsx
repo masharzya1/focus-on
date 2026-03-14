@@ -544,7 +544,7 @@ export default function CreatePlanScreen() {
 
             {Object.keys(schedule).length === 0 ? (
               <View style={styles.genBox}>
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>🗓️</Text>
+                <Ionicons name="calendar" size={52} color={c.accent} style={{ marginBottom: 16 }} />
                 <Text style={[styles.genDesc, { color: c.textMuted }]}>
                   We'll spread your {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} across the days before your exam.
                 </Text>
@@ -622,7 +622,7 @@ export default function CreatePlanScreen() {
                 <View style={[styles.blockCard, { backgroundColor: c.bgCard }]}>
                   <View style={styles.blockRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.blockTitle, { color: c.text }]}>🔒 Hard Block</Text>
+                      <Text style={[styles.blockTitle, { color: c.text }]}><Ionicons name="lock-closed" size={15} color={c.destructive} /> Hard Block</Text>
                       <Text style={[styles.blockDesc, { color: c.textMuted }]}>
                         Cannot unblock from inside the app — only uninstalling Focus On removes the block
                       </Text>
@@ -635,7 +635,7 @@ export default function CreatePlanScreen() {
                 <View style={[styles.blockCard, { backgroundColor: c.bgCard }]}>
                   <View style={styles.blockRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.blockTitle, { color: c.text }]}>🛡️ Device Admin</Text>
+                      <Text style={[styles.blockTitle, { color: c.text }]}><Ionicons name="shield-checkmark" size={15} color="#DC2626" /> Device Admin</Text>
                       <Text style={[styles.blockDesc, { color: c.textMuted }]}>
                         Cannot unblock AND cannot uninstall Focus On. Requires Device Admin permission. Strongest block.
                       </Text>

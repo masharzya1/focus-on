@@ -18,6 +18,8 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
     companion object {
         const val TAG = "AppBlockingModule"
         const val MODULE_NAME = "AppBlockingModule"
+        const val KEY_HARD_BLOCK = "hard_block"
+        const val KEY_DEVICE_ADMIN = "device_admin"
     }
 
     private val prefs by lazy {
@@ -49,14 +51,28 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * JS sends: JSON.stringify({ apps: string[], hardBlock: boolean, deviceAdmin: boolean })
+     * We parse the object, save apps array + flags separately so AccessibilityService
+     * can read them correctly. This fixes the critical bug where parseBlockedApps()
+     * received an object string instead of an array string.
+     */
     @ReactMethod
-    fun startBlocking(blockedAppsJson: String) {
+    fun startBlocking(paramsJson: String) {
         try {
+            val params = org.json.JSONObject(paramsJson)
+            val appsArray = params.optJSONArray("apps") ?: org.json.JSONArray()
+            val hardBlock = params.optBoolean("hardBlock", false)
+            val deviceAdmin = params.optBoolean("deviceAdmin", false)
+
             prefs.edit()
-                .putString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, blockedAppsJson)
+                .putString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, appsArray.toString())
                 .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, true)
+                .putBoolean(KEY_HARD_BLOCK, hardBlock)
+                .putBoolean(KEY_DEVICE_ADMIN, deviceAdmin)
                 .apply()
-            Log.d(TAG, "Blocking started: $blockedAppsJson")
+
+            Log.d(TAG, "Blocking started — apps:${appsArray.length()} hard:$hardBlock admin:$deviceAdmin")
         } catch (e: Exception) {
             Log.e(TAG, "startBlocking error: ${e.message}")
         }
@@ -68,6 +84,8 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
             prefs.edit()
                 .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false)
                 .putBoolean(AppBlockerAccessibilityService.KEY_IS_ROUTINE_BLOCKING, false)
+                .putBoolean(KEY_HARD_BLOCK, false)
+                .putBoolean(KEY_DEVICE_ADMIN, false)
                 .apply()
             Log.d(TAG, "Blocking stopped")
         } catch (e: Exception) {
@@ -93,7 +111,6 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: run { promise.resolve(false); return }
-
             val isEnabled = enabledServices.split(":").any { entry ->
                 entry.contains(packageName, ignoreCase = true)
             }
@@ -146,7 +163,6 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    // ── Device Admin ──────────────────────────────────────────────────────────
     @ReactMethod
     fun requestDeviceAdmin(promise: Promise) {
         try {
@@ -154,12 +170,8 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
             val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE)
                     as? DevicePolicyManager
             if (dpm == null) { promise.resolve(false); return }
-
             val component = ComponentName(context, DeviceAdminReceiver::class.java)
-            if (dpm.isAdminActive(component)) {
-                promise.resolve(true)
-                return
-            }
+            if (dpm.isAdminActive(component)) { promise.resolve(true); return }
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
                 putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
@@ -167,7 +179,6 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-            // We resolve with false here — JS will retry isAdminActive after user returns
             promise.resolve(false)
         } catch (e: Exception) {
             Log.e(TAG, "requestDeviceAdmin error: ${e.message}")
