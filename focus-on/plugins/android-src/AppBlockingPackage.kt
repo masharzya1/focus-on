@@ -1,27 +1,42 @@
 package PACKAGE_NAME_PLACEHOLDER
 
-import com.facebook.react.ReactPackage
+import com.facebook.react.TurboReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.uimanager.ViewManager
+import com.facebook.react.module.model.ReactModuleInfo
+import com.facebook.react.module.model.ReactModuleInfoProvider
 
 /**
- * AppBlockingPackage
+ * AppBlockingPackage — TurboReactPackage (New Architecture compatible)
  *
- * Registers our AppBlockingModule with React Native.
- * This file is referenced in MainApplication.kt
+ * TurboReactPackage works in BOTH Old and New Architecture.
+ * ReactPackage (old) was not correctly initialized in New Architecture,
+ * causing the app to crash on startup.
  */
-class AppBlockingPackage : ReactPackage {
+class AppBlockingPackage : TurboReactPackage() {
 
-    override fun createNativeModules(
+    override fun getModule(
+        name: String,
         reactContext: ReactApplicationContext
-    ): List<NativeModule> {
-        return listOf(AppBlockingModule(reactContext))
+    ): NativeModule? {
+        return if (name == AppBlockingModule.MODULE_NAME) {
+            AppBlockingModule(reactContext)
+        } else null
     }
 
-    override fun createViewManagers(
-        reactContext: ReactApplicationContext
-    ): List<ViewManager<*, *>> {
-        return emptyList()
+    override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
+        return ReactModuleInfoProvider {
+            mapOf(
+                AppBlockingModule.MODULE_NAME to ReactModuleInfo(
+                    AppBlockingModule.MODULE_NAME,        // name
+                    AppBlockingModule::class.java.name,   // className
+                    false,  // canOverrideExistingModule
+                    false,  // needsEagerInit
+                    false,  // hasConstants
+                    false,  // isCxxModule
+                    false   // isTurboModule
+                )
+            )
+        }
     }
 }
