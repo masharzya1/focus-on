@@ -56,7 +56,10 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun stopBlocking() {
-        prefs.edit().putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false).apply()
+        prefs.edit()
+            .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false)
+            .putBoolean(AppBlockerAccessibilityService.KEY_IS_ROUTINE_BLOCKING, false)
+            .apply()
         Log.d(TAG, "Blocking stopped")
     }
 
@@ -67,14 +70,27 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun isAccessibilityEnabled(promise: Promise) {
-        val context = reactApplicationContext
-        val packageName = context.packageName
-        val enabledServices = Settings.Secure.getString(
-            context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: run { promise.resolve(false); return }
+        try {
+            val context = reactApplicationContext
+            val packageName = context.packageName
+            // Android stores enabled services as "package/ServiceClass:package/ServiceClass"
+            // We must check for our specific service class, not just the package name
+            val enabledServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: run { promise.resolve(false); return }
 
-        val isEnabled = enabledServices.split(":").any { it.contains(packageName, ignoreCase = true) }
-        promise.resolve(isEnabled)
+            val serviceComponent = "$packageName/AppBlockerAccessibilityService"
+            val serviceComponentFull = "$packageName/${packageName}.AppBlockerAccessibilityService"
+            val isEnabled = enabledServices.split(":").any { entry ->
+                entry.equals(serviceComponent, ignoreCase = true) ||
+                entry.equals(serviceComponentFull, ignoreCase = true) ||
+                entry.contains(packageName, ignoreCase = true)
+            }
+            promise.resolve(isEnabled)
+        } catch (e: Exception) {
+            promise.resolve(false)
+        }
     }
 
     @ReactMethod
@@ -89,5 +105,18 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun getBlockedApps(promise: Promise) {
         promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]")
+    }
+
+    /**
+     * Saves all block routines to SharedPreferences so the AccessibilityService
+     * can read and enforce them even when the app is closed.
+     * Call this whenever routines are created, updated, or deleted.
+     */
+    @ReactMethod
+    fun saveRoutines(routinesJson: String) {
+        prefs.edit()
+            .putString(AppBlockerAccessibilityService.KEY_ROUTINES, routinesJson)
+            .apply()
+        Log.d(TAG, "Routines saved: $routinesJson")
     }
     }
