@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.net.Uri
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import org.json.JSONArray
@@ -58,6 +59,21 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
         private val REEL_CONTENT_DESCS = setOf(
             "Reels", "Reel", "Shorts", "Short",
+        )
+
+        // Browser package names — for website blocking
+        private val BROWSER_PACKAGES = setOf(
+            "com.android.chrome",
+            "org.mozilla.firefox",
+            "com.microsoft.emmx",
+            "com.opera.browser",
+            "com.opera.mini.native",
+            "com.brave.browser",
+            "com.UCMobile.intl",
+            "com.sec.android.app.sbrowser", // Samsung Browser
+            "com.mi.globalbrowser",          // Mi Browser
+            "com.android.browser",
+            "com.google.android.browser",
         )
     }
 
@@ -118,6 +134,11 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             Log.d(TAG, "Whole-app block: $pkg")
             showOverlay(pkg)
             return
+        }
+
+        // Website block — only in browser apps
+        if (pkg in BROWSER_PACKAGES) {
+            checkAndBlockWebsite()
         }
 
         // Reel-only block
@@ -187,6 +208,85 @@ class AppBlockerAccessibilityService : AccessibilityService() {
      * (saved by AppBlockingModule.startBlocking or syncFromRoutines) and
      * passes them to BlockOverlayActivity so it can display the correct UI.
      */
+    // ── Website blocking ──────────────────────────────────────────────────
+    private var lastWebBlockTime = 0L
+
+    private fun checkAndBlockWebsite() {
+        val now = System.currentTimeMillis()
+        if (now - lastWebBlockTime < 1500) return // debounce
+
+        val blockedJson = prefs.getString(AppBlockingModule.KEY_BLOCKED_WEBSITES, "[]") ?: "[]"
+        val blockedDomains = try {
+            val arr = org.json.JSONArray(blockedJson)
+            (0 until arr.length()).map { arr.getString(it).lowercase().trim() }.toSet()
+        } catch (e: Exception) { emptySet() }
+
+        if (blockedDomains.isEmpty()) return
+
+        val root = rootInActiveWindow ?: return
+        val urlText = findAddressBarText(root)
+        root.recycle()
+
+        if (urlText.isNullOrBlank()) return
+        val domain = extractDomain(urlText).lowercase()
+
+        if (blockedDomains.any { domain == it || domain.endsWith(".${'$'}it") }) {
+            android.util.Log.d(TAG, "Website blocked: $domain")
+            lastWebBlockTime = now
+            performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+    }
+
+    private fun findAddressBarText(root: AccessibilityNodeInfo): String? {
+        // Search for URL/address bar in browser — common resource IDs
+        val urlBarIds = listOf(
+            "com.android.chrome:id/url_bar",
+            "com.android.chrome:id/search_box_text",
+            "org.mozilla.firefox:id/url_edit_text",
+            "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
+            "com.microsoft.emmx:id/url_bar",
+            "com.brave.browser:id/url_bar",
+            "com.sec.android.app.sbrowser:id/location_bar_edit_text",
+        )
+        for (id in urlBarIds) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(id)
+            if (nodes.isNotEmpty()) {
+                val text = nodes[0].text?.toString()
+                if (!text.isNullOrBlank()) return text
+            }
+        }
+        // Fallback: BFS search for EditText with URL-like content
+        return findUrlTextBfs(root)
+    }
+
+    private fun findUrlTextBfs(root: AccessibilityNodeInfo): String? {
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        var checked = 0
+        while (queue.isNotEmpty() && checked < 80) {
+            val node = queue.removeFirst()
+            checked++
+            val cls = node.className?.toString() ?: ""
+            if ((cls.contains("EditText") || cls.contains("TextView")) && node.isClickable) {
+                val text = node.text?.toString() ?: ""
+                if (text.contains(".") && (text.startsWith("http") || text.contains("www.") ||
+                    text.matches(Regex("[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}.*")))) {
+                    return text
+                }
+            }
+            for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
+        }
+        return null
+    }
+
+    private fun extractDomain(url: String): String {
+        return try {
+            val withScheme = if (!url.startsWith("http")) "https://$url" else url
+            Uri.parse(withScheme).host?.removePrefix("www.") ?: url
+        } catch (e: Exception) { url }
+    }
+    // ── End website blocking ──────────────────────────────────────────────────
+
     private fun showOverlay(packageName: String) {
         lastBlockedPackage = packageName
         lastOverlayTime = System.currentTimeMillis()
