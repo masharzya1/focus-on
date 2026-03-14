@@ -1,5 +1,5 @@
 // constants/theme.ts
-// Duolingo-inspired design system — soft violet palette (not Duolingo green)
+// Duolingo-inspired design system — soft violet palette with Nunito font
 
 export interface ThemeColors {
   bg: string;
@@ -82,13 +82,14 @@ export const RADIUS = {
   xxl: 32,
   full: 999,
 };
-// ── Typography ──────────────────────────────────────────────────────────────
-// Use these in StyleSheet instead of hardcoding fontWeight strings.
-// Inter loads via _layout.tsx useFonts() — always use fontFamily, not fontWeight alone.
+
+// ── Nunito Typography ────────────────────────────────────────────────────────
+// Use these everywhere — never hardcode fontFamily strings
 export const FONTS = {
-  regular:   'Inter_400Regular',
-  medium:    'Inter_500Medium',
-  semibold:  'Inter_600SemiBold',
-  bold:      'Inter_700Bold',
-  extrabold: 'Inter_800ExtraBold',
+  regular:   'Nunito_400Regular',
+  medium:    'Nunito_500Medium',
+  semibold:  'Nunito_600SemiBold',
+  bold:      'Nunito_700Bold',
+  extrabold: 'Nunito_800ExtraBold',
+  black:     'Nunito_900ExtraBlack',
 };
