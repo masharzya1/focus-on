@@ -3,18 +3,33 @@ import { NativeModules, Platform } from 'react-native';
 const mod = () => NativeModules.AppBlockingModule;
 
 const AppBlocking = {
-  async getInstalledApps(): Promise<{ name: string; packageName: string }[]> {
+
+  // ── Installed apps (now includes icon as base64) ──────────────────────────
+
+  async getInstalledApps(): Promise<{ name: string; packageName: string; icon: string }[]> {
     if (Platform.OS !== 'android' || !mod()) return [];
-    try { return JSON.parse(await mod().getInstalledApps()); } catch { return []; }
+    try {
+      return JSON.parse(await mod().getInstalledApps());
+    } catch {
+      return [];
+    }
   },
 
-  startBlocking(blockedApps: string[], blockShorts = false, hardBlock = false, deviceAdmin = false): void {
+  // ── App blocking ──────────────────────────────────────────────────────────
+
+  startBlocking(
+    blockedApps: string[],
+    blockShorts = false,
+    hardBlock = false,
+    deviceAdmin = false
+  ): void {
     if (Platform.OS !== 'android' || !mod()) return;
     try {
       const finalApps = [...blockedApps];
       if (blockShorts) {
         ['com.instagram.android', 'com.google.android.youtube',
-         'com.facebook.katana', 'com.facebook.orca'].forEach(pkg => {
+         'com.facebook.katana', 'com.facebook.orca',
+         'com.snapchat.android', 'com.zhiliaoapp.musically'].forEach(pkg => {
           if (!blockedApps.includes(pkg)) finalApps.push(`reels:${pkg}`);
         });
       }
@@ -52,7 +67,6 @@ const AppBlocking = {
     try { mod().saveRoutines(JSON.stringify(routines)); } catch {}
   },
 
-  // Called from AuthContext — syncs Pro status to native layer
   setProStatus(isPro: boolean): void {
     if (Platform.OS !== 'android' || !mod()) return;
     try { mod().setProStatus(isPro); } catch {}
@@ -61,6 +75,37 @@ const AppBlocking = {
   async requestDeviceAdmin(): Promise<boolean> {
     if (Platform.OS !== 'android' || !mod()) return false;
     try { return await mod().requestDeviceAdmin(); } catch { return false; }
+  },
+
+  // ── Website blocking ──────────────────────────────────────────────────────
+
+  /**
+   * Save the full list of blocked websites/domains to native layer.
+   * Call this whenever the list changes.
+   * @param domains e.g. ["facebook.com", "reddit.com", "twitter.com"]
+   */
+  saveBlockedWebsites(domains: string[]): void {
+    if (Platform.OS !== 'android' || !mod()) return;
+    try { mod().saveBlockedWebsites(JSON.stringify(domains)); } catch {}
+  },
+
+  async getBlockedWebsites(): Promise<string[]> {
+    if (Platform.OS !== 'android' || !mod()) return [];
+    try { return JSON.parse(await mod().getBlockedWebsites()); } catch { return []; }
+  },
+
+  /**
+   * Clean and normalize a domain input from user.
+   * "https://www.facebook.com/feed" → "facebook.com"
+   */
+  normalizeDomain(input: string): string {
+    try {
+      const withScheme = input.startsWith('http') ? input : `https://${input}`;
+      const url = new URL(withScheme);
+      return url.hostname.replace(/^www\./, '').toLowerCase().trim();
+    } catch {
+      return input.replace(/^www\./, '').toLowerCase().trim();
+    }
   },
 };
 
