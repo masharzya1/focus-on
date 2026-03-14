@@ -18,6 +18,10 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.33",
+<<<<<<< HEAD
+=======
+    "expo-auth-session": "~7.0.10",
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
     "expo-constants": "~18.0.13",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",

@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 {
   "expo": {
     "name": "Focus On",
@@ -14,6 +17,10 @@
     },
     "android": {
       "package": "com.focuson",
+<<<<<<< HEAD
+=======
+      "googleServicesFile": "./google-services.json",
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
       "adaptiveIcon": {
         "backgroundColor": "#0D0E14",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -25,7 +32,14 @@
       "permissions": [
         "android.permission.QUERY_ALL_PACKAGES",
         "android.permission.FOREGROUND_SERVICE",
+<<<<<<< HEAD
         "android.permission.SYSTEM_ALERT_WINDOW"
+=======
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
       ]
     },
     "web": {
@@ -36,6 +50,17 @@
       "expo-router",
       "./plugins/withAppBlocking",
       [
+<<<<<<< HEAD
+=======
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6C63FF",
+          "sounds": []
+        }
+      ],
+      [
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -46,7 +71,12 @@
             "backgroundColor": "#0D0E14"
           }
         }
+<<<<<<< HEAD
       ]
+=======
+      ],
+      "expo-web-browser"
+>>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
     ],
     "experiments": {
       "typedRoutes": true
