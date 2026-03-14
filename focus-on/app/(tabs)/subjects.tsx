@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 import { SUBJECT_COLORS, SUBJECT_ICONS, type Subject } from '@/types/study';
 
 export default function SubjectsScreen() {
@@ -17,7 +17,7 @@ export default function SubjectsScreen() {
   const [name, setName] = useState('');
   const [color, setColor] = useState(SUBJECT_COLORS[0]);
   const [icon, setIcon] = useState(SUBJECT_ICONS[0]);
-  const [topicBased, setTopicBased] = useState(false); // false = Chapter+Topic, true = Chapter only
+  const [topicBased, setTopicBased] = useState(false);
 
   const create = () => {
     if (!name.trim()) return;
@@ -82,11 +82,19 @@ export default function SubjectsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Empty state — icon instead of emoji */}
       {state.subjects.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ fontSize: 56, marginBottom: 16 }}>📚</Text>
+          <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
+            <Ionicons name="book-outline" size={40} color={c.accent} />
+          </View>
           <Text style={[styles.emptyTitle, { color: c.text }]}>No subjects yet</Text>
           <Text style={[styles.emptySub, { color: c.textMuted }]}>Add your first subject to get started</Text>
+          <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: c.accent }]}
+            onPress={() => setShowCreate(true)}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={styles.emptyBtnTxt}>Add Subject</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -109,7 +117,6 @@ export default function SubjectsScreen() {
               value={name} onChangeText={setName} autoFocus
             />
 
-            {/* Structure type */}
             <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Structure</Text>
             <View style={styles.typeRow}>
               {[
@@ -117,8 +124,10 @@ export default function SubjectsScreen() {
                 { val: true, label: 'Chapter only', desc: 'No topics inside' },
               ].map(opt => (
                 <TouchableOpacity key={String(opt.val)}
-                  style={[styles.typeBtn, { borderColor: topicBased === opt.val ? c.accent : c.border,
-                    backgroundColor: topicBased === opt.val ? c.accentSoft : c.bgSecondary }]}
+                  style={[styles.typeBtn, {
+                    borderColor: topicBased === opt.val ? c.accent : c.border,
+                    backgroundColor: topicBased === opt.val ? c.accentSoft : c.bgSecondary,
+                  }]}
                   onPress={() => setTopicBased(opt.val)}>
                   <Text style={[styles.typeLbl, { color: topicBased === opt.val ? c.accent : c.textMuted }]}>{opt.label}</Text>
                   <Text style={[styles.typeDesc, { color: c.textFaint }]}>{opt.desc}</Text>
@@ -137,10 +146,10 @@ export default function SubjectsScreen() {
             <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Icon</Text>
             <View style={styles.iconRow}>
               {SUBJECT_ICONS.map(ic => (
-                <TouchableOpacity key={ic} style={[styles.iconBtn,
-                  { backgroundColor: icon === ic ? color + '30' : c.bgSecondary,
-                    borderColor: icon === ic ? color : 'transparent' }]}
-                  onPress={() => setIcon(ic)}>
+                <TouchableOpacity key={ic} style={[styles.iconBtn, {
+                  backgroundColor: icon === ic ? color + '30' : c.bgSecondary,
+                  borderColor: icon === ic ? color : 'transparent',
+                }]} onPress={() => setIcon(ic)}>
                   <Ionicons name={ic as any} size={22} color={icon === ic ? color : c.textMuted} />
                 </TouchableOpacity>
               ))}
@@ -148,7 +157,7 @@ export default function SubjectsScreen() {
 
             <TouchableOpacity style={[styles.createBtn, { backgroundColor: c.accent, opacity: name.trim() ? 1 : 0.5 }]}
               onPress={create} disabled={!name.trim()}>
-              <Text style={styles.createTxt}>Create</Text>
+              <Text style={styles.createTxt}>Create Subject</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -159,40 +168,45 @@ export default function SubjectsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.5 },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 16,
+  },
+  title: { fontSize: 28, fontFamily: FONTS.black, letterSpacing: -0.5 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
-  addTxt: { color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold', fontSize: 14 },
+  addTxt: { color: '#fff', fontFamily: FONTS.bold, fontSize: 14 },
   list: { paddingHorizontal: 20, paddingBottom: 100 },
   card: { borderRadius: RADIUS.xl, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
   iconCircle: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 2 },
-  cardSub: { fontSize: 12, marginBottom: 8 },
+  cardName: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 2 },
+  cardSub: { fontSize: 12, fontFamily: FONTS.regular, marginBottom: 8 },
   progBg: { height: 6, borderRadius: 3, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 3 },
   cardRight: { alignItems: 'center', gap: 4 },
-  progPct: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 20, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  emptySub: { fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 },
+  progPct: { fontSize: 14, fontFamily: FONTS.black },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyIconCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 20, fontFamily: FONTS.bold },
+  emptySub: { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center', paddingHorizontal: 32 },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 14, marginTop: 8 },
+  emptyBtnTxt: { color: '#fff', fontSize: 15, fontFamily: FONTS.bold },
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 20 },
-  input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, borderWidth: 1.5, marginBottom: 20 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  sheetTitle: { fontSize: 22, fontFamily: FONTS.black, marginBottom: 20 },
+  input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, fontFamily: FONTS.regular, borderWidth: 1.5, marginBottom: 20 },
+  sectionLabel: { fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
   typeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   typeBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 2 },
-  typeLbl: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 2 },
-  typeDesc: { fontSize: 11 },
+  typeLbl: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
+  typeDesc: { fontSize: 11, fontFamily: FONTS.regular },
   colorRow: { flexDirection: 'row', gap: 10, marginBottom: 20, flexWrap: 'wrap' },
   colorDot: { width: 32, height: 32, borderRadius: 16 },
   colorSelected: { borderWidth: 3, borderColor: '#fff', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 4 },
   iconRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 24 },
   iconBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
   createBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  createTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  createTxt: { color: '#fff', fontSize: 17, fontFamily: FONTS.black },
 });
