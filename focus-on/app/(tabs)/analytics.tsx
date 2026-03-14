@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withDelay, withTiming, FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
+import AppBlocking from '@/modules/AppBlocking';
+import { useFocusEffect } from 'expo-router';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -39,6 +41,15 @@ export default function AnalyticsScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
+  const [usageStats, setUsageStats] = useState<{ packageName: string; name: string; minutes: number }[]>([]);
+  const [hasUsagePerm, setHasUsagePerm] = useState(false);
+
+  useFocusEffect(React.useCallback(() => {
+    AppBlocking.hasUsagePermission().then(ok => {
+      setHasUsagePerm(ok);
+      if (ok) AppBlocking.getAppUsageStats().then(setUsageStats).catch(() => {});
+    });
+  }, []));
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -145,6 +156,56 @@ export default function AnalyticsScreen() {
             <Text style={[s.emptyTxt, { color: c.textMuted }]}>Start studying to see your analytics</Text>
           </Animated.View>
         )}
+
+        {/* ── App Usage Today ── */}
+        <Animated.View entering={FadeInDown.delay(200).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <Text style={[s.cardTitle, { color: c.text }]}>Today's App Usage</Text>
+            {!hasUsagePerm && (
+              <TouchableOpacity onPress={() => AppBlocking.openUsageSettings()}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
+                  backgroundColor: '#7C3AED18', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 }}>
+                <Ionicons name="lock-closed" size={12} color="#7C3AED" />
+                <Text style={{ fontSize: 11, color: '#7C3AED', fontWeight: '700' }}>Grant Access</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {!hasUsagePerm ? (
+            <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
+              <Ionicons name="time-outline" size={36} color={c.textFaint} />
+              <Text style={{ color: c.textMuted, fontSize: 13, textAlign: 'center' }}>
+                Usage Access permission needed{'
+'}to track daily app usage
+              </Text>
+            </View>
+          ) : usageStats.length === 0 ? (
+            <Text style={{ color: c.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 16 }}>
+              No usage data for today yet
+            </Text>
+          ) : (
+            usageStats.slice(0, 8).map((app, i) => {
+              const maxMins = usageStats[0].minutes || 1;
+              const pct = app.minutes / maxMins;
+              return (
+                <View key={app.packageName} style={{ marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: c.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>{app.name}</Text>
+                    <Text style={{ color: c.textMuted, fontSize: 12 }}>
+                      {app.minutes >= 60
+                        ? `${Math.floor(app.minutes / 60)}h ${app.minutes % 60}m`
+                        : `${app.minutes}m`}
+                    </Text>
+                  </View>
+                  <View style={{ height: 6, backgroundColor: c.border, borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${pct * 100}%`,
+                      backgroundColor: i === 0 ? c.destructive : i < 3 ? '#F59E0B' : c.accent,
+                      borderRadius: 3 }} />
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </Animated.View>
 
         <View style={{ height: 40 }} />
       </ScrollView>

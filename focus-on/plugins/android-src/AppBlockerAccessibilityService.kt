@@ -116,16 +116,66 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
     }
 
+    // ── Time limit cache ──────────────────────────────────────────────────────
+    private var timeLimitsCache: Map<String, Int> = emptyMap()
+    private var timeLimitsCacheTime = 0L
+
+    private fun getTimeLimits(): Map<String, Int> {
+        val now = System.currentTimeMillis()
+        if (now - timeLimitsCacheTime < 10_000L) return timeLimitsCache
+        return try {
+            val json = prefs.getString(AppBlockingModule.KEY_TIME_LIMITS, "[]") ?: "[]"
+            val arr  = org.json.JSONArray(json)
+            val map  = mutableMapOf<String, Int>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                if (obj.optBoolean("enabled", true))
+                    map[obj.getString("packageName")] = obj.getInt("limitMinutes")
+            }
+            timeLimitsCache     = map
+            timeLimitsCacheTime = now
+            map
+        } catch (_: Exception) { emptyMap() }
+    }
+
+    private fun getTodayUsageMinutes(pkg: String): Int {
+        return try {
+            val usm = getSystemService(android.content.Context.USAGE_STATS_SERVICE)
+                    as? android.app.usage.UsageStatsManager ?: return -1
+            val cal = java.util.Calendar.getInstance()
+            cal.set(java.util.Calendar.HOUR_OF_DAY, 0); cal.set(java.util.Calendar.MINUTE, 0)
+            cal.set(java.util.Calendar.SECOND, 0);       cal.set(java.util.Calendar.MILLISECOND, 0)
+            // queryAndAggregateUsageStats correctly sums usage for today
+            val statsMap = usm.queryAndAggregateUsageStats(cal.timeInMillis, System.currentTimeMillis())
+            ((statsMap[pkg]?.totalTimeInForeground ?: 0L) / 60_000L).toInt()
+        } catch (_: Exception) { -1 }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        val isBlocking = prefs.getBoolean(KEY_IS_BLOCKING, false)
-        if (!isBlocking) return
 
         val pkg = event.packageName?.toString() ?: return
         if (pkg == applicationContext.packageName) return
 
         val now = System.currentTimeMillis()
         if (pkg == lastBlockedPackage && now - lastOverlayTime < 3000) return
+
+        // ── Time limits (runs regardless of blocking toggle) ──────────────
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val limits = getTimeLimits()
+            val limit  = limits[pkg]
+            if (limit != null && limit > 0) {
+                val used = getTodayUsageMinutes(pkg)
+                if (used >= 0 && used >= limit) {
+                    Log.d(TAG, "Time limit: $pkg ${used}m / ${limit}m")
+                    showTimeLimitOverlay(pkg, used, limit)
+                    return
+                }
+            }
+        }
+
+        val isBlocking = prefs.getBoolean(KEY_IS_BLOCKING, false)
+        if (!isBlocking) return
 
         val blockedApps = parseBlockedApps(prefs.getString(KEY_BLOCKED_APPS, "[]") ?: "[]")
 
@@ -213,26 +263,27 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     private fun checkAndBlockWebsite() {
         val now = System.currentTimeMillis()
-        if (now - lastWebBlockTime < 1500) return // debounce
+        if (now - lastWebBlockTime < 2000) return // debounce
 
         val blockedJson = prefs.getString(AppBlockingModule.KEY_BLOCKED_WEBSITES, "[]") ?: "[]"
         val blockedDomains = try {
             val arr = org.json.JSONArray(blockedJson)
             (0 until arr.length()).map { arr.getString(it).lowercase().trim() }.toSet()
-        } catch (e: Exception) { emptySet() }
+        } catch (e: Exception) { emptySet<String>() }
 
         if (blockedDomains.isEmpty()) return
 
         val root = rootInActiveWindow ?: return
-        val urlText = findAddressBarText(root)
-        root.recycle()
+        val urlText = try { findAddressBarText(root) } finally { root.recycle() }
 
         if (urlText.isNullOrBlank()) return
         val domain = extractDomain(urlText).lowercase()
 
-        if (blockedDomains.any { domain == it || domain.endsWith(".${'$'}it") }) {
-            android.util.Log.d(TAG, "Website blocked: $domain")
+        val blocked = blockedDomains.any { domain == it || domain.endsWith(".${'$'}it") }
+        if (blocked) {
+            Log.d(TAG, "Website blocked: $domain")
             lastWebBlockTime = now
+            // Navigate away — do it twice to be safe (some browsers need 2 backs)
             performGlobalAction(GLOBAL_ACTION_BACK)
         }
     }
@@ -252,6 +303,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
             if (nodes.isNotEmpty()) {
                 val text = nodes[0].text?.toString()
+                // Recycle all returned nodes
+                nodes.forEach { try { it.recycle() } catch (_: Exception) {} }
                 if (!text.isNullOrBlank()) return text
             }
         }
@@ -286,6 +339,24 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { url }
     }
     // ── End website blocking ──────────────────────────────────────────────────
+
+    private fun showTimeLimitOverlay(packageName: String, minsUsed: Int, limitMins: Int) {
+        lastBlockedPackage = packageName
+        lastOverlayTime    = System.currentTimeMillis()
+        val appName = try {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(packageName, 0)).toString()
+        } catch (_: Exception) { packageName.split(".").last() }
+        applicationContext.startActivity(
+            Intent(applicationContext, BlockOverlayActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(BlockOverlayActivity.EXTRA_APP_NAME, appName)
+                putExtra(BlockOverlayActivity.EXTRA_TIME_LIMIT, true)
+                putExtra(BlockOverlayActivity.EXTRA_MINUTES_USED, minsUsed)
+                putExtra(BlockOverlayActivity.EXTRA_LIMIT_MINUTES, limitMins)
+                putExtra(BlockOverlayActivity.EXTRA_HARD_BLOCK, true)
+            }
+        )
+    }
 
     private fun showOverlay(packageName: String) {
         lastBlockedPackage = packageName

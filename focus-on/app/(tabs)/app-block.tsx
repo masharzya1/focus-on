@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, Platform, FlatList, TextInput, Switch, Image,
+  Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,35 +10,29 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
-import type { AppBlockRoutine } from '@/types/study';
+import type { AppBlockRoutine, AppTimeLimit } from '@/types/study';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-type Tab = 'apps' | 'websites';
+type Tab = 'apps' | 'websites' | 'limits';
 
 function getCurrentTime() {
   const n = new Date();
   return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`;
 }
 
-// ── App Icon component ────────────────────────────────────────────────────────
+// ── App Icon ──────────────────────────────────────────────────────────────────
 function AppIcon({ icon, name, size = 40 }: { icon: string; name: string; size?: number }) {
   const { colors: c } = useTheme();
-  if (icon) {
-    return (
-      <Image
-        source={{ uri: `data:image/png;base64,${icon}` }}
-        style={{ width: size, height: size, borderRadius: size * 0.25 }}
-        resizeMode="contain"
-      />
-    );
-  }
-  // Fallback letter avatar
+  if (icon) return (
+    <Image
+      source={{ uri: `data:image/png;base64,${icon}` }}
+      style={{ width: size, height: size, borderRadius: size * 0.25 }}
+      resizeMode="contain"
+    />
+  );
   return (
-    <View style={{
-      width: size, height: size, borderRadius: size * 0.25,
-      backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center',
-    }}>
+    <View style={{ width: size, height: size, borderRadius: size * 0.25,
+      backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: c.accent }}>
         {name[0]?.toUpperCase() || '?'}
       </Text>
@@ -46,93 +40,226 @@ function AppIcon({ icon, name, size = 40 }: { icon: string; name: string; size?:
   );
 }
 
-// ── TimePicker ────────────────────────────────────────────────────────────────
+// ── Scroll Wheel Column ───────────────────────────────────────────────────────
+function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: {
+  items: string[]; selectedIndex: number; onChange: (i: number) => void;
+  width?: number; colors: any;
+}) {
+  const ITEM_H = 42;
+  const VISIBLE = 5;
+  const scrollRef = useRef<ScrollView>(null);
+  const isScrolling = useRef(false);
+
+  const scrollTo = useCallback((index: number, animated = true) => {
+    scrollRef.current?.scrollTo({ y: index * ITEM_H, animated });
+  }, []);
+
+  // Sync scroll when selectedIndex changes externally (e.g. modal opens with value)
+  useEffect(() => {
+    if (!isScrolling.current) {
+      setTimeout(() => scrollTo(selectedIndex, false), 30);
+    }
+  }, [selectedIndex]);
+
+  return (
+    <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative' }}>
+      {/* Selection highlight */}
+      <View style={{
+        position: 'absolute', top: ITEM_H * 2, height: ITEM_H, left: 0, right: 0,
+        backgroundColor: c.accent + '22', borderRadius: 10,
+        borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
+        zIndex: 1, pointerEvents: 'none',
+      }} />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onScrollBeginDrag={() => { isScrolling.current = true; }}
+        onMomentumScrollEnd={e => {
+          isScrolling.current = false;
+          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(i, items.length - 1));
+          scrollTo(clamped, true);
+          onChange(clamped);
+        }}
+        onScrollEndDrag={e => {
+          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(i, items.length - 1));
+          scrollTo(clamped, true);
+          onChange(clamped);
+          setTimeout(() => { isScrolling.current = false; }, 100);
+        }}
+        onLayout={() => {
+          setTimeout(() => scrollTo(selectedIndex, false), 50);
+        }}
+      >
+        {items.map((item, i) => {
+          const active = i === selectedIndex;
+          return (
+            <TouchableOpacity key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => { scrollTo(i, true); onChange(i); }} activeOpacity={0.7}>
+              <Text style={{
+                fontSize: active ? 20 : 16,
+                fontWeight: active ? '800' : '400',
+                color: active ? c.accent : c.textMuted,
+                opacity: Math.abs(i - selectedIndex) > 2 ? 0.2 : 1,
+              }}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ── Scroll Wheel Time Picker ──────────────────────────────────────────────────
 function TimePicker({ value, onChange, label, colors: c }: {
   value: string; onChange: (v: string) => void; label: string; colors: any;
 }) {
-  const [h, setH] = useState(() => parseInt(value.split(':')[0]) || 9);
-  const [m, setM] = useState(() => parseInt(value.split(':')[1]) || 0);
-  const emit = (nh: number, nm: number) =>
-    onChange(`${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`);
+  const [h24, m] = value.split(':').map(Number);
+  const isPM    = h24 >= 12;
+  const h12     = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+
+  const hours   = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+  const ampm    = ['AM', 'PM'];
+
+  const emit = (newH12: number, newM: number, newPM: boolean) => {
+    let h = newH12 % 12;
+    if (newPM) h += 12;
+    onChange(`${String(h).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+  };
 
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 11, color: c.textFaint, marginBottom: 6 }}>{label}</Text>
-      <View style={{ backgroundColor: c.inputBg, borderColor: c.border, borderWidth: 1.5, borderRadius: 12, padding: 10, alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* Hours */}
-          <View style={{ alignItems: 'center', gap: 4 }}>
-            <TouchableOpacity onPress={() => { const nv = (h + 1) % 24; setH(nv); emit(nv, m); }}>
-              <Ionicons name="chevron-up" size={14} color={c.accent} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: '800', fontFamily: FONTS.extrabold, color: c.text, minWidth: 28, textAlign: 'center' }}>
-              {String(h).padStart(2, '0')}
-            </Text>
-            <TouchableOpacity onPress={() => { const nv = (h + 23) % 24; setH(nv); emit(nv, m); }}>
-              <Ionicons name="chevron-down" size={14} color={c.accent} />
-            </TouchableOpacity>
-          </View>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: c.textMuted }}>:</Text>
-          {/* Minutes step 5 */}
-          <View style={{ alignItems: 'center', gap: 4 }}>
-            <TouchableOpacity onPress={() => { const nv = (Math.floor(m / 5) + 1) % 12 * 5; setM(nv); emit(h, nv); }}>
-              <Ionicons name="chevron-up" size={14} color={c.accent} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: '800', fontFamily: FONTS.extrabold, color: c.text, minWidth: 28, textAlign: 'center' }}>
-              {String(m).padStart(2, '0')}
-            </Text>
-            <TouchableOpacity onPress={() => { const nv = (Math.floor(m / 5) + 11) % 12 * 5; setM(nv); emit(h, nv); }}>
-              <Ionicons name="chevron-down" size={14} color={c.accent} />
-            </TouchableOpacity>
-          </View>
+      <Text style={{ fontSize: 11, color: c.textFaint, marginBottom: 8, textAlign: 'center',
+        fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</Text>
+      <View style={{ backgroundColor: c.inputBg, borderColor: c.border, borderWidth: 1.5,
+        borderRadius: 16, padding: 10, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <WheelColumn
+            items={hours}
+            selectedIndex={h12 - 1}
+            onChange={i => emit(i + 1, m, isPM)}
+            width={50} colors={c}
+          />
+          <Text style={{ fontSize: 22, fontWeight: '800', color: c.textMuted, marginBottom: 2 }}>:</Text>
+          <WheelColumn
+            items={minutes}
+            selectedIndex={m}
+            onChange={i => emit(h12, i, isPM)}
+            width={50} colors={c}
+          />
+          <WheelColumn
+            items={ampm}
+            selectedIndex={isPM ? 1 : 0}
+            onChange={i => emit(h12, m, i === 1)}
+            width={48} colors={c}
+          />
         </View>
       </View>
     </View>
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
+// ── Duration picker (for time limits) ────────────────────────────────────────
+function DurationPicker({ value, onChange, colors: c }: {
+  value: number; onChange: (mins: number) => void; colors: any;
+}) {
+  const hours = Array.from({ length: 13 }, (_, i) => String(i).padStart(1, '0'));
+  const mins  = ['00', '15', '30', '45'];
+  const h = Math.floor(value / 60);
+  const m = value % 60;
+  const mIdx = Math.floor(m / 15);
+
+  return (
+    <View style={{ backgroundColor: c.inputBg, borderColor: c.border, borderWidth: 1.5,
+      borderRadius: 16, padding: 10, alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <WheelColumn
+          items={hours}
+          selectedIndex={h}
+          onChange={i => onChange(i * 60 + mIdx * 15)}
+          width={46} colors={c}
+        />
+        <Text style={{ color: c.textMuted, fontSize: 13, fontWeight: '600' }}>h</Text>
+        <WheelColumn
+          items={mins}
+          selectedIndex={mIdx}
+          onChange={i => onChange(h * 60 + i * 15)}
+          width={46} colors={c}
+        />
+        <Text style={{ color: c.textMuted, fontSize: 13, fontWeight: '600' }}>min</Text>
+      </View>
+    </View>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function AppBlockScreen() {
-  const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
+  const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
+          addTimeLimit, updateTimeLimit, deleteTimeLimit } = useStudy();
   const { colors: c } = useTheme();
 
   const [activeTab, setActiveTab] = useState<Tab>('apps');
   const [accessEnabled, setAccessEnabled] = useState(false);
+  const [usageEnabled, setUsageEnabled] = useState(false);
   const [installedApps, setInstalledApps] = useState<{ name: string; packageName: string; icon: string }[]>([]);
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([]);
 
-  // App routine modal
-  const [showCreate, setShowCreate] = useState(false);
+  // Routine modal
+  const [showCreate, setShowCreate]     = useState(false);
   const [showAppPicker, setShowAppPicker] = useState(false);
-  const [appSearch, setAppSearch] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [appSearch, setAppSearch]       = useState('');
+  const [editingId, setEditingId]       = useState<string | null>(null);
 
   // Website modal
   const [showAddWebsite, setShowAddWebsite] = useState(false);
-  const [websiteInput, setWebsiteInput] = useState('');
+  const [websiteInput, setWebsiteInput]     = useState('');
 
-  // Form state
-  const [rName, setRName] = useState('');
-  const [rStart, setRStart] = useState('09:00');
-  const [rEnd, setREnd] = useState('11:00');
-  const [rDays, setRDays] = useState<number[]>([]);
-  const [rApps, setRApps] = useState<string[]>([]);
+  // Time limit modal
+  const [showLimitModal, setShowLimitModal]   = useState(false);
+  const [limitPickerFor, setLimitPickerFor]   = useState<'new' | string>('new');
+  const [limitAppSearch, setLimitAppSearch]   = useState('');
+  const [limitSelectedApp, setLimitSelectedApp] = useState<{ name: string; packageName: string; icon: string } | null>(null);
+  const [limitMinutes, setLimitMinutes]       = useState(60);
+
+  // Routine form
+  const [rName, setRName]     = useState('');
+  const [rStart, setRStart]   = useState('09:00');
+  const [rEnd, setREnd]       = useState('11:00');
+  const [rDays, setRDays]     = useState<number[]>([]);
+  const [rApps, setRApps]     = useState<string[]>([]);
   const [rShorts, setRShorts] = useState(false);
-  const [rHard, setRHard] = useState(false);
-  const [rAdmin, setRAdmin] = useState(false);
+  const [rHard, setRHard]     = useState(false);
+  const [rAdmin, setRAdmin]   = useState(false);
 
   useFocusEffect(useCallback(() => {
-    AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => setAccessEnabled(false));
+    AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
+    AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
     AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
   }, []));
 
-  const loadApps = async () => {
+  const loadApps = async (forPicker: 'routine' | 'limit' = 'routine') => {
     try {
-      if (installedApps.length === 0) {
-        const apps = await AppBlocking.getInstalledApps();
+      let apps = installedApps;
+      if (apps.length === 0) {
+        apps = await AppBlocking.getInstalledApps();
         setInstalledApps(apps);
       }
-      setShowAppPicker(true);
+      if (forPicker === 'limit') {
+        setLimitPickerFor('new');
+        setLimitSelectedApp(null);
+        setLimitMinutes(60);
+        setLimitAppSearch('');
+        setShowLimitModal(true);
+      } else {
+        setShowAppPicker(true);
+      }
     } catch {
       Alert.alert('Error', 'Could not load installed apps.');
     }
@@ -167,14 +294,82 @@ export default function AppBlockScreen() {
     else addBlockRoutine(routine);
     setShowCreate(false);
     resetForm();
+    // Immediately push to native. We capture 'routine' and 'editingId' in closure
+    // to avoid stale state. The AccessibilityService SharedPreferences listener
+    // picks this up instantly and calls syncFromRoutines().
+    const capturedRoutine = routine;
+    const capturedEditingId = editingId;
+    const capturedCurrent = state.blockRoutines;
+    setTimeout(() => {
+      try {
+        if (NativeModules.AppBlockingModule) {
+          const allRoutines = capturedEditingId
+            ? capturedCurrent.map(r => r.id === capturedRoutine.id ? capturedRoutine : r)
+            : [...capturedCurrent, capturedRoutine];
+          NativeModules.AppBlockingModule.saveRoutines(JSON.stringify(allRoutines));
+        }
+      } catch (_) {}
+    }, 100);
+  };
+
+  const saveTimeLimit = () => {
+    if (!limitSelectedApp) {
+      Alert.alert('Select an app', 'Please select an app to set a time limit for.');
+      return;
+    }
+    if (limitMinutes < 15) {
+      Alert.alert('Too short', 'Minimum time limit is 15 minutes.');
+      return;
+    }
+    const existing = state.timeLimits?.find(t => t.packageName === limitSelectedApp.packageName);
+    if (existing && limitPickerFor === 'new') {
+      const updated: AppTimeLimit = { ...existing, limitMinutes, enabled: true };
+      updateTimeLimit(updated);
+    } else if (limitPickerFor !== 'new') {
+      const tl = state.timeLimits?.find(t => t.id === limitPickerFor);
+      if (tl) updateTimeLimit({ ...tl, limitMinutes });
+    } else {
+      addTimeLimit({
+        id: Date.now().toString(),
+        packageName: limitSelectedApp.packageName,
+        appName: limitSelectedApp.name,
+        limitMinutes,
+        enabled: true,
+      });
+    }
+    setShowLimitModal(false);
+  };
+
+  const handleAdminToggle = async (v: boolean) => {
+    if (v) {
+      setRHard(true);
+      const isActive = await AppBlocking.isDeviceAdminActive();
+      if (!isActive) {
+        Alert.alert(
+          'Device Admin Required',
+          'Focus On needs Device Admin permission so it cannot be uninstalled during active blocks. You will be taken to the permission screen.',
+          [
+            { text: 'Grant Permission', onPress: async () => {
+                await AppBlocking.requestDeviceAdmin();
+                setRAdmin(true);
+              }
+            },
+            { text: 'Cancel', style: 'cancel', onPress: () => setRAdmin(false) },
+          ]
+        );
+      } else {
+        setRAdmin(true);
+      }
+    } else {
+      setRAdmin(false);
+    }
   };
 
   const addWebsite = () => {
     const domain = AppBlocking.normalizeDomain(websiteInput.trim());
     if (!domain) return;
     if (blockedWebsites.includes(domain)) {
-      Alert.alert('Already blocked', `${domain} is already in the list.`);
-      return;
+      Alert.alert('Already blocked', `${domain} is already in the list.`); return;
     }
     const updated = [...blockedWebsites, domain];
     setBlockedWebsites(updated);
@@ -197,12 +392,29 @@ export default function AppBlockScreen() {
   };
 
   const getApp = (pkg: string) => installedApps.find(a => a.packageName === pkg);
-
   const filteredApps = installedApps.filter(a =>
-    !appSearch ||
-    a.name.toLowerCase().includes(appSearch.toLowerCase()) ||
+    !appSearch || a.name.toLowerCase().includes(appSearch.toLowerCase()) ||
     a.packageName.toLowerCase().includes(appSearch.toLowerCase())
   );
+  const filteredLimitApps = installedApps.filter(a =>
+    !limitAppSearch || a.name.toLowerCase().includes(limitAppSearch.toLowerCase())
+  );
+
+  const timeLimits = state.timeLimits || [];
+
+  const formatDuration = (mins: number) => {
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
+  // Tab labels
+  const tabInfo: { key: Tab; icon: string; label: string }[] = [
+    { key: 'apps', icon: 'shield', label: `Routines${state.blockRoutines.length > 0 ? ` (${state.blockRoutines.length})` : ''}` },
+    { key: 'websites', icon: 'globe', label: `Websites${blockedWebsites.length > 0 ? ` (${blockedWebsites.length})` : ''}` },
+    { key: 'limits', icon: 'timer', label: `Limits${timeLimits.length > 0 ? ` (${timeLimits.length})` : ''}` },
+  ];
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
@@ -217,6 +429,7 @@ export default function AppBlockScreen() {
           style={[styles.addBtn, { backgroundColor: c.accent }]}
           onPress={() => {
             if (activeTab === 'websites') { setShowAddWebsite(true); return; }
+            if (activeTab === 'limits') { loadApps('limit'); return; }
             if (!accessEnabled) {
               Alert.alert('Permission needed',
                 'Enable Accessibility permission so Focus On can block apps.',
@@ -228,7 +441,9 @@ export default function AppBlockScreen() {
           }}
         >
           <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.addTxt}>{activeTab === 'websites' ? 'Add Site' : 'New'}</Text>
+          <Text style={styles.addTxt}>
+            {activeTab === 'websites' ? 'Add Site' : activeTab === 'limits' ? 'Set Limit' : 'New'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -249,18 +464,14 @@ export default function AppBlockScreen() {
 
       {/* Tab bar */}
       <View style={[styles.tabBar, { backgroundColor: c.bgSecondary }]}>
-        {(['apps', 'websites'] as Tab[]).map(tab => (
-          <TouchableOpacity key={tab} style={[styles.tabBtn,
-            activeTab === tab && { backgroundColor: c.bgCard, borderRadius: RADIUS.md }]}
-            onPress={() => setActiveTab(tab)}>
-            <Ionicons
-              name={tab === 'apps' ? 'shield' : 'globe'}
-              size={15}
-              color={activeTab === tab ? c.accent : c.textMuted}
-            />
-            <Text style={[styles.tabTxt, { color: activeTab === tab ? c.accent : c.textMuted,
-              fontWeight: activeTab === tab ? '700' : '500' }]}>
-              {tab === 'apps' ? `App Routines${state.blockRoutines.length > 0 ? ` (${state.blockRoutines.length})` : ''}` : `Websites${blockedWebsites.length > 0 ? ` (${blockedWebsites.length})` : ''}`}
+        {tabInfo.map(tab => (
+          <TouchableOpacity key={tab.key}
+            style={[styles.tabBtn, activeTab === tab.key && { backgroundColor: c.bgCard, borderRadius: RADIUS.md }]}
+            onPress={() => setActiveTab(tab.key)}>
+            <Ionicons name={tab.icon as any} size={13} color={activeTab === tab.key ? c.accent : c.textMuted} />
+            <Text style={[styles.tabTxt, { color: activeTab === tab.key ? c.accent : c.textMuted,
+              fontWeight: activeTab === tab.key ? '700' : '500' }]}>
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -268,7 +479,7 @@ export default function AppBlockScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── APP ROUTINES TAB ── */}
+        {/* ── APP ROUTINES ── */}
         {activeTab === 'apps' && (
           <>
             {state.blockRoutines.length === 0 ? (
@@ -285,9 +496,7 @@ export default function AppBlockScreen() {
                 return (
                   <Animated.View key={r.id} entering={FadeInDown.delay(i * 60).springify()}>
                     <View style={[styles.routineCard, {
-                      backgroundColor: c.bgCard,
-                      borderLeftColor: active ? c.success : c.accent,
-                    }]}>
+                      backgroundColor: c.bgCard, borderLeftColor: active ? c.success : c.accent }]}>
                       {active && (
                         <View style={[styles.activePill, { backgroundColor: c.success + '18' }]}>
                           <View style={[styles.activeDot, { backgroundColor: c.success }]} />
@@ -304,7 +513,6 @@ export default function AppBlockScreen() {
                             {r.startTime} – {r.endTime}
                             {r.days.length > 0 ? ` · ${r.days.map(d => DAY_NAMES[d]).join(', ')}` : ' · Every day'}
                           </Text>
-                          {/* Badges */}
                           <View style={styles.badgeRow}>
                             <View style={[styles.badge, { backgroundColor: c.destructive + '15' }]}>
                               <Ionicons name="apps" size={10} color={c.destructive} />
@@ -322,15 +530,18 @@ export default function AppBlockScreen() {
                                 <Text style={[styles.badgeTxt, { color: c.destructive }]}>Hard</Text>
                               </View>
                             )}
+                            {r.deviceAdmin && (
+                              <View style={[styles.badge, { backgroundColor: '#DC2626' + '15' }]}>
+                                <Ionicons name="shield-checkmark" size={10} color="#DC2626" />
+                                <Text style={[styles.badgeTxt, { color: '#DC2626' }]}>Admin</Text>
+                              </View>
+                            )}
                           </View>
-                          {/* App icons preview */}
                           {installedApps.length > 0 && (
                             <View style={styles.iconPreviewRow}>
                               {r.blockedApps.slice(0, 5).map(pkg => {
                                 const app = getApp(pkg);
-                                return app ? (
-                                  <AppIcon key={pkg} icon={app.icon} name={app.name} size={28} />
-                                ) : null;
+                                return app ? <AppIcon key={pkg} icon={app.icon} name={app.name} size={28} /> : null;
                               })}
                               {r.blockedApps.length > 5 && (
                                 <View style={[styles.moreChip, { backgroundColor: c.bgSecondary }]}>
@@ -340,22 +551,18 @@ export default function AppBlockScreen() {
                             </View>
                           )}
                         </View>
-                        <Switch
-                          value={r.enabled}
+                        <Switch value={r.enabled}
                           onValueChange={v => updateBlockRoutine({ ...r, enabled: v })}
                           trackColor={{ true: c.accent }}
-                          style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-                        />
+                          style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }} />
                       </View>
-                      {/* Action buttons */}
                       <View style={[styles.actionRow, { borderTopColor: c.border }]}>
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.accentSoft }]}
                           onPress={() => openEdit(r)}>
                           <Ionicons name="pencil-outline" size={14} color={c.accent} />
                           <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Edit</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, { backgroundColor: c.destructive + '12' }]}
+                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.destructive + '12' }]}
                           onPress={() => Alert.alert('Delete?', `Delete "${r.name}"?`, [
                             { text: 'Cancel', style: 'cancel' },
                             { text: 'Delete', style: 'destructive', onPress: () => deleteBlockRoutine(r.id) },
@@ -372,7 +579,7 @@ export default function AppBlockScreen() {
           </>
         )}
 
-        {/* ── WEBSITES TAB ── */}
+        {/* ── WEBSITES ── */}
         {activeTab === 'websites' && (
           <>
             <View style={[styles.webInfoCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '30' }]}>
@@ -381,7 +588,6 @@ export default function AppBlockScreen() {
                 Blocks websites in Chrome, Firefox, Samsung Browser and more. Accessibility permission required.
               </Text>
             </View>
-
             {blockedWebsites.length === 0 ? (
               <View style={styles.empty}>
                 <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
@@ -394,7 +600,7 @@ export default function AppBlockScreen() {
               blockedWebsites.map((domain, i) => (
                 <Animated.View key={domain} entering={FadeInDown.delay(i * 50).springify()}>
                   <View style={[styles.webCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
-                    <View style={[styles.webIconBox, { backgroundColor: '#E53E3E' + '15' }]}>
+                    <View style={[styles.webIconBox, { backgroundColor: '#E53E3E15' }]}>
                       <Ionicons name="globe" size={18} color="#E53E3E" />
                     </View>
                     <Text style={[styles.webDomain, { color: c.text }]}>{domain}</Text>
@@ -402,6 +608,83 @@ export default function AppBlockScreen() {
                       { text: 'Cancel', style: 'cancel' },
                       { text: 'Remove', style: 'destructive', onPress: () => removeWebsite(domain) },
                     ])}>
+                      <Ionicons name="trash-outline" size={18} color={c.destructive} />
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              ))
+            )}
+          </>
+        )}
+
+        {/* ── TIME LIMITS ── */}
+        {activeTab === 'limits' && (
+          <>
+            {/* Usage permission warning */}
+            {!usageEnabled && (
+              <TouchableOpacity style={[styles.warnCard, { backgroundColor: '#EDE9FE', marginBottom: 12 }]}
+                onPress={() => AppBlocking.openUsageSettings()}>
+                <View style={[styles.warnIconBox, { backgroundColor: '#DDD6FE' }]}>
+                  <Ionicons name="time" size={18} color="#7C3AED" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.warnTitle, { color: '#4C1D95' }]}>Usage Access Required</Text>
+                  <Text style={[styles.warnSub, { color: '#6D28D9' }]}>Tap to grant — needed to track daily app usage</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#7C3AED" />
+              </TouchableOpacity>
+            )}
+
+            <View style={[styles.webInfoCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '30' }]}>
+              <Ionicons name="information-circle" size={18} color={c.accent} />
+              <Text style={[styles.webInfoTxt, { color: c.accent }]}>
+                Set a daily time limit per app. When the limit is reached, the app will be blocked for the rest of the day.
+              </Text>
+            </View>
+
+            {timeLimits.length === 0 ? (
+              <View style={styles.empty}>
+                <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
+                  <Ionicons name="timer-outline" size={40} color={c.accent} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: c.text }]}>No time limits</Text>
+                <Text style={[styles.emptySub, { color: c.textMuted }]}>Set daily time limits for distracting apps</Text>
+              </View>
+            ) : (
+              timeLimits.map((tl, i) => (
+                <Animated.View key={tl.id} entering={FadeInDown.delay(i * 50).springify()}>
+                  <View style={[styles.webCard, { backgroundColor: c.bgCard, borderColor: c.border, paddingVertical: 12 }]}>
+                    {installedApps.length > 0 ? (
+                      <AppIcon
+                        icon={installedApps.find(a => a.packageName === tl.packageName)?.icon || ''}
+                        name={tl.appName} size={36} />
+                    ) : (
+                      <View style={[styles.webIconBox, { backgroundColor: c.accentSoft }]}>
+                        <Ionicons name="timer" size={18} color={c.accent} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.webDomain, { color: c.text }]}>{tl.appName}</Text>
+                      <Text style={{ color: c.textMuted, fontSize: 12 }}>
+                        Daily limit: <Text style={{ color: c.accent, fontWeight: '700' }}>{formatDuration(tl.limitMinutes)}</Text>
+                      </Text>
+                    </View>
+                    <Switch value={tl.enabled}
+                      onValueChange={v => updateTimeLimit({ ...tl, enabled: v })}
+                      trackColor={{ true: c.accent }}
+                      style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }} />
+                    <TouchableOpacity onPress={() => {
+                      setLimitPickerFor(tl.id);
+                      setLimitMinutes(tl.limitMinutes);
+                      setLimitSelectedApp({ name: tl.appName, packageName: tl.packageName, icon: '' });
+                      setShowLimitModal(true);
+                    }} style={{ marginLeft: 4 }}>
+                      <Ionicons name="pencil-outline" size={18} color={c.accent} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Alert.alert('Remove?', `Remove limit for ${tl.appName}?`, [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => deleteTimeLimit(tl.id) },
+                    ])} style={{ marginLeft: 4 }}>
                       <Ionicons name="trash-outline" size={18} color={c.destructive} />
                     </TouchableOpacity>
                   </View>
@@ -456,8 +739,8 @@ export default function AppBlockScreen() {
               {/* Options */}
               {[
                 { icon: 'videocam-off' as const, iconColor: '#8B5CF6', label: 'Block Shorts / Reels', sub: 'YouTube Shorts, Instagram Reels, Snapchat Spotlight', val: rShorts, set: setRShorts, color: '#8B5CF6' },
-                { icon: 'lock-closed' as const, iconColor: c.destructive, label: 'Hard Block', sub: 'Cannot unblock without uninstalling', val: rHard, set: setRHard, color: c.destructive },
-                { icon: 'shield-checkmark' as const, iconColor: '#DC2626', label: 'Device Admin', sub: 'Strongest — cannot uninstall either', val: rAdmin, set: (v: boolean) => { if (v) setRHard(true); setRAdmin(v); }, color: '#DC2626' },
+                { icon: 'lock-closed' as const, iconColor: c.destructive, label: 'Hard Block', sub: 'Overlay cannot be dismissed — only ends when time is up', val: rHard, set: setRHard, color: c.destructive },
+                { icon: 'shield-checkmark' as const, iconColor: '#DC2626', label: 'Device Admin', sub: 'Strongest — Focus On cannot be uninstalled during block', val: rAdmin, set: handleAdminToggle, color: '#DC2626' },
               ].map((opt, i) => (
                 <View key={i} style={[styles.optRow, { borderColor: c.border, backgroundColor: c.bg }]}>
                   <View style={[styles.optIconBox, { backgroundColor: opt.iconColor + '18' }]}>
@@ -472,7 +755,7 @@ export default function AppBlockScreen() {
               ))}
 
               <TouchableOpacity style={[styles.pickAppsBtn, { backgroundColor: c.accentSoft, borderColor: c.accent }]}
-                onPress={loadApps}>
+                onPress={() => loadApps('routine')}>
                 <Ionicons name="apps" size={18} color={c.accent} />
                 <Text style={[styles.pickAppsTxt, { color: c.accent }]}>
                   {rApps.length > 0 ? `${rApps.length} app${rApps.length > 1 ? 's' : ''} selected` : 'Select apps to block'}
@@ -480,7 +763,8 @@ export default function AppBlockScreen() {
                 <Ionicons name="chevron-forward" size={16} color={c.accent} />
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: c.accent, opacity: rName.trim() && rApps.length > 0 ? 1 : 0.45 }]}
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: c.accent,
+                opacity: rName.trim() && rApps.length > 0 ? 1 : 0.45 }]}
                 onPress={saveRoutine}>
                 <Ionicons name={editingId ? 'checkmark-circle' : 'shield-checkmark'} size={18} color="#fff" />
                 <Text style={styles.saveTxt}>{editingId ? 'Update Routine' : 'Save Routine'}</Text>
@@ -500,9 +784,7 @@ export default function AppBlockScreen() {
               <View style={{ width: 22 }} />
               <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps</Text>
               <TouchableOpacity onPress={() => setShowAppPicker(false)}>
-                <Text style={{ color: c.accent, fontWeight: '800', fontFamily: FONTS.extrabold, fontSize: 15 }}>
-                  Done ({rApps.length})
-                </Text>
+                <Text style={{ color: c.accent, fontWeight: '800', fontSize: 15 }}>Done ({rApps.length})</Text>
               </TouchableOpacity>
             </View>
             <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
@@ -512,16 +794,14 @@ export default function AppBlockScreen() {
                 value={appSearch} onChangeText={setAppSearch} />
             </View>
             <FlatList
-              data={filteredApps}
-              keyExtractor={i => i.packageName}
+              data={filteredApps} keyExtractor={i => i.packageName}
               style={{ maxHeight: 400 }}
               renderItem={({ item }) => {
                 const sel = rApps.includes(item.packageName);
                 return (
                   <TouchableOpacity
                     style={[styles.appItem, { backgroundColor: sel ? c.accentSoft : 'transparent', borderColor: c.border }]}
-                    onPress={() => setRApps(a => sel ? a.filter(x => x !== item.packageName) : [...a, item.packageName])}
-                  >
+                    onPress={() => setRApps(a => sel ? a.filter(x => x !== item.packageName) : [...a, item.packageName])}>
                     <AppIcon icon={item.icon} name={item.name} size={40} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.appName, { color: c.text }]}>{item.name}</Text>
@@ -534,6 +814,73 @@ export default function AppBlockScreen() {
                 );
               }}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Time Limit Modal ── */}
+      <Modal visible={showLimitModal} transparent animationType="slide"
+        onRequestClose={() => setShowLimitModal(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
+            <View style={[styles.handle, { backgroundColor: c.border }]} />
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity onPress={() => setShowLimitModal(false)}>
+                <Ionicons name="close" size={22} color={c.textMuted} />
+              </TouchableOpacity>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>Set Time Limit</Text>
+              <View style={{ width: 22 }} />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* App selector (only for new limits) */}
+              {limitPickerFor === 'new' && (
+                <>
+                  <Text style={[styles.lbl, { color: c.textMuted }]}>Select App</Text>
+                  <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border, marginBottom: 10 }]}>
+                    <Ionicons name="search-outline" size={16} color={c.textMuted} />
+                    <TextInput style={{ color: c.text, flex: 1, marginLeft: 8 }}
+                      placeholder="Search apps..." placeholderTextColor={c.textFaint}
+                      value={limitAppSearch} onChangeText={setLimitAppSearch} />
+                  </View>
+                  <FlatList
+                    data={filteredLimitApps.slice(0, 30)} keyExtractor={i => i.packageName}
+                    style={{ maxHeight: 200 }} scrollEnabled
+                    renderItem={({ item }) => {
+                      const sel = limitSelectedApp?.packageName === item.packageName;
+                      return (
+                        <TouchableOpacity
+                          style={[styles.appItem, { backgroundColor: sel ? c.accentSoft : 'transparent', borderColor: c.border }]}
+                          onPress={() => setLimitSelectedApp(item)}>
+                          <AppIcon icon={item.icon} name={item.name} size={36} />
+                          <Text style={[styles.appName, { color: c.text, flex: 1 }]}>{item.name}</Text>
+                          {sel && <Ionicons name="checkmark-circle" size={20} color={c.accent} />}
+                        </TouchableOpacity>
+                      );
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Selected app info when editing */}
+              {limitPickerFor !== 'new' && limitSelectedApp && (
+                <View style={[styles.appItem, { backgroundColor: c.accentSoft, borderRadius: 12, marginBottom: 8, borderColor: c.accent }]}>
+                  <Ionicons name="timer" size={32} color={c.accent} />
+                  <Text style={[styles.appName, { color: c.text }]}>{limitSelectedApp.name}</Text>
+                </View>
+              )}
+
+              <Text style={[styles.lbl, { color: c.textMuted }]}>Daily Limit</Text>
+              <DurationPicker value={limitMinutes} onChange={setLimitMinutes} colors={c} />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 20,
+                  opacity: (limitSelectedApp || limitPickerFor !== 'new') && limitMinutes >= 15 ? 1 : 0.45 }]}
+                onPress={saveTimeLimit}>
+                <Ionicons name="timer" size={18} color="#fff" />
+                <Text style={styles.saveTxt}>Set Limit</Text>
+              </TouchableOpacity>
+              <View style={{ height: 20 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -551,20 +898,15 @@ export default function AppBlockScreen() {
               <Text style={[styles.sheetTitle, { color: c.text }]}>Block a Website</Text>
               <View style={{ width: 22 }} />
             </View>
-
             <Text style={[styles.lbl, { color: c.textMuted }]}>Website URL or Domain</Text>
             <View style={[styles.webInputRow, { backgroundColor: c.inputBg, borderColor: c.border }]}>
               <Ionicons name="globe-outline" size={18} color={c.textMuted} />
               <TextInput
-                style={{ color: c.text, flex: 1, marginLeft: 10, fontSize: 15, fontFamily: FONTS.regular }}
+                style={{ color: c.text, flex: 1, marginLeft: 10, fontSize: 15 }}
                 placeholder="e.g. facebook.com or https://reddit.com"
                 placeholderTextColor={c.textFaint}
-                value={websiteInput}
-                onChangeText={setWebsiteInput}
-                autoCapitalize="none"
-                keyboardType="url"
-                autoCorrect={false}
-              />
+                value={websiteInput} onChangeText={setWebsiteInput}
+                autoCapitalize="none" keyboardType="url" autoCorrect={false} />
             </View>
             {websiteInput.trim().length > 0 && (
               <Text style={[styles.webPreview, { color: c.textMuted }]}>
@@ -573,19 +915,15 @@ export default function AppBlockScreen() {
                 </Text>
               </Text>
             )}
-
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 20, opacity: websiteInput.trim() ? 1 : 0.45 }]}
-              onPress={addWebsite}
-            >
+              onPress={addWebsite}>
               <Ionicons name="globe" size={18} color="#fff" />
               <Text style={styles.saveTxt}>Block Website</Text>
             </TouchableOpacity>
-
-            {/* Quick add common sites */}
             <Text style={[styles.lbl, { color: c.textMuted, marginTop: 20 }]}>Quick Add</Text>
             <View style={styles.quickAddRow}>
-              {['youtube.com', 'instagram.com', 'facebook.com', 'twitter.com', 'reddit.com', 'tiktok.com'].map(site => (
+              {['youtube.com','instagram.com','facebook.com','twitter.com','reddit.com','tiktok.com'].map(site => (
                 <TouchableOpacity key={site}
                   style={[styles.quickChip, {
                     backgroundColor: blockedWebsites.includes(site) ? c.success + '20' : c.bgSecondary,
@@ -596,15 +934,12 @@ export default function AppBlockScreen() {
                     const updated = [...blockedWebsites, site];
                     setBlockedWebsites(updated);
                     AppBlocking.saveBlockedWebsites(updated);
-                  }}
-                >
+                  }}>
                   {blockedWebsites.includes(site)
                     ? <Ionicons name="checkmark-circle" size={12} color={c.success} />
-                    : <Ionicons name="add-circle-outline" size={12} color={c.textMuted} />
-                  }
+                    : <Ionicons name="add-circle-outline" size={12} color={c.textMuted} />}
                   <Text style={[styles.quickChipTxt, {
-                    color: blockedWebsites.includes(site) ? c.success : c.textMuted,
-                  }]}>{site}</Text>
+                    color: blockedWebsites.includes(site) ? c.success : c.textMuted }]}>{site}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -631,8 +966,8 @@ const styles = StyleSheet.create({
   warnTitle: { fontSize: 13, fontWeight: '700', fontFamily: FONTS.bold },
   warnSub: { fontSize: 11, marginTop: 2 },
   tabBar: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 12, borderRadius: RADIUS.lg, padding: 4 },
-  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
-  tabTxt: { fontSize: 13, fontFamily: FONTS.semibold },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 8 },
+  tabTxt: { fontSize: 11, fontFamily: FONTS.semibold },
   content: { paddingHorizontal: 20, paddingBottom: 100 },
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, gap: 12 },
   emptyIconCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },

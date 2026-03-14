@@ -81,7 +81,8 @@ function InnerLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  useAutoBlocking();
+  const { syncNow } = useAutoBlocking();
+  // syncNow is available for child screens via the native module directly
 
   useEffect(() => {
     if (!ready) return;

@@ -214,39 +214,30 @@ function DatePicker({ value, onChange, colors: c }: {
   );
 }
 
-// ── Simple time picker ────────────────────────────────────────────────────────
+// ── Scroll-wheel time picker (with AM/PM) ────────────────────────────────────
 function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { colors: c } = useTheme();
-  const [h, setH] = useState(() => parseInt(value.split(':')[0]) || 9);
-  const [m, setM] = useState(() => parseInt(value.split(':')[1]) || 0);
-  const emit = (nh: number, nm: number) =>
-    onChange(`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
+  const h24 = parseInt(value.split(':')[0]) || 9;
+  const m   = parseInt(value.split(':')[1]) || 0;
+  const isPM = h24 >= 12;
+  const h12  = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+
+  const hours   = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+  const ampm    = ['AM', 'PM'];
+
+  const emit = (newH12: number, newM: number, newPM: boolean) => {
+    let h = newH12 % 12;
+    if (newPM) h += 12;
+    onChange(`${String(h).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
+  };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View style={{ alignItems: 'center', gap: 2 }}>
-        <TouchableOpacity onPress={() => { const nh = (h+1)%24; setH(nh); emit(nh,m); }}>
-          <Ionicons name="chevron-up" size={16} color={c.accent} />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: c.text, minWidth: 28, textAlign: 'center' }}>
-          {String(h).padStart(2,'0')}
-        </Text>
-        <TouchableOpacity onPress={() => { const nh = (h+23)%24; setH(nh); emit(nh,m); }}>
-          <Ionicons name="chevron-down" size={16} color={c.accent} />
-        </TouchableOpacity>
-      </View>
-      <Text style={{ fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: c.text }}>:</Text>
-      <View style={{ alignItems: 'center', gap: 2 }}>
-        <TouchableOpacity onPress={() => { const nm = (Math.floor(m/5)+1)%12*5; setM(nm); emit(h,nm); }}>
-          <Ionicons name="chevron-up" size={16} color={c.accent} />
-        </TouchableOpacity>
-        <Text style={{ fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: c.text, minWidth: 28, textAlign: 'center' }}>
-          {String(m).padStart(2,'0')}
-        </Text>
-        <TouchableOpacity onPress={() => { const nm = (Math.floor(m/5)+11)%12*5; setM(nm); emit(h,nm); }}>
-          <Ionicons name="chevron-down" size={16} color={c.accent} />
-        </TouchableOpacity>
-      </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+      <ScrollColumn items={hours}   index={h12 - 1}  onIndexChange={i => emit(i + 1, m, isPM)}  width={44} colors={c} />
+      <Text style={{ fontSize: 18, fontWeight: '800', color: c.textMuted, marginBottom: 2 }}>:</Text>
+      <ScrollColumn items={minutes} index={m}         onIndexChange={i => emit(h12, i, isPM)}    width={44} colors={c} />
+      <ScrollColumn items={ampm}    index={isPM ? 1 : 0} onIndexChange={i => emit(h12, m, i === 1)} width={46} colors={c} />
     </View>
   );
 }

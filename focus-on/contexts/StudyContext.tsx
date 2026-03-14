@@ -5,9 +5,10 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AppState, Subject, StudySession,
-  StudyPlan, AppSettings, AppBlockRoutine,
+  StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit,
 } from '@/types/study';
 import { DEFAULT_SETTINGS } from '@/types/study';
+import AppBlocking from '@/modules/AppBlocking';
 
 const STORAGE_KEY = 'focuson_data_v3';
 
@@ -20,6 +21,7 @@ const defaultState: AppState & {
   sessions: [],
   studyPlans: [],
   blockRoutines: [],
+  timeLimits: [],
   settings: DEFAULT_SETTINGS,
   streak: 0,
   xp: 0,
@@ -48,6 +50,9 @@ type Action =
   | { type: 'ADD_ROUTINE'; payload: AppBlockRoutine }
   | { type: 'UPDATE_ROUTINE'; payload: AppBlockRoutine }
   | { type: 'DELETE_ROUTINE'; payload: string }
+  | { type: 'ADD_TIME_LIMIT'; payload: AppTimeLimit }
+  | { type: 'UPDATE_TIME_LIMIT'; payload: AppTimeLimit }
+  | { type: 'DELETE_TIME_LIMIT'; payload: string }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'GAIN_XP'; payload: number }
   | { type: 'COMPLETE_ONBOARDING' };
@@ -148,6 +153,13 @@ function reducer(state: State, action: Action): State {
     case 'DELETE_ROUTINE':
       return { ...state, blockRoutines: state.blockRoutines.filter(r => r.id !== action.payload) };
 
+    case 'ADD_TIME_LIMIT':
+      return { ...state, timeLimits: [...(state.timeLimits || []), action.payload] };
+    case 'UPDATE_TIME_LIMIT':
+      return { ...state, timeLimits: (state.timeLimits || []).map(t => t.id === action.payload.id ? action.payload : t) };
+    case 'DELETE_TIME_LIMIT':
+      return { ...state, timeLimits: (state.timeLimits || []).filter(t => t.id !== action.payload) };
+
     case 'UPDATE_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.payload } };
 
@@ -182,6 +194,9 @@ interface StudyContextValue {
   addBlockRoutine: (r: AppBlockRoutine) => void;
   updateBlockRoutine: (r: AppBlockRoutine) => void;
   deleteBlockRoutine: (id: string) => void;
+  addTimeLimit: (t: AppTimeLimit) => void;
+  updateTimeLimit: (t: AppTimeLimit) => void;
+  deleteTimeLimit: (id: string) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
   gainXp: (amount: number) => { newLevel: number; isLevelUp: boolean };
   completeOnboarding: () => void;
@@ -246,6 +261,16 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       store.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+      // Sync time limits to native layer
+      if (state.timeLimits && state.timeLimits.length >= 0) {
+        AppBlocking.saveTimeLimits(
+          state.timeLimits.map(t => ({
+            packageName: t.packageName,
+            limitMinutes: t.limitMinutes,
+            enabled: t.enabled,
+          }))
+        );
+      }
     }, 300);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -274,6 +299,9 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
   const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
   const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
+  const addTimeLimit = useCallback((t: AppTimeLimit) => dispatch({ type: 'ADD_TIME_LIMIT', payload: t }), []);
+  const updateTimeLimit = useCallback((t: AppTimeLimit) => dispatch({ type: 'UPDATE_TIME_LIMIT', payload: t }), []);
+  const deleteTimeLimit = useCallback((id: string) => dispatch({ type: 'DELETE_TIME_LIMIT', payload: id }), []);
   const updateSettings = useCallback((s: Partial<AppSettings>) => dispatch({ type: 'UPDATE_SETTINGS', payload: s }), []);
 
   const gainXp = useCallback((amount: number): { newLevel: number; isLevelUp: boolean } => {
@@ -329,6 +357,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       addSession,
       addStudyPlan, updateStudyPlan, deleteStudyPlan, completePlanTask,
       addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
+      addTimeLimit, updateTimeLimit, deleteTimeLimit,
       updateSettings,
       gainXp,
       completeOnboarding,

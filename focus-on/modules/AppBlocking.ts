@@ -4,32 +4,19 @@ const mod = () => NativeModules.AppBlockingModule;
 
 const AppBlocking = {
 
-  // ── Installed apps (now includes icon as base64) ──────────────────────────
-
   async getInstalledApps(): Promise<{ name: string; packageName: string; icon: string }[]> {
     if (Platform.OS !== 'android' || !mod()) return [];
-    try {
-      return JSON.parse(await mod().getInstalledApps());
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(await mod().getInstalledApps()); } catch { return []; }
   },
 
-  // ── App blocking ──────────────────────────────────────────────────────────
-
-  startBlocking(
-    blockedApps: string[],
-    blockShorts = false,
-    hardBlock = false,
-    deviceAdmin = false
-  ): void {
+  startBlocking(blockedApps: string[], blockShorts = false, hardBlock = false, deviceAdmin = false): void {
     if (Platform.OS !== 'android' || !mod()) return;
     try {
       const finalApps = [...blockedApps];
       if (blockShorts) {
-        ['com.instagram.android', 'com.google.android.youtube',
-         'com.facebook.katana', 'com.facebook.orca',
-         'com.snapchat.android', 'com.zhiliaoapp.musically'].forEach(pkg => {
+        ['com.instagram.android','com.google.android.youtube',
+         'com.facebook.katana','com.facebook.orca',
+         'com.snapchat.android','com.zhiliaoapp.musically'].forEach(pkg => {
           if (!blockedApps.includes(pkg)) finalApps.push(`reels:${pkg}`);
         });
       }
@@ -72,18 +59,8 @@ const AppBlocking = {
     try { mod().setProStatus(isPro); } catch {}
   },
 
-  async requestDeviceAdmin(): Promise<boolean> {
-    if (Platform.OS !== 'android' || !mod()) return false;
-    try { return await mod().requestDeviceAdmin(); } catch { return false; }
-  },
-
   // ── Website blocking ──────────────────────────────────────────────────────
 
-  /**
-   * Save the full list of blocked websites/domains to native layer.
-   * Call this whenever the list changes.
-   * @param domains e.g. ["facebook.com", "reddit.com", "twitter.com"]
-   */
   saveBlockedWebsites(domains: string[]): void {
     if (Platform.OS !== 'android' || !mod()) return;
     try { mod().saveBlockedWebsites(JSON.stringify(domains)); } catch {}
@@ -94,10 +71,6 @@ const AppBlocking = {
     try { return JSON.parse(await mod().getBlockedWebsites()); } catch { return []; }
   },
 
-  /**
-   * Clean and normalize a domain input from user.
-   * "https://www.facebook.com/feed" → "facebook.com"
-   */
   normalizeDomain(input: string): string {
     try {
       const withScheme = input.startsWith('http') ? input : `https://${input}`;
@@ -106,6 +79,47 @@ const AppBlocking = {
     } catch {
       return input.replace(/^www\./, '').toLowerCase().trim();
     }
+  },
+
+  // ── Time limits ───────────────────────────────────────────────────────────
+
+  saveTimeLimits(limits: { packageName: string; limitMinutes: number; enabled: boolean }[]): void {
+    if (Platform.OS !== 'android' || !mod()) return;
+    try { mod().saveTimeLimits(JSON.stringify(limits)); } catch {}
+  },
+
+  async getTimeLimits(): Promise<{ packageName: string; limitMinutes: number; enabled: boolean }[]> {
+    if (Platform.OS !== 'android' || !mod()) return [];
+    try { return JSON.parse(await mod().getTimeLimits()); } catch { return []; }
+  },
+
+  // ── Usage stats ───────────────────────────────────────────────────────────
+
+  async hasUsagePermission(): Promise<boolean> {
+    if (Platform.OS !== 'android' || !mod()) return false;
+    try { return await mod().hasUsagePermission(); } catch { return false; }
+  },
+
+  openUsageSettings(): void {
+    if (Platform.OS !== 'android' || !mod()) return;
+    try { mod().openUsageSettings(); } catch {}
+  },
+
+  async getAppUsageStats(): Promise<{ packageName: string; name: string; minutes: number }[]> {
+    if (Platform.OS !== 'android' || !mod()) return [];
+    try { return JSON.parse(await mod().getAppUsageStats()); } catch { return []; }
+  },
+
+  // ── Device Admin ──────────────────────────────────────────────────────────
+
+  async requestDeviceAdmin(): Promise<boolean> {
+    if (Platform.OS !== 'android' || !mod()) return false;
+    try { return await mod().requestDeviceAdmin(); } catch { return false; }
+  },
+
+  async isDeviceAdminActive(): Promise<boolean> {
+    if (Platform.OS !== 'android' || !mod()) return false;
+    try { return await mod().isDeviceAdminActive(); } catch { return false; }
   },
 };
 

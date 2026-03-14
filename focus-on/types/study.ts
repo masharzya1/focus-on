@@ -70,6 +70,14 @@ export interface PlannedTask {
   type: 'study' | 'revision';
 }
 
+export interface AppTimeLimit {
+  id: string;
+  packageName: string;
+  appName: string;
+  limitMinutes: number;
+  enabled: boolean;
+}
+
 export interface AppBlockRoutine {
   id: string;
   name: string;
@@ -98,6 +106,7 @@ export interface AppState {
   sessions: StudySession[];
   studyPlans: StudyPlan[];
   blockRoutines: AppBlockRoutine[];
+  timeLimits: AppTimeLimit[];
   settings: AppSettings;
   streak: number;
   lastStudyDate?: string;

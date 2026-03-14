@@ -1,8 +1,6 @@
 package PACKAGE_NAME_PLACEHOLDER
 
 import android.app.Activity
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -16,17 +14,18 @@ import android.widget.TextView
 class BlockOverlayActivity : Activity() {
 
     companion object {
-        const val EXTRA_APP_NAME = "blocked_app_name"
-        const val EXTRA_HARD_BLOCK = "hard_block"
-        const val EXTRA_DEVICE_ADMIN = "device_admin"
+        const val EXTRA_APP_NAME      = "blocked_app_name"
+        const val EXTRA_HARD_BLOCK    = "hard_block"
+        const val EXTRA_DEVICE_ADMIN  = "device_admin"
+        const val EXTRA_TIME_LIMIT    = "time_limit_reached"
+        const val EXTRA_MINUTES_USED  = "minutes_used"
+        const val EXTRA_LIMIT_MINUTES = "limit_minutes"
 
         private val QUOTES = arrayOf(
             "You're capable of more than this. 💪",
-            "Hold on for 10 seconds, then get back to work.",
             "Your future self will thank you for this moment.",
             "Distraction is the enemy of your dream.",
             "1 hour of focus = 3 hours of random browsing.",
-            "Do you really need to check this right now?",
             "Deep work > shallow scroll.",
             "Your goal matters more than this app.",
             "Focus. You've got this. 🎯",
@@ -48,82 +47,118 @@ class BlockOverlayActivity : Activity() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         )
 
-        val prefs = getSharedPreferences(AppBlockerAccessibilityService.PREFS_NAME, MODE_PRIVATE)
-        val isPro = prefs.getBoolean("is_pro", false)
+        val prefs     = getSharedPreferences(AppBlockerAccessibilityService.PREFS_NAME, MODE_PRIVATE)
+        val isPro     = prefs.getBoolean("is_pro", false)
         val hardBlock = intent.getBooleanExtra(EXTRA_HARD_BLOCK, false)
-        val deviceAdmin = intent.getBooleanExtra(EXTRA_DEVICE_ADMIN, false)
+        val devAdmin  = intent.getBooleanExtra(EXTRA_DEVICE_ADMIN, false)
+        val timeLimit = intent.getBooleanExtra(EXTRA_TIME_LIMIT, false)
+        val minsUsed  = intent.getIntExtra(EXTRA_MINUTES_USED, 0)
+        val limitMins = intent.getIntExtra(EXTRA_LIMIT_MINUTES, 0)
+        val appName   = intent.getStringExtra(EXTRA_APP_NAME) ?: "this app"
 
         buildUI(
-            appName = intent.getStringExtra(EXTRA_APP_NAME) ?: "this app",
-            quote = QUOTES.random(),
-            showAd = !isPro,
-            hardBlock = hardBlock,
-            deviceAdmin = deviceAdmin
+            appName    = appName,
+            showAd     = !isPro,
+            hardBlock  = hardBlock || timeLimit,   // time limit also = permanent block
+            deviceAdmin = devAdmin,
+            timeLimit  = timeLimit,
+            minsUsed   = minsUsed,
+            limitMins  = limitMins
         )
     }
 
-    private fun buildUI(appName: String, quote: String, showAd: Boolean,
-                        hardBlock: Boolean, deviceAdmin: Boolean) {
-        val dp = resources.displayMetrics.density
-        val root = FrameLayout(this).apply { setBackgroundColor(0xF0_0F0F1A.toInt()) }
+    private fun buildUI(
+        appName: String, showAd: Boolean,
+        hardBlock: Boolean, deviceAdmin: Boolean,
+        timeLimit: Boolean, minsUsed: Int, limitMins: Int
+    ) {
+        val dp   = resources.displayMetrics.density
+        val root = FrameLayout(this).apply { setBackgroundColor(0xF2_0A0A12.toInt()) }
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            gravity     = Gravity.CENTER
             setPadding((32*dp).toInt(), (40*dp).toInt(), (32*dp).toInt(), (40*dp).toInt())
         }
 
+        // Icon
         card.addView(TextView(this).apply {
-            text = "\uD83D\uDD12"; textSize = 52f; gravity = Gravity.CENTER
+            text     = if (timeLimit) "⏱️" else "🔒"
+            textSize = 52f
+            gravity  = Gravity.CENTER
         })
 
+        // Title
         card.addView(TextView(this).apply {
-            text = "$appName is blocked"
-            textSize = 14f
+            text      = if (timeLimit) "Daily limit reached" else "$appName is blocked"
+            textSize  = if (timeLimit) 20f else 14f
             setTextColor(0xFF_6C63FF.toInt())
-            gravity = Gravity.CENTER
+            gravity   = Gravity.CENTER
             setPadding(0, (16*dp).toInt(), 0, (4*dp).toInt())
-            letterSpacing = 0.08f
+            letterSpacing = 0.05f
         })
 
+        // Body message
+        val bodyText = when {
+            timeLimit  -> "You've used $appName for ${minsUsed}m today.\nDaily limit: ${limitMins}m\n\nCome back tomorrow. 💪"
+            hardBlock  -> "This block is active until the scheduled end time.\nStay focused — you're doing great."
+            else       -> QUOTES.random()
+        }
         card.addView(TextView(this).apply {
-            text = quote; textSize = 22f
+            text = bodyText; textSize = 18f
             setTextColor(0xFF_FFFFFF.toInt())
             gravity = Gravity.CENTER
-            setLineSpacing(0f, 1.4f)
-            setPadding(0, (8*dp).toInt(), 0, (32*dp).toInt())
+            setLineSpacing(0f, 1.45f)
+            setPadding(0, (10*dp).toInt(), 0, (28*dp).toInt())
         })
 
-        // Hard block / Device admin label
-        if (hardBlock || deviceAdmin) {
+        // Badge
+        val badgeText = when {
+            timeLimit   -> "⏱️ Time limit enforced"
+            deviceAdmin -> "🛡️ Device Admin block active"
+            hardBlock   -> "🔒 Hard block — cannot dismiss"
+            else        -> null
+        }
+        if (badgeText != null) {
             card.addView(TextView(this).apply {
-                text = if (deviceAdmin) "🛡️ Device Admin block active" else "🔒 Hard block active"
-                textSize = 11f
+                text = badgeText; textSize = 12f
                 setTextColor(0xFF_8B85C1.toInt())
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, (16*dp).toInt())
+                setPadding((12*dp).toInt(), (6*dp).toInt(), (12*dp).toInt(), (16*dp).toInt())
             })
         }
 
-        val pb = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 1000; progress = 1000
-            progressDrawable?.setTint(0xFF_6C63FF.toInt())
-            layoutParams = LinearLayout.LayoutParams((260*dp).toInt(), (6*dp).toInt())
-                .also { it.gravity = Gravity.CENTER_HORIZONTAL }
-        }
-        progressBarRef = pb
-        card.addView(pb)
+        // ── Countdown only for soft (non-hard) blocks ────────────────
+        if (!hardBlock) {
+            val pb = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 1000; progress = 1000
+                progressDrawable?.setTint(0xFF_6C63FF.toInt())
+                layoutParams = LinearLayout.LayoutParams((260*dp).toInt(), (6*dp).toInt())
+                    .also { it.gravity = Gravity.CENTER_HORIZONTAL }
+            }
+            progressBarRef = pb
+            card.addView(pb)
 
-        val ct = TextView(this).apply {
-            text = "Redirecting in 10 seconds..."
-            textSize = 13f
-            setTextColor(0xFF_6B7280.toInt())
-            gravity = Gravity.CENTER
-            setPadding(0, (12*dp).toInt(), 0, 0)
-        }
-        countdownTextRef = ct
-        card.addView(ct)
+            val ct = TextView(this).apply {
+                text = "Redirecting in 10 seconds..."
+                textSize = 13f
+                setTextColor(0xFF_6B7280.toInt())
+                gravity = Gravity.CENTER
+                setPadding(0, (12*dp).toInt(), 0, 0)
+            }
+            countdownTextRef = ct
+            card.addView(ct)
 
-        if (showAd) {
+            countdown = object : CountDownTimer(10_000, 100) {
+                override fun onTick(ms: Long) {
+                    progressBarRef?.progress  = (ms / 10.0).toInt().coerceIn(0, 1000)
+                    countdownTextRef?.text    = "Redirecting in ${(ms / 1000).toInt() + 1}s..."
+                }
+                override fun onFinish() { progressBarRef?.progress = 0; goHome() }
+            }.start()
+        }
+
+        // Ad banner (only for soft blocks — not distracting from hard block message)
+        if (showAd && !hardBlock) {
             val adBanner = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(0xFF_1C1A3E.toInt())
@@ -152,17 +187,6 @@ class BlockOverlayActivity : Activity() {
             FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER
         ))
         setContentView(root)
-
-        countdown = object : CountDownTimer(10_000, 100) {
-            override fun onTick(millisLeft: Long) {
-                progressBarRef?.progress = (millisLeft / 10.0).toInt().coerceIn(0, 1000)
-                countdownTextRef?.text = "Redirecting in ${(millisLeft / 1000).toInt() + 1}s..."
-            }
-            override fun onFinish() {
-                progressBarRef?.progress = 0
-                goHome()
-            }
-        }.start()
     }
 
     private fun goHome() {
@@ -175,20 +199,19 @@ class BlockOverlayActivity : Activity() {
 
     override fun onDestroy() {
         countdown?.cancel()
-        progressBarRef = null
-        countdownTextRef = null
+        progressBarRef    = null
+        countdownTextRef  = null
         super.onDestroy()
     }
 
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        // Block back button — go home instead (this prevents bypassing block)
-        goHome()
-    }
+    override fun onBackPressed() { goHome() }
 
     override fun onPause() {
         super.onPause()
-        // If user tries to navigate away, keep sending them home
-        goHome()
+        // Hard/time-limit blocks: keep bouncing the user to home
+        val hardBlock = intent.getBooleanExtra(EXTRA_HARD_BLOCK, false)
+        val timeLimit = intent.getBooleanExtra(EXTRA_TIME_LIMIT, false)
+        if (hardBlock || timeLimit) goHome()
     }
 }

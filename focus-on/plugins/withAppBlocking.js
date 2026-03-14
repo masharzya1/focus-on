@@ -79,6 +79,7 @@ function withManifest(config) {
       'android.permission.FOREGROUND_SERVICE',
       'android.permission.SYSTEM_ALERT_WINDOW',
       'android.permission.RECEIVE_BOOT_COMPLETED',
+      'android.permission.PACKAGE_USAGE_STATS',
     ];
 
     if (!manifest.manifest['uses-permission']) manifest.manifest['uses-permission'] = [];

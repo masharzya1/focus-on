@@ -13,7 +13,6 @@ function getCurrentTime(): string {
   return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 }
 
-// Safe wrapper — never throws
 function safeNative(fn: () => any) {
   try {
     if (!NativeModules.AppBlockingModule) return null;
@@ -23,12 +22,13 @@ function safeNative(fn: () => any) {
 
 export function useAutoBlocking() {
   const autoStarted = useRef(false);
-  const mountedRef = useRef(true);
+  const mountedRef  = useRef(true);
+  const lastRoutinesJson = useRef<string>('');
 
   const checkAndSync = async () => {
     if (!mountedRef.current) return;
     if (Platform.OS !== 'android') return;
-    if (!NativeModules.AppBlockingModule) return; // module not ready — skip silently
+    if (!NativeModules.AppBlockingModule) return;
 
     try {
       const raw = await AsyncStorage.getItem('focuson_data_v3');
@@ -37,7 +37,7 @@ export function useAutoBlocking() {
       const data = JSON.parse(raw);
       const routines: BlockRoutine[] = data.blockRoutines || [];
 
-      // Also check plan-based routines
+      // Plan-based routines for today
       const planRoutines: BlockRoutine[] = (data.studyPlans || []).flatMap((plan: any) => {
         if (!plan.blockApps) return [];
         const today = new Date().toISOString().split('T')[0];
@@ -45,21 +45,21 @@ export function useAutoBlocking() {
           .filter((t: any) => t.date === today && t.startTime && t.endTime)
           .map((t: any) => ({
             id: `plan_${plan.id}_${t.id}`,
-            startTime: t.startTime,
-            endTime: t.endTime,
-            days: [],
-            blockedApps: plan.blockedApps || [],
-            blockShorts: false,
-            enabled: true,
-            hardBlock: plan.hardBlock,
-            deviceAdmin: plan.deviceAdmin,
+            startTime: t.startTime, endTime: t.endTime,
+            days: [], blockedApps: plan.blockedApps || [],
+            blockShorts: false, enabled: true,
+            hardBlock: plan.hardBlock, deviceAdmin: plan.deviceAdmin,
           }));
       });
 
       const allRoutines = [...routines, ...planRoutines];
-      safeNative(() => NativeModules.AppBlockingModule.saveRoutines(JSON.stringify(allRoutines)));
+      const routinesJson = JSON.stringify(allRoutines);
 
-      const now = getCurrentTime();
+      // Always sync routines to native (immediate, no debounce needed)
+      safeNative(() => NativeModules.AppBlockingModule.saveRoutines(routinesJson));
+      lastRoutinesJson.current = routinesJson;
+
+      const now      = getCurrentTime();
       const todayIdx = new Date().getDay();
 
       const active = allRoutines.filter(r =>
@@ -69,9 +69,9 @@ export function useAutoBlocking() {
       );
 
       if (active.length > 0) {
-        const allApps = [...new Set(active.flatMap(r => r.blockedApps))];
+        const allApps    = [...new Set(active.flatMap(r => r.blockedApps))];
         const blockShorts = active.some(r => r.blockShorts);
-        const hardBlock = active.some(r => r.hardBlock);
+        const hardBlock  = active.some(r => r.hardBlock);
         const deviceAdmin = active.some(r => r.deviceAdmin);
         safeNative(() => {
           const finalApps = [...allApps];
@@ -81,14 +81,15 @@ export function useAutoBlocking() {
               if (!allApps.includes(pkg)) finalApps.push(`reels:${pkg}`);
             });
           }
-          const params = JSON.stringify({ apps: finalApps, hardBlock, deviceAdmin });
-          NativeModules.AppBlockingModule.startBlocking(params);
+          NativeModules.AppBlockingModule.startBlocking(
+            JSON.stringify({ apps: finalApps, hardBlock, deviceAdmin })
+          );
         });
         autoStarted.current = true;
       } else {
         stopIfNeeded();
       }
-    } catch { /* silently ignore — never crash the app */ }
+    } catch { /* never crash the app */ }
   };
 
   function stopIfNeeded() {
@@ -100,11 +101,9 @@ export function useAutoBlocking() {
 
   useEffect(() => {
     mountedRef.current = true;
-    // Delay first check so app finishes rendering first
-    const initTimer = setTimeout(() => checkAndSync(), 2000);
-    const interval = setInterval(checkAndSync, 30_000);
+    const initTimer = setTimeout(() => checkAndSync(), 1000); // faster: 1s not 2s
+    const interval  = setInterval(checkAndSync, 15_000);      // check every 15s
     const sub = AppState.addEventListener('change', s => { if (s === 'active') checkAndSync(); });
-
     return () => {
       mountedRef.current = false;
       clearTimeout(initTimer);
@@ -112,4 +111,7 @@ export function useAutoBlocking() {
       sub.remove();
     };
   }, []);
+
+  // Expose manual trigger for immediate sync after saving a routine
+  return { syncNow: checkAndSync };
 }
