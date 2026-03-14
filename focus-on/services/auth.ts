@@ -13,6 +13,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 export const WEB_CLIENT_ID =
   '702598065897-a2foncrkpvmf0jpitatfecgi54j9ilhk.apps.googleusercontent.com';
+export const ANDROID_CLIENT_ID = '702598065897-csrhd1vj816jv4027i4uauadepqkn39k.apps.googleusercontent.com'; 
 
 export function useGoogleAuth() {
   const [request, response, promptAsync] = Google.useAuthRequest({

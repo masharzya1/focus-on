@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/services/firebase';
 import { getProStatus, setProStatus } from '@/services/sync';
-import { WEB_CLIENT_ID } from '@/services/auth';
+import { WEB_CLIENT_ID, ANDROID_CLIENT_ID } from '@/services/auth';
 import AppBlocking from '@/modules/AppBlocking';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: WEB_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
     scopes: ['profile', 'email'],
   });
 
