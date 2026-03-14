@@ -1,14 +1,8 @@
 export interface Subject {
   id: string;
   name: string;
-<<<<<<< HEAD
-  color: string;
-  icon: string;
-  topicBased: boolean;
-=======
   color: string;   // e.g. "220 15% 25%"
   icon: string;    // icon name
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
   chapters: Chapter[];
   createdAt: string;
 }
@@ -55,63 +49,33 @@ export interface StudyPlan {
   dailyHours: number;
   createdAt: string;
   tasks: PlannedTask[];
-<<<<<<< HEAD
-  // Blocking options (plan-level)
-  blockApps: boolean;
-  hardBlock: boolean;   // can't unblock from inside app
-  deviceAdmin: boolean; // can't uninstall without removing admin
-  blockedApps: string[];
-=======
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 }
 
 export interface PlannedTask {
   id: string;
-<<<<<<< HEAD
-  date: string;        // YYYY-MM-DD
-  startTime?: string;  // HH:MM
-  endTime?: string;    // HH:MM
-  topicId: string;
-  subjectId: string;
-  chapterId: string;
-=======
   date: string;
   topicId: string;
   subjectId: string;
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
   estimatedMinutes: number;
   completed: boolean;
   type: 'study' | 'revision';
 }
 
-<<<<<<< HEAD
-=======
 export interface DifficultyLevel {
   id: number;
   label: string;
   minutes: number;
 }
 
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 export interface AppBlockRoutine {
   id: string;
   name: string;
   startTime: string;
   endTime: string;
-<<<<<<< HEAD
-  days: number[];
-  blockedApps: string[];
-  blockShorts: boolean;
-  enabled: boolean;
-  hardBlock?: boolean;
-  deviceAdmin?: boolean;
-  fromPlanId?: string;
-=======
   days: number[];          // 0=Sun … 6=Sat, [] = every day
   blockedApps: string[];   // package names
   blockShorts: boolean;    // block Reels/Shorts/TikTok content
   enabled: boolean;
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 }
 
 export interface AppSettings {
@@ -136,11 +100,6 @@ export interface AppState {
   totalTopicsCompleted: number;
   todaySessionsCompleted: number;
   todaySessionsDate?: string;
-<<<<<<< HEAD
-  onboardingCompleted: boolean;
-}
-
-=======
 }
 
 export const DEFAULT_DIFFICULTY_LEVELS: DifficultyLevel[] = [
@@ -151,7 +110,6 @@ export const DEFAULT_DIFFICULTY_LEVELS: DifficultyLevel[] = [
   { id: 5, label: 'Very Hard', minutes: 60 },
 ];
 
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 export const DEFAULT_SETTINGS: AppSettings = {
   pomodoroFocus: 25,
   pomodoroBreak: 5,
@@ -162,18 +120,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const SUBJECT_COLORS = [
-<<<<<<< HEAD
-  '#6C63FF','#3B82F6','#10B981','#F59E0B',
-  '#EF4444','#EC4899','#06B6D4','#84CC16',
-];
-
-export const SUBJECT_ICONS = [
-  'book-outline','calculator-outline','flask-outline','globe-outline',
-  'laptop-outline','color-palette-outline','musical-notes-outline',
-  'leaf-outline','pulse-outline','planet-outline','school-outline',
-  'code-slash-outline',
-];
-=======
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
   '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
 ];
@@ -183,4 +129,3 @@ export const SUBJECT_ICONS = [
   'laptop', 'palette', 'pencil', 'music',
   'atom', 'brain',
 ];
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d

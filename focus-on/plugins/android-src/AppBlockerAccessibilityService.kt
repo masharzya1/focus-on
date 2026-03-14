@@ -99,8 +99,6 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         }
     }
 
-<<<<<<< HEAD
-=======
     // Immediate sync when JS saves new routines — fixes the "need to reopen app" bug
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == KEY_ROUTINES) {
@@ -108,7 +106,6 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         }
     }
 
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -126,11 +123,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         createNotificationChannel()
         // Sync immediately, then every 60s — works even when app is closed
         routineHandler.post(routineSyncRunnable)
-<<<<<<< HEAD
-=======
         // Listen for immediate routine changes from JS layer
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -373,15 +367,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         routineHandler.removeCallbacks(routineSyncRunnable)
-<<<<<<< HEAD
-        prefs.edit().putBoolean(KEY_SERVICE_RUNNING, false).apply()
-        super.onDestroy()
-    }
-}
-=======
         prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         prefs.edit().putBoolean(KEY_SERVICE_RUNNING, false).apply()
         super.onDestroy()
     }
 }
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d

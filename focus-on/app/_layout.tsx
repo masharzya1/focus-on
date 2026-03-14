@@ -1,29 +1,3 @@
-<<<<<<< HEAD
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { StudyProvider, useStudy } from '@/contexts/StudyContext';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { View } from 'react-native';
-import { useAutoBlocking } from '@/hooks/useAutoBlocking';
-import { useEffect } from 'react';
-
-function InnerLayout() {
-  const { colors, isDark } = useTheme();
-  const { state, ready } = useStudy();
-  const router = useRouter();
-  const segments = useSegments();
-
-  useAutoBlocking();
-
-  useEffect(() => {
-    if (!ready) return;
-    const inOnboarding = segments[0] === 'onboarding';
-    if (!state.onboardingCompleted && !inOnboarding) {
-      router.replace('/onboarding');
-    }
-  }, [ready, state.onboardingCompleted]);
-=======
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -81,7 +55,6 @@ function InnerLayout() {
     const sub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
     return () => sub.remove();
   }, [user]);
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -95,13 +68,6 @@ export default function RootLayout() {
   return (
     <StudyProvider>
       <ThemeProvider>
-<<<<<<< HEAD
-        <InnerLayout />
-      </ThemeProvider>
-    </StudyProvider>
-  );
-}
-=======
         <AuthProvider>
           <InnerLayout />
         </AuthProvider>
@@ -109,4 +75,3 @@ export default function RootLayout() {
     </StudyProvider>
   );
 }
->>>>>>> b93ddc6cdfd0366af8025e7a43d07f99ca6de32d
