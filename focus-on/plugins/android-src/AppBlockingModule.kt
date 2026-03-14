@@ -28,18 +28,17 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
     fun getInstalledApps(promise: Promise) {
         try {
             val pm = reactApplicationContext.packageManager
-            val result = WritableNativeArray()
+            val jsonArray = org.json.JSONArray()
             pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { appInfo ->
                 if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
                     appInfo.packageName != reactApplicationContext.packageName) {
-                    WritableNativeMap().apply {
-                        putString("packageName", appInfo.packageName)
-                        putString("name", pm.getApplicationLabel(appInfo).toString())
-                        result.pushMap(this)
-                    }
+                    val obj = org.json.JSONObject()
+                    obj.put("packageName", appInfo.packageName)
+                    obj.put("name", pm.getApplicationLabel(appInfo).toString())
+                    jsonArray.put(obj)
                 }
             }
-            promise.resolve(result)
+            promise.resolve(jsonArray.toString())
         } catch (e: Exception) {
             promise.reject("GET_APPS_ERROR", e.message)
         }
