@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 
 function Stepper({ value, min, max, step = 1, onChange, suffix = '' }:
   { value: number; min: number; max: number; step?: number; onChange: (v: number) => void; suffix?: string }) {
@@ -46,6 +46,14 @@ export default function SettingsScreen() {
     </View>
   );
 
+  // Data stats with icons instead of emoji
+  const dataStats = [
+    { label: 'Total Sessions', value: state.sessions.filter(s => s.completed).length, icon: 'time-outline', color: c.accent },
+    { label: 'Subjects', value: state.subjects.length, icon: 'book-outline', color: '#3B82F6' },
+    { label: 'Topics Completed', value: state.totalTopicsCompleted, icon: 'checkmark-circle-outline', color: '#10B981' },
+    { label: 'Total XP', value: state.xp, icon: 'star-outline', color: c.xpColor },
+  ];
+
   return (
     <View style={[st.root, { backgroundColor: c.bg }]}>
       {/* Header */}
@@ -60,8 +68,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
 
         <Section title="Timer" />
-        <Animated.View entering={FadeInDown.delay(60).springify()}
-          style={[st.card, { backgroundColor: c.bgCard }]}>
+        <Animated.View entering={FadeInDown.delay(60).springify()} style={[st.card, { backgroundColor: c.bgCard }]}>
           <Row icon="timer-outline" label="Focus Duration">
             <Stepper value={settings.pomodoroFocus} min={5} max={120} step={5}
               suffix="m" onChange={v => updateSettings({ pomodoroFocus: v })} />
@@ -77,8 +84,7 @@ export default function SettingsScreen() {
         </Animated.View>
 
         <Section title="Appearance" />
-        <Animated.View entering={FadeInDown.delay(100).springify()}
-          style={[st.card, { backgroundColor: c.bgCard }]}>
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={[st.card, { backgroundColor: c.bgCard }]}>
           <Row icon={isDark ? 'moon' : 'sunny'} label="Dark Mode" iconColor="#6C63FF">
             <Switch value={isDark} onValueChange={toggleTheme} trackColor={{ true: c.accent }} />
           </Row>
@@ -90,8 +96,7 @@ export default function SettingsScreen() {
         </Animated.View>
 
         <Section title="Focus" />
-        <Animated.View entering={FadeInDown.delay(140).springify()}
-          style={[st.card, { backgroundColor: c.bgCard }]}>
+        <Animated.View entering={FadeInDown.delay(140).springify()} style={[st.card, { backgroundColor: c.bgCard }]}>
           <Row icon="shield-checkmark-outline" label="Focus Guard" iconColor="#EF4444">
             <Switch value={settings.focusGuardEnabled}
               onValueChange={v => updateSettings({ focusGuardEnabled: v })}
@@ -100,26 +105,17 @@ export default function SettingsScreen() {
         </Animated.View>
 
         <Section title="Data" />
-        <Animated.View entering={FadeInDown.delay(180).springify()}
-          style={[st.card, { backgroundColor: c.bgCard }]}>
-          <View style={[st.infoBox, { backgroundColor: c.bgSecondary }]}>
-            <View style={st.infoRow}>
-              <Text style={[st.infoLabel, { color: c.textMuted }]}>Total Sessions</Text>
-              <Text style={[st.infoVal, { color: c.text }]}>{state.sessions.filter(s => s.completed).length}</Text>
+        <Animated.View entering={FadeInDown.delay(180).springify()} style={[st.card, { backgroundColor: c.bgCard }]}>
+          {dataStats.map((item, i) => (
+            <View key={item.label} style={[st.dataRow, { borderBottomColor: c.border },
+              i === dataStats.length - 1 && { borderBottomWidth: 0 }]}>
+              <View style={[st.dataIcon, { backgroundColor: item.color + '18' }]}>
+                <Ionicons name={item.icon as any} size={16} color={item.color} />
+              </View>
+              <Text style={[st.dataLabel, { color: c.textMuted }]}>{item.label}</Text>
+              <Text style={[st.dataVal, { color: item.color }]}>{item.value}</Text>
             </View>
-            <View style={st.infoRow}>
-              <Text style={[st.infoLabel, { color: c.textMuted }]}>Subjects</Text>
-              <Text style={[st.infoVal, { color: c.text }]}>{state.subjects.length}</Text>
-            </View>
-            <View style={st.infoRow}>
-              <Text style={[st.infoLabel, { color: c.textMuted }]}>Topics Completed</Text>
-              <Text style={[st.infoVal, { color: c.text }]}>{state.totalTopicsCompleted}</Text>
-            </View>
-            <View style={[st.infoRow, { borderBottomWidth: 0 }]}>
-              <Text style={[st.infoLabel, { color: c.textMuted }]}>XP</Text>
-              <Text style={[st.infoVal, { color: c.xpColor }]}>{state.xp} ⭐</Text>
-            </View>
-          </View>
+          ))}
         </Animated.View>
 
         <View style={{ height: 48 }} />
@@ -136,10 +132,10 @@ const st = StyleSheet.create({
     paddingBottom: 14, borderBottomWidth: 1,
   },
   backBtn: { width: 40, alignItems: 'flex-start' },
-  title: { fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontFamily: FONTS.black },
   content: { padding: 16, gap: 8 },
   sectionTitle: {
-    fontSize: 11, fontWeight: '700', textTransform: 'uppercase',
+    fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase',
     letterSpacing: 1, marginTop: 8, marginBottom: 4, marginLeft: 4,
   },
   card: { borderRadius: RADIUS.xl, overflow: 'hidden' },
@@ -148,15 +144,15 @@ const st = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1,
   },
   rowIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  rowLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  rowLabel: { flex: 1, fontSize: 15, fontFamily: FONTS.semibold },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  stepVal: { fontSize: 15, fontWeight: '800', minWidth: 42, textAlign: 'center' },
-  infoBox: { margin: 4, borderRadius: 12 },
-  infoRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E4E2FF20',
+  stepVal: { fontSize: 15, fontFamily: FONTS.black, minWidth: 42, textAlign: 'center' },
+  dataRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1,
   },
-  infoLabel: { fontSize: 14 },
-  infoVal: { fontSize: 15, fontWeight: '700' },
+  dataIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  dataLabel: { flex: 1, fontSize: 14, fontFamily: FONTS.medium },
+  dataVal: { fontSize: 15, fontFamily: FONTS.black },
 });
