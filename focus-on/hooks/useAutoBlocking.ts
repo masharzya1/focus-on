@@ -35,6 +35,10 @@ export function useAutoBlocking() {
       const data: AppStateData = JSON.parse(raw);
       const routines = data.blockRoutines || [];
 
+      // Always persist latest routines to native layer so the
+      // AccessibilityService can enforce them when the app is closed
+      AppBlocking.saveRoutines(routines);
+
       const now = getCurrentTime();
       const todayIdx = new Date().getDay();
 
