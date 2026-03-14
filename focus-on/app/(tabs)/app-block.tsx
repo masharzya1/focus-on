@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, Platform, FlatList, TextInput,
+  Modal, Alert, Platform, FlatList, TextInput, AppState,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,8 +108,19 @@ export default function AppBlockScreen() {
   const [editingId, setEditingId] = useState<string|null>(null);
 
   useFocusEffect(useCallback(() => {
-    if (Platform.OS === 'android')
-      AppBlocking.isAccessibilityEnabled().then(setAccessibilityEnabled);
+    const checkAccess = () => {
+      if (Platform.OS === 'android')
+        AppBlocking.isAccessibilityEnabled().then(setAccessibilityEnabled);
+    };
+    checkAccess();
+    // Re-check every time app comes back to foreground (e.g. returning from Settings)
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkAccess();
+    });
+    return () => sub.remove();
+  }, []));
+
+  useFocusEffect(useCallback(() => {
     AppBlocking.getInstalledApps().then(a =>
       setInstalledApps(a.sort((x,y) => x.name.localeCompare(y.name)))
     );
@@ -124,6 +135,8 @@ export default function AppBlockScreen() {
       r.enabled && (r.days.length === 0 || r.days.includes(today)) &&
       now >= r.startTime && now <= r.endTime
     );
+    // Push latest routines to native so service works when app is closed
+    AppBlocking.saveRoutines(state.blockRoutines);
     if (active.length > 0)
       AppBlocking.startBlocking([...new Set(active.flatMap(r => r.blockedApps))], active.some(r => r.blockShorts));
     else AppBlocking.stopBlocking();
