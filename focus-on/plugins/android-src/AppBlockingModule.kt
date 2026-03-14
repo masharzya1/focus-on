@@ -5,12 +5,18 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.provider.Settings
+import android.util.Base64
 import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import java.io.ByteArrayOutputStream
 
 class AppBlockingModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -20,6 +26,8 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         const val MODULE_NAME = "AppBlockingModule"
         const val KEY_HARD_BLOCK = "hard_block"
         const val KEY_DEVICE_ADMIN = "device_admin"
+        // Website blocking — same SharedPreferences as app blocking
+        const val KEY_BLOCKED_WEBSITES = "blocked_websites"
     }
 
     private val prefs by lazy {
@@ -31,32 +39,75 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     override fun getName(): String = MODULE_NAME
 
+    // ── App icon helper ───────────────────────────────────────────────────────
+
+    private fun drawableToBase64(drawable: Drawable): String {
+        return try {
+            val bitmap = if (drawable is BitmapDrawable) {
+                drawable.bitmap
+            } else {
+                val bmp = Bitmap.createBitmap(
+                    drawable.intrinsicWidth.coerceAtLeast(1),
+                    drawable.intrinsicHeight.coerceAtLeast(1),
+                    Bitmap.Config.ARGB_8888
+                )
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bmp
+            }
+            // Scale down to 48x48 to keep JSON small
+            val scaled = Bitmap.createScaledBitmap(bitmap, 48, 48, true)
+            val stream = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.PNG, 85, stream)
+            Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    // ── Installed apps ────────────────────────────────────────────────────────
+
     @ReactMethod
     fun getInstalledApps(promise: Promise) {
         try {
             val pm = reactApplicationContext.packageManager
             val jsonArray = org.json.JSONArray()
-            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { appInfo ->
-                if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
-                    appInfo.packageName != reactApplicationContext.packageName) {
-                    val obj = org.json.JSONObject()
-                    obj.put("packageName", appInfo.packageName)
-                    obj.put("name", pm.getApplicationLabel(appInfo).toString())
-                    jsonArray.put(obj)
+
+            pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                // Only user apps that have a launch intent (real apps)
+                .filter { appInfo ->
+                    (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0 &&
+                    appInfo.packageName != reactApplicationContext.packageName &&
+                    pm.getLaunchIntentForPackage(appInfo.packageName) != null
                 }
-            }
+                .sortedBy { pm.getApplicationLabel(it).toString().lowercase() }
+                .forEach { appInfo ->
+                    try {
+                        val icon = pm.getApplicationIcon(appInfo.packageName)
+                        val iconBase64 = drawableToBase64(icon)
+                        val obj = org.json.JSONObject()
+                        obj.put("packageName", appInfo.packageName)
+                        obj.put("name", pm.getApplicationLabel(appInfo).toString())
+                        obj.put("icon", iconBase64) // base64 PNG, empty string if failed
+                        jsonArray.put(obj)
+                    } catch (e: Exception) {
+                        // App without icon — still include it
+                        val obj = org.json.JSONObject()
+                        obj.put("packageName", appInfo.packageName)
+                        obj.put("name", pm.getApplicationLabel(appInfo).toString())
+                        obj.put("icon", "")
+                        jsonArray.put(obj)
+                    }
+                }
             promise.resolve(jsonArray.toString())
         } catch (e: Exception) {
             promise.reject("GET_APPS_ERROR", e.message)
         }
     }
 
-    /**
-     * JS sends: JSON.stringify({ apps: string[], hardBlock: boolean, deviceAdmin: boolean })
-     * We parse the object, save apps array + flags separately so AccessibilityService
-     * can read them correctly. This fixes the critical bug where parseBlockedApps()
-     * received an object string instead of an array string.
-     */
+    // ── App blocking ──────────────────────────────────────────────────────────
+
     @ReactMethod
     fun startBlocking(paramsJson: String) {
         try {
@@ -163,6 +214,36 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ── Website blocking ──────────────────────────────────────────────────────
+
+    /**
+     * Save the full website blocklist (JSON array of domain strings).
+     * Called from JS whenever the list changes.
+     * e.g. ["facebook.com", "twitter.com", "reddit.com"]
+     */
+    @ReactMethod
+    fun saveBlockedWebsites(websitesJson: String) {
+        try {
+            prefs.edit()
+                .putString(KEY_BLOCKED_WEBSITES, websitesJson)
+                .apply()
+            Log.d(TAG, "Blocked websites saved: $websitesJson")
+        } catch (e: Exception) {
+            Log.e(TAG, "saveBlockedWebsites error: ${e.message}")
+        }
+    }
+
+    @ReactMethod
+    fun getBlockedWebsites(promise: Promise) {
+        try {
+            promise.resolve(prefs.getString(KEY_BLOCKED_WEBSITES, "[]") ?: "[]")
+        } catch (e: Exception) {
+            promise.resolve("[]")
+        }
+    }
+
+    // ── Device Admin ──────────────────────────────────────────────────────────
+
     @ReactMethod
     fun requestDeviceAdmin(promise: Promise) {
         try {
@@ -199,4 +280,4 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
             promise.resolve(false)
         }
     }
-}
+    }
