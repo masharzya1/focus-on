@@ -77,6 +77,18 @@ const AppBlocking = {
       return [];
     }
   },
+
+  /**
+   * Saves all routines to native SharedPreferences so the AccessibilityService
+   * can enforce them even when the app is fully closed.
+   * Call this whenever routines change.
+   */
+  saveRoutines(routines: object[]): void {
+    if (Platform.OS !== 'android') return;
+    try {
+      AppBlockingModule.saveRoutines(JSON.stringify(routines));
+    } catch {}
+  },
 };
 
 export default AppBlocking;
