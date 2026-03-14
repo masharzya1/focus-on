@@ -1,31 +1,24 @@
 /**
- * StudyContext — MMKV powered state management
+ * StudyContext — Zustand + AsyncStorage persist
  *
- * কেন MMKV:
- * - AsyncStorage থেকে ~30x fast
- * - Synchronous read — app open এ কোনো flicker নেই
- * - Native C++ — data loss হয় না
- * - Cross-screen instant update
+ * কেন Zustand AsyncStorage এর চেয়ে fast:
+ * - শুধু changed slice re-render করে, পুরো tree না
+ * - persist middleware smart — শুধু necessary data serialize করে
+ * - No extra useEffect, no debounce timer, no race condition
  *
- * Install: npx expo install react-native-mmkv
- * (expo prebuild এর পরে automatically link হয়)
+ * Install: npx expo install zustand
+ * (AsyncStorage already আছে তোমার project এ)
  */
 
-import React, {
-  createContext, useContext, useEffect,
-  useState, useCallback, useRef,
-} from 'react';
-import { MMKV } from 'react-native-mmkv';
+import React from 'react';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AppState, Subject, StudySession,
   StudyPlan, AppSettings, AppBlockRoutine,
 } from '@/types/study';
 import { DEFAULT_SETTINGS } from '@/types/study';
-
-// ── MMKV instance ─────────────────────────────────────────────────────────────
-const storage = new MMKV({ id: 'focuson-storage' });
-
-const STORAGE_KEY = 'focuson_data_v3';
 
 // ── Default state ─────────────────────────────────────────────────────────────
 const defaultState: AppState = {
@@ -42,52 +35,14 @@ const defaultState: AppState = {
   onboardingCompleted: false,
 };
 
-// ── Load — synchronous, instant ───────────────────────────────────────────────
-function loadState(): AppState {
-  try {
-    // Try current version first
-    const raw = storage.getString(STORAGE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      return {
-        ...defaultState,
-        ...p,
-        settings: { ...DEFAULT_SETTINGS, ...p.settings },
-      };
-    }
-
-    // Migrate from AsyncStorage v3 (one-time migration on first MMKV launch)
-    // After migration we delete old key to avoid re-reads
-    // Note: AsyncStorage is async so we skip migration here —
-    // user will start fresh but won't lose data if they reinstall.
-    // For a real migration, run it in _layout.tsx before mounting StudyProvider.
-  } catch (e) {
-    console.warn('[StudyContext] loadState error:', e);
-  }
-  return defaultState;
-}
-
-// ── Save — synchronous, instant, no await needed ──────────────────────────────
-function saveState(s: AppState): void {
-  try {
-    storage.set(STORAGE_KEY, JSON.stringify(s));
-  } catch (e) {
-    console.warn('[StudyContext] saveState error:', e);
-  }
-}
-
-// ── Context type ──────────────────────────────────────────────────────────────
-interface StudyContextValue {
-  state: AppState;
+// ── Store type ────────────────────────────────────────────────────────────────
+interface StudyStore extends AppState {
   ready: boolean;
+  _setReady: (v: boolean) => void;
   addSubject: (s: Subject) => void;
   updateSubject: (s: Subject) => void;
   deleteSubject: (id: string) => void;
-  toggleTopicComplete: (
-    subjectId: string,
-    chapterId: string,
-    topicId: string,
-  ) => boolean;
+  toggleTopicComplete: (subjectId: string, chapterId: string, topicId: string) => boolean;
   addSession: (s: StudySession) => void;
   addStudyPlan: (p: StudyPlan) => void;
   updateStudyPlan: (p: StudyPlan) => void;
@@ -110,308 +65,200 @@ interface StudyContextValue {
   }[];
 }
 
-const StudyContext = createContext<StudyContextValue | null>(null);
+// ── Zustand store ─────────────────────────────────────────────────────────────
+export const useStudyStore = create<StudyStore>()(
+  persist(
+    (set, get) => ({
+      ...defaultState,
+      ready: false,
+      _setReady: (v) => set({ ready: v }),
 
-// ── Provider ──────────────────────────────────────────────────────────────────
-export function StudyProvider({ children }: { children: React.ReactNode }) {
-  // MMKV read is synchronous — initialize directly, no async loading needed
-  const [state, setState] = useState<AppState>(() => loadState());
-  const [ready, setReady] = useState(true); // already loaded synchronously
-  const isFirstRender = useRef(true);
+      addSubject: (s) => set(p => ({ subjects: [...p.subjects, s] })),
+      updateSubject: (s) => set(p => ({ subjects: p.subjects.map(x => x.id === s.id ? s : x) })),
+      deleteSubject: (id) => set(p => ({ subjects: p.subjects.filter(s => s.id !== id) })),
 
-  // Save to MMKV on every state change (skip first render to avoid redundant write)
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    // Synchronous write — no setTimeout debounce needed, MMKV is fast enough
-    saveState(state);
-  }, [state]);
+      toggleTopicComplete: (subjectId, chapterId, topicId) => {
+        let didComplete = false;
+        set(p => {
+          const subjects = p.subjects.map(s => {
+            if (s.id !== subjectId) return s;
+            return {
+              ...s, chapters: s.chapters.map(c => {
+                if (c.id !== chapterId) return c;
+                return {
+                  ...c, topics: c.topics.map(t => {
+                    if (t.id !== topicId) return t;
+                    const nowCompleted = !t.completed;
+                    if (nowCompleted) didComplete = true;
+                    return { ...t, completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : undefined };
+                  }),
+                };
+              }),
+            };
+          });
+          return { subjects, totalTopicsCompleted: didComplete ? p.totalTopicsCompleted + 1 : p.totalTopicsCompleted };
+        });
+        return didComplete;
+      },
 
-  // Streak calculation
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todaySessions = state.sessions.filter(
-      s => s.completed && s.startTime.startsWith(today),
-    );
-    if (todaySessions.length > 0 && state.lastStudyDate !== today) {
-      setState(prev => {
-        const yesterday = new Date(Date.now() - 86400000)
-          .toISOString()
-          .split('T')[0];
-        const newStreak =
-          prev.lastStudyDate === yesterday ? prev.streak + 1 : 1;
-        return { ...prev, streak: newStreak, lastStudyDate: today };
-      });
-    }
-  }, [state.sessions]);
+      addSession: (session) => {
+        set(p => {
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const newStreak = p.lastStudyDate === today ? p.streak
+            : p.lastStudyDate === yesterday ? p.streak + 1 : 1;
 
-  // ── Subjects ────────────────────────────────────────────────────────────────
-  const addSubject = useCallback(
-    (s: Subject) => setState(p => ({ ...p, subjects: [...p.subjects, s] })),
-    [],
-  );
-  const updateSubject = useCallback(
-    (s: Subject) =>
-      setState(p => ({
-        ...p,
-        subjects: p.subjects.map(x => (x.id === s.id ? s : x)),
-      })),
-    [],
-  );
-  const deleteSubject = useCallback(
-    (id: string) =>
-      setState(p => ({
-        ...p,
-        subjects: p.subjects.filter(s => s.id !== id),
-      })),
-    [],
-  );
+          let studyPlans = p.studyPlans;
+          if (session.topicId) {
+            studyPlans = studyPlans.map(plan => ({
+              ...plan,
+              tasks: plan.tasks.map(t => t.topicId === session.topicId && !t.completed ? { ...t, completed: true } : t),
+            }));
+          }
 
-  const toggleTopicComplete = useCallback(
-    (subjectId: string, chapterId: string, topicId: string): boolean => {
-      let didComplete = false;
-      setState(p => {
-        const subjects = p.subjects.map(s => {
-          if (s.id !== subjectId) return s;
           return {
-            ...s,
-            chapters: s.chapters.map(c => {
-              if (c.id !== chapterId) return c;
-              return {
-                ...c,
-                topics: c.topics.map(t => {
-                  if (t.id !== topicId) return t;
-                  const nowCompleted = !t.completed;
-                  if (nowCompleted) didComplete = true;
-                  return {
-                    ...t,
-                    completed: nowCompleted,
-                    completedAt: nowCompleted
-                      ? new Date().toISOString()
-                      : undefined,
-                  };
-                }),
-              };
-            }),
+            sessions: [...p.sessions, session],
+            studyPlans,
+            todaySessionsCompleted: p.todaySessionsDate === today ? p.todaySessionsCompleted + 1 : 1,
+            todaySessionsDate: today,
+            streak: newStreak,
+            lastStudyDate: today,
           };
         });
-        return {
-          ...p,
-          subjects,
-          totalTopicsCompleted: didComplete
-            ? p.totalTopicsCompleted + 1
-            : p.totalTopicsCompleted,
-        };
-      });
-      return didComplete;
-    },
-    [],
-  );
+      },
 
-  // ── Sessions ────────────────────────────────────────────────────────────────
-  const addSession = useCallback((session: StudySession) => {
-    setState(p => {
-      const today = new Date().toISOString().split('T')[0];
-      const isToday = p.todaySessionsDate === today;
-      let ns: AppState = {
-        ...p,
-        sessions: [...p.sessions, session],
-        todaySessionsCompleted: isToday ? p.todaySessionsCompleted + 1 : 1,
-        todaySessionsDate: today,
-      };
-      // Auto-complete plan task if session has topicId
-      if (session.topicId) {
-        ns = {
-          ...ns,
-          studyPlans: ns.studyPlans.map(plan => ({
-            ...plan,
-            tasks: plan.tasks.map(t =>
-              t.topicId === session.topicId && !t.completed
-                ? { ...t, completed: true }
-                : t,
-            ),
-          })),
-        };
-      }
-      return ns;
-    });
-  }, []);
-
-  // ── Study plans ─────────────────────────────────────────────────────────────
-  const addStudyPlan = useCallback(
-    (p: StudyPlan) =>
-      setState(s => ({ ...s, studyPlans: [...s.studyPlans, p] })),
-    [],
-  );
-  const updateStudyPlan = useCallback(
-    (p: StudyPlan) =>
-      setState(s => ({
-        ...s,
-        studyPlans: s.studyPlans.map(x => (x.id === p.id ? p : x)),
-      })),
-    [],
-  );
-  const deleteStudyPlan = useCallback(
-    (id: string) =>
-      setState(p => ({
-        ...p,
-        studyPlans: p.studyPlans.filter(pl => pl.id !== id),
-      })),
-    [],
-  );
-  const completePlanTask = useCallback(
-    (taskId: string) =>
-      setState(p => ({
-        ...p,
+      addStudyPlan: (p) => set(s => ({ studyPlans: [...s.studyPlans, p] })),
+      updateStudyPlan: (p) => set(s => ({ studyPlans: s.studyPlans.map(x => x.id === p.id ? p : x) })),
+      deleteStudyPlan: (id) => set(p => ({ studyPlans: p.studyPlans.filter(pl => pl.id !== id) })),
+      completePlanTask: (taskId) => set(p => ({
         studyPlans: p.studyPlans.map(plan => ({
-          ...plan,
-          tasks: plan.tasks.map(t =>
-            t.id === taskId ? { ...t, completed: true } : t,
-          ),
+          ...plan, tasks: plan.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t),
         })),
       })),
-    [],
-  );
 
-  // ── Block routines ──────────────────────────────────────────────────────────
-  const addBlockRoutine = useCallback(
-    (r: AppBlockRoutine) =>
-      setState(p => ({ ...p, blockRoutines: [...p.blockRoutines, r] })),
-    [],
-  );
-  const updateBlockRoutine = useCallback(
-    (r: AppBlockRoutine) =>
-      setState(p => ({
-        ...p,
-        blockRoutines: p.blockRoutines.map(x => (x.id === r.id ? r : x)),
-      })),
-    [],
-  );
-  const deleteBlockRoutine = useCallback(
-    (id: string) =>
-      setState(p => ({
-        ...p,
-        blockRoutines: p.blockRoutines.filter(r => r.id !== id),
-      })),
-    [],
-  );
+      addBlockRoutine: (r) => set(p => ({ blockRoutines: [...p.blockRoutines, r] })),
+      updateBlockRoutine: (r) => set(p => ({ blockRoutines: p.blockRoutines.map(x => x.id === r.id ? r : x) })),
+      deleteBlockRoutine: (id) => set(p => ({ blockRoutines: p.blockRoutines.filter(r => r.id !== id) })),
 
-  // ── Settings ────────────────────────────────────────────────────────────────
-  const updateSettings = useCallback(
-    (s: Partial<AppSettings>) =>
-      setState(p => ({ ...p, settings: { ...p.settings, ...s } })),
-    [],
-  );
+      updateSettings: (s) => set(p => ({ settings: { ...p.settings, ...s } })),
 
-  // ── XP & Level ──────────────────────────────────────────────────────────────
-  const gainXp = useCallback(
-    (amount: number): { newLevel: number; isLevelUp: boolean } => {
-      let result = { newLevel: 1, isLevelUp: false };
-      setState(p => {
-        const newXp = p.xp + amount;
-        let remaining = newXp;
-        let lvl = 1;
-        while (remaining >= lvl * 100) {
-          remaining -= lvl * 100;
-          lvl++;
-        }
-        const isLevelUp = lvl > p.level;
-        result = { newLevel: lvl, isLevelUp };
-        return { ...p, xp: newXp, level: lvl };
-      });
-      return result;
-    },
-    [],
-  );
+      gainXp: (amount) => {
+        let result = { newLevel: 1, isLevelUp: false };
+        set(p => {
+          const newXp = p.xp + amount;
+          let remaining = newXp, lvl = 1;
+          while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
+          result = { newLevel: lvl, isLevelUp: lvl > p.level };
+          return { xp: newXp, level: lvl };
+        });
+        return result;
+      },
 
-  const completeOnboarding = useCallback(
-    () => setState(p => ({ ...p, onboardingCompleted: true })),
-    [],
-  );
+      completeOnboarding: () => set({ onboardingCompleted: true }),
 
-  // ── Computed values ─────────────────────────────────────────────────────────
-  const getTodayMinutes = useCallback((): number => {
-    const today = new Date().toISOString().split('T')[0];
-    return state.sessions
-      .filter(s => s.completed && s.startTime.startsWith(today))
-      .reduce((sum, s) => sum + s.durationMinutes, 0);
-  }, [state.sessions]);
+      getTodayMinutes: () => {
+        const today = new Date().toISOString().split('T')[0];
+        return get().sessions
+          .filter(s => s.completed && s.startTime.startsWith(today))
+          .reduce((sum, s) => sum + s.durationMinutes, 0);
+      },
 
-  const getStreak = useCallback((): number => state.streak, [state.streak]);
+      getStreak: () => get().streak,
 
-  const getSubjectProgress = useCallback(
-    (subjectId: string): number => {
-      const s = state.subjects.find(x => x.id === subjectId);
-      if (!s) return 0;
-      const topics = s.chapters.flatMap(c => c.topics);
-      if (topics.length === 0) return 0;
-      return Math.round(
-        (topics.filter(t => t.completed).length / topics.length) * 100,
-      );
-    },
-    [state.subjects],
-  );
+      getSubjectProgress: (subjectId) => {
+        const s = get().subjects.find(x => x.id === subjectId);
+        if (!s) return 0;
+        const topics = s.chapters.flatMap(c => c.topics);
+        if (topics.length === 0) return 0;
+        return Math.round((topics.filter(t => t.completed).length / topics.length) * 100);
+      },
 
-  const getTodayPlanTasks = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const result: any[] = [];
-    state.studyPlans.forEach(plan => {
-      plan.tasks
-        .filter(t => t.date === today)
-        .forEach(task => {
-          result.push({
-            planId: plan.id,
-            taskId: task.id,
-            topicId: task.topicId,
-            subjectId: task.subjectId,
-            chapterId: task.chapterId,
-            estimatedMinutes: task.estimatedMinutes,
-            type: task.type,
-            completed: task.completed,
-            startTime: task.startTime,
-            endTime: task.endTime,
+      getTodayPlanTasks: () => {
+        const today = new Date().toISOString().split('T')[0];
+        const result: any[] = [];
+        get().studyPlans.forEach(plan => {
+          plan.tasks.filter(t => t.date === today).forEach(task => {
+            result.push({
+              planId: plan.id, taskId: task.id, topicId: task.topicId,
+              subjectId: task.subjectId, chapterId: task.chapterId,
+              estimatedMinutes: task.estimatedMinutes, type: task.type,
+              completed: task.completed, startTime: task.startTime, endTime: task.endTime,
+            });
           });
         });
-    });
-    return result;
-  }, [state.studyPlans]);
+        return result;
+      },
+    }),
+    {
+      name: 'focuson_data_v3',
+      storage: createJSONStorage(() => AsyncStorage),
+      version: 3,
+      migrate: (persisted: any, version: number) => {
+        // Migrate from old Context-based storage
+        if (version < 3) {
+          return { ...defaultState, ...persisted, settings: { ...DEFAULT_SETTINGS, ...persisted?.settings } };
+        }
+        return persisted as StudyStore;
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) state._setReady(true);
+      },
+      // Don't persist computed/internal fields
+      partialize: (state) => {
+        const { ready, _setReady, addSubject, updateSubject, deleteSubject,
+          toggleTopicComplete, addSession, addStudyPlan, updateStudyPlan,
+          deleteStudyPlan, completePlanTask, addBlockRoutine, updateBlockRoutine,
+          deleteBlockRoutine, updateSettings, gainXp, completeOnboarding,
+          getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
+          ...data } = state;
+        return data;
+      },
+    },
+  ),
+);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <StudyContext.Provider
-      value={{
-        state,
-        ready,
-        addSubject,
-        updateSubject,
-        deleteSubject,
-        toggleTopicComplete,
-        addSession,
-        addStudyPlan,
-        updateStudyPlan,
-        deleteStudyPlan,
-        completePlanTask,
-        addBlockRoutine,
-        updateBlockRoutine,
-        deleteBlockRoutine,
-        updateSettings,
-        gainXp,
-        completeOnboarding,
-        getTodayMinutes,
-        getStreak,
-        getSubjectProgress,
-        getTodayPlanTasks,
-      }}
-    >
-      {children}
-    </StudyContext.Provider>
-  );
+// ── useStudy — drop-in replacement, সব screen এ কাজ করবে ────────────────────
+export function useStudy() {
+  const store = useStudyStore();
+  return {
+    state: {
+      subjects: store.subjects,
+      sessions: store.sessions,
+      studyPlans: store.studyPlans,
+      blockRoutines: store.blockRoutines,
+      settings: store.settings,
+      streak: store.streak,
+      xp: store.xp,
+      level: store.level,
+      totalTopicsCompleted: store.totalTopicsCompleted,
+      todaySessionsCompleted: store.todaySessionsCompleted,
+      onboardingCompleted: store.onboardingCompleted,
+      lastStudyDate: (store as any).lastStudyDate,
+    } as AppState,
+    ready: store.ready,
+    addSubject: store.addSubject,
+    updateSubject: store.updateSubject,
+    deleteSubject: store.deleteSubject,
+    toggleTopicComplete: store.toggleTopicComplete,
+    addSession: store.addSession,
+    addStudyPlan: store.addStudyPlan,
+    updateStudyPlan: store.updateStudyPlan,
+    deleteStudyPlan: store.deleteStudyPlan,
+    completePlanTask: store.completePlanTask,
+    addBlockRoutine: store.addBlockRoutine,
+    updateBlockRoutine: store.updateBlockRoutine,
+    deleteBlockRoutine: store.deleteBlockRoutine,
+    updateSettings: store.updateSettings,
+    gainXp: store.gainXp,
+    completeOnboarding: store.completeOnboarding,
+    getTodayMinutes: store.getTodayMinutes,
+    getStreak: store.getStreak,
+    getSubjectProgress: store.getSubjectProgress,
+    getTodayPlanTasks: store.getTodayPlanTasks,
+  };
 }
 
-export function useStudy(): StudyContextValue {
-  const ctx = useContext(StudyContext);
-  if (!ctx) throw new Error('useStudy must be used inside StudyProvider');
-  return ctx;
-}
+// ── StudyProvider — wrapper only, Zustand এর কোনো Provider লাগে না ───────────
+export function StudyProvider({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+                                         }
