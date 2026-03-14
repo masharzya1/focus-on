@@ -8,12 +8,13 @@ import { useAutoBlocking } from '@/hooks/useAutoBlocking';
 import { useEffect } from 'react';
 import {
   useFonts,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-} from '@expo-google-fonts/inter';
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900ExtraBlack,
+} from '@expo-google-fonts/nunito';
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
@@ -44,11 +45,12 @@ function InnerLayout() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
+    Nunito_400Regular,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900ExtraBlack,
   });
 
   useEffect(() => {
@@ -57,7 +59,6 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Wait for fonts before rendering — prevents flash of system font
   if (!fontsLoaded && !fontError) return null;
 
   return (
