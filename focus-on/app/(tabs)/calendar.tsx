@@ -7,8 +7,8 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS } from '@/constants/theme';
 
-const MONTH_BN = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
-const DAY_BN = ['র','স','ম','বু','বৃ','শু','শ'];
+const MONTH_BN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_BN = ['S','M','T','W','T','F','S'];
 
 export default function CalendarScreen() {
   const { state } = useStudy();
@@ -114,8 +114,8 @@ export default function CalendarScreen() {
           {/* Legend */}
           <View style={styles.legend}>
             {[
-              { color: c.success, label: 'পড়া হয়েছে' },
-              { color: c.accent, label: 'Plan আছে' },
+              { color: c.success, label: 'Studied' },
+              { color: c.accent, label: 'Planned' },
               { color: '#EF4444', label: 'Exam' },
             ].map(item => (
               <View key={item.label} style={styles.legendItem}>
@@ -134,11 +134,11 @@ export default function CalendarScreen() {
             {selectedData?.mins ? (
               <View style={[styles.infoRow, { backgroundColor: c.accentSoft }]}>
                 <Ionicons name="time-outline" size={16} color={c.accent} />
-                <Text style={[styles.infoTxt, { color: c.accent }]}>{selectedData.mins} মিনিট পড়া হয়েছে</Text>
+                <Text style={[styles.infoTxt, { color: c.accent }]}>{selectedData.mins}  minutes studied</Text>
               </View>
             ) : null}
             {selectedTasks.length === 0 && !selectedData?.mins ? (
-              <Text style={[styles.noData, { color: c.textFaint }]}>এই দিনে কিছু নেই</Text>
+              <Text style={[styles.noData, { color: c.textFaint }]}>Nothing scheduled this day.
             ) : null}
             {selectedTasks.map(task => {
               const subject = state.subjects.find(s => s.id === task.subjectId);

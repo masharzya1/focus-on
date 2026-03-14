@@ -100,11 +100,11 @@ export default function TabLayout() {
         tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'shield' : 'shield-outline'} focused={focused} color={color} />,
       }} />
 
-      {/* Hidden screens */}
-      <Tabs.Screen name="profile"   options={{ href: null }} />
-      <Tabs.Screen name="calendar"  options={{ href: null }} />
-      <Tabs.Screen name="analytics" options={{ href: null }} />
-      <Tabs.Screen name="settings"  options={{ href: null }} />
+      {/* Hidden screens — accessible via header profile icon */}
+      <Tabs.Screen name="profile"          options={{ href: null }} />
+      <Tabs.Screen name="calendar"         options={{ href: null }} />
+      <Tabs.Screen name="analytics"        options={{ href: null }} />
+      <Tabs.Screen name="settings"         options={{ href: null }} />
       <Tabs.Screen name="more-placeholder" options={{ href: null }} />
     </Tabs>
   );

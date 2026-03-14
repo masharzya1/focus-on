@@ -20,54 +20,53 @@ const SLIDES = [
     icon: 'sparkles' as const,
     iconColor: '#6C63FF',
     bg: '#EDE9FF',
-    title: 'Focus On এ স্বাগতম!',
-    desc: 'পড়াশোনাকে সহজ, মজাদার আর effective করার জন্য তোমার সেরা সঙ্গী।',
+    title: 'Welcome to Focus On!',
+    desc: 'Your smartest companion for studying — organized, focused, and actually fun.',
   },
   {
     id: 'home',
     icon: 'home' as const,
     iconColor: '#3B82F6',
     bg: '#DBEAFE',
-    title: 'Home — তোমার Dashboard',
-    desc: 'প্রতিদিনের streak, goal progress আর আজকের tasks এক জায়গায় দেখো।',
+    title: 'Home — Your Dashboard',
+    desc: 'See your streak, daily goal progress, and today\'s plan at a glance.',
   },
   {
     id: 'subjects',
     icon: 'book' as const,
     iconColor: '#10B981',
     bg: '#D1FAE5',
-    title: 'Subjects — সব সাজিয়ে রাখো',
-    desc: 'Subject বানাও, Chapter আর Topic যোগ করো। Progress bar দেখো কতটুকু শেষ।',
+    title: 'Subjects — Stay Organized',
+    desc: 'Create subjects with chapters and topics. Track progress with a visual bar.',
   },
   {
     id: 'timer',
     icon: 'timer' as const,
     iconColor: '#6C63FF',
     bg: '#EDE9FF',
-    title: 'Timer — শুধু পড়ো',
-    desc: 'Distraction-free Pomodoro timer। শুধু timer circle, mode আর start button।',
+    title: 'Timer — Just Focus',
+    desc: 'Distraction-free Pomodoro timer. One circle. One button. That\'s it.',
   },
   {
     id: 'plan',
     icon: 'calendar' as const,
     iconColor: '#F59E0B',
     bg: '#FEF3C7',
-    title: 'Plans — AI Schedule',
-    desc: 'Exam date দাও, topics বেছে দাও — AI তোমার পুরো study plan বানিয়ে দেবে। Notification পাবে সময়মতো।',
+    title: 'Plans — Smart Schedule',
+    desc: 'Set your exam date, pick topics, and get a full auto-generated study schedule with notifications.',
   },
   {
     id: 'block',
     icon: 'shield-checkmark' as const,
     iconColor: '#EF4444',
     bg: '#FEE2E2',
-    title: 'App Block — Focus রাখো',
-    desc: 'Study time এ distracting apps block করো। Hard block বা Device Admin দিয়ে নিজেকে আটকাও।',
+    title: 'App Block — Stay Focused',
+    desc: 'Block distracting apps during study time. Choose soft or hard block — even uninstall-proof.',
   },
 ];
 
 function AnimatedIcon({ icon, color, bg }: { icon: any; color: string; bg: string }) {
   const scale = useSharedValue(0.8);
-  const rotate = useSharedValue(0);
   const translateY = useSharedValue(0);
 
   React.useEffect(() => {
@@ -98,14 +97,9 @@ export default function OnboardingScreen() {
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const goTo = (idx: number) => {
-    scrollRef.current?.scrollTo({ x: idx * width, animated: true });
-    setCurrent(idx);
-  };
-
-  const next = () => {
-    if (current < SLIDES.length - 1) goTo(current + 1);
-    else finish();
+  const goTo = (index: number) => {
+    setCurrent(index);
+    scrollRef.current?.scrollTo({ x: index * width, animated: true });
   };
 
   const finish = () => {
@@ -113,87 +107,73 @@ export default function OnboardingScreen() {
     router.replace('/(tabs)');
   };
 
-  const slide = SLIDES[current];
+  const isLast = current === SLIDES.length - 1;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {/* Skip */}
-      <TouchableOpacity style={styles.skipBtn} onPress={finish}>
-        <Text style={[styles.skipTxt, { color: colors.textMuted }]}>Skip</Text>
-      </TouchableOpacity>
-
-      {/* Slides */}
       <ScrollView
         ref={scrollRef}
         horizontal pagingEnabled scrollEnabled={false}
         showsHorizontalScrollIndicator={false}
         style={{ flex: 1 }}
       >
-        {SLIDES.map((s, i) => (
-          <View key={s.id} style={styles.slide}>
-            <AnimatedIcon icon={s.icon} color={s.iconColor} bg={s.bg} />
-            <Text style={[styles.title, { color: colors.text }]}>{s.title}</Text>
-            <Text style={[styles.desc, { color: colors.textMuted }]}>{s.desc}</Text>
+        {SLIDES.map((slide, i) => (
+          <View key={slide.id} style={[styles.slide, { width }]}>
+            <AnimatedIcon icon={slide.icon} color={slide.iconColor} bg={slide.bg} />
+            <Text style={[styles.title, { color: colors.text }]}>{slide.title}</Text>
+            <Text style={[styles.desc, { color: colors.textMuted }]}>{slide.desc}</Text>
           </View>
         ))}
       </ScrollView>
 
       {/* Dots */}
-      <View style={styles.dots}>
+      <View style={styles.dotsRow}>
         {SLIDES.map((_, i) => (
           <TouchableOpacity key={i} onPress={() => goTo(i)}>
-            <View style={[
-              styles.dot,
-              { backgroundColor: i === current ? slide.iconColor : colors.border },
-              i === current && styles.dotActive,
-            ]} />
+            <View style={[styles.dot,
+              { backgroundColor: i === current ? colors.accent : colors.border,
+                width: i === current ? 20 : 8 }]}
+            />
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Button */}
-      <TouchableOpacity
-        style={[styles.btn, { backgroundColor: slide.iconColor }]}
-        onPress={next}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.btnTxt}>
-          {current === SLIDES.length - 1 ? 'শুরু করো 🚀' : 'পরবর্তী'}
-        </Text>
-        {current < SLIDES.length - 1 && (
-          <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 6 }} />
+      {/* Bottom buttons */}
+      <View style={[styles.bottom, { paddingBottom: Platform.OS === 'ios' ? 48 : 32 }]}>
+        {!isLast && (
+          <TouchableOpacity onPress={finish} style={styles.skipBtn}>
+            <Text style={[styles.skipTxt, { color: colors.textMuted }]}>Skip</Text>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
 
-      <View style={{ height: Platform.OS === 'ios' ? 40 : 24 }} />
+        <TouchableOpacity
+          style={[styles.nextBtn, { backgroundColor: colors.accent, flex: isLast ? 1 : undefined }]}
+          onPress={isLast ? finish : () => goTo(current + 1)}>
+          <Text style={styles.nextTxt}>{isLast ? "Let's go!" : 'Next'}</Text>
+          {!isLast && <Ionicons name="arrow-forward" size={18} color="#fff" />}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  skipBtn: { position: 'absolute', top: 56, right: 24, zIndex: 10, padding: 8 },
-  skipTxt: { fontSize: 14, fontWeight: '600' },
-  slide: {
-    width, flex: 1,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 40, paddingTop: 60,
-  },
+  slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 80 },
   iconContainer: {
-    width: 160, height: 160, borderRadius: 80,
+    width: 160, height: 160, borderRadius: 48,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 20, elevation: 6,
   },
-  title: { fontSize: 26, fontWeight: '800', textAlign: 'center', marginBottom: 16, letterSpacing: -0.5 },
-  desc: { fontSize: 16, textAlign: 'center', lineHeight: 26, fontWeight: '400' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  dotActive: { width: 24 },
-  btn: {
-    marginHorizontal: 24, height: 56, borderRadius: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 }, shadowRadius: 12,
-    shadowOpacity: 0.3, elevation: 6,
-  },
-  btnTxt: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', textAlign: 'center', letterSpacing: -0.5, marginBottom: 16 },
+  desc: { fontSize: 16, textAlign: 'center', lineHeight: 26 },
+  dotsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, paddingBottom: 20 },
+  dot: { height: 8, borderRadius: 4 },
+  bottom: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24 },
+  skipBtn: { paddingHorizontal: 16, paddingVertical: 14 },
+  skipTxt: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, height: 56, borderRadius: 16 },
+  nextTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
 });

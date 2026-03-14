@@ -82,3 +82,13 @@ export const RADIUS = {
   xxl: 32,
   full: 999,
 };
+// ── Typography ──────────────────────────────────────────────────────────────
+// Use these in StyleSheet instead of hardcoding fontWeight strings.
+// Inter loads via _layout.tsx useFonts() — always use fontFamily, not fontWeight alone.
+export const FONTS = {
+  regular:   'Inter_400Regular',
+  medium:    'Inter_500Medium',
+  semibold:  'Inter_600SemiBold',
+  bold:      'Inter_700Bold',
+  extrabold: 'Inter_800ExtraBold',
+};

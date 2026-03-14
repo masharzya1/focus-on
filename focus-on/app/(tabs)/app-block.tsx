@@ -27,13 +27,13 @@ function TimePicker({ value, onChange, label, colors: c }: { value:string; onCha
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {[{val:h,set:setH,mod:24},{val:m,set:setM,mod:60,step:5}].map((item,i) => (
             <React.Fragment key={i}>
-              {i>0 && <Text style={{ fontSize: 18, fontWeight:'800', color:c.textMuted }}>:</Text>}
+              {i>0 && <Text style={{ fontSize: 18, fontWeight:'800', fontFamily: 'Inter_800ExtraBold', color:c.textMuted }}>:</Text>}
               <View style={{ alignItems: 'center', gap: 4 }}>
                 <TouchableOpacity onPress={() => {
                   const nv = item.step ? ((Math.floor(item.val/5)+1)%12)*5 : (item.val+1)%item.mod;
                   item.set(nv); emit(i===0?nv:h, i===0?m:nv);
                 }}><Ionicons name="chevron-up" size={14} color={c.accent} /></TouchableOpacity>
-                <Text style={{ fontSize: 18, fontWeight:'800', color:c.text, minWidth:28, textAlign:'center' }}>
+                <Text style={{ fontSize: 18, fontWeight:'800', fontFamily: 'Inter_800ExtraBold', color:c.text, minWidth:28, textAlign:'center' }}>
                   {String(item.val).padStart(2,'0')}
                 </Text>
                 <TouchableOpacity onPress={() => {
@@ -59,7 +59,7 @@ export default function AppBlockScreen() {
   const [showAppPicker, setShowAppPicker] = useState(false);
   const [search, setSearch] = useState('');
 
-  // form
+  // form state
   const [rName, setRName] = useState('');
   const [rStart, setRStart] = useState('09:00');
   const [rEnd, setREnd] = useState('11:00');
@@ -70,23 +70,27 @@ export default function AppBlockScreen() {
   const [rAdmin, setRAdmin] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    AppBlocking.isAccessibilityEnabled().then(setAccessEnabled);
+    AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => setAccessEnabled(false));
   }, []));
 
   const loadApps = async () => {
-    if (installedApps.length === 0) {
-      const apps = await AppBlocking.getInstalledApps();
-      setInstalledApps(apps.filter(a =>
-        !a.packageName.startsWith('com.android') &&
-        !a.packageName.startsWith('com.google.android.googlequicksearchbox')
-      ));
+    try {
+      if (installedApps.length === 0) {
+        const apps = await AppBlocking.getInstalledApps();
+        setInstalledApps(apps.filter(a =>
+          !a.packageName.startsWith('com.android') &&
+          !a.packageName.startsWith('com.google.android.googlequicksearchbox')
+        ));
+      }
+      setShowAppPicker(true);
+    } catch (e) {
+      Alert.alert('Error', 'Could not load installed apps.');
     }
-    setShowAppPicker(true);
   };
 
   const saveRoutine = () => {
     if (!rName.trim() || rApps.length === 0) {
-      Alert.alert('⚠️', 'নাম আর কমপক্ষে একটি app দরকার।'); return;
+      Alert.alert('Missing info', 'Please add a name and select at least one app.'); return;
     }
     const r: AppBlockRoutine = {
       id: Date.now().toString(), name: rName.trim(),
@@ -120,9 +124,19 @@ export default function AppBlockScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: c.text }]}>App Block</Text>
         <TouchableOpacity style={[styles.addBtn, { backgroundColor: c.accent }]}
-          onPress={() => { if (!accessEnabled) { Alert.alert('Permission দরকার', 'Accessibility permission দাও।', [{ text: 'Settings', onPress: () => AppBlocking.openAccessibilitySettings() }, { text: 'Cancel', style: 'cancel' }]); return; } setShowCreate(true); }}>
+          onPress={() => {
+            if (!accessEnabled) {
+              Alert.alert(
+                'Permission needed',
+                'Enable Accessibility permission so Focus On can block apps.',
+                [{ text: 'Open Settings', onPress: () => AppBlocking.openAccessibilitySettings() }, { text: 'Cancel', style: 'cancel' }]
+              );
+              return;
+            }
+            setShowCreate(true);
+          }}>
           <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.addTxt}>নতুন</Text>
+          <Text style={styles.addTxt}>New</Text>
         </TouchableOpacity>
       </View>
 
@@ -132,8 +146,8 @@ export default function AppBlockScreen() {
           onPress={() => AppBlocking.openAccessibilitySettings()}>
           <Ionicons name="warning" size={18} color="#D97706" />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.warnTitle, { color: '#92400E' }]}>Accessibility Permission দরকার</Text>
-            <Text style={[styles.warnSub, { color: '#B45309' }]}>Tap করে enable করো</Text>
+            <Text style={[styles.warnTitle, { color: '#92400E' }]}>Accessibility Permission Required</Text>
+            <Text style={[styles.warnSub, { color: '#B45309' }]}>Tap to enable in Settings</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#D97706" />
         </TouchableOpacity>
@@ -143,8 +157,8 @@ export default function AppBlockScreen() {
         {state.blockRoutines.length === 0 ? (
           <View style={styles.empty}>
             <Text style={{ fontSize: 56, marginBottom: 16 }}>🛡️</Text>
-            <Text style={[styles.emptyTitle, { color: c.text }]}>কোনো Block Routine নেই</Text>
-            <Text style={[styles.emptySub, { color: c.textMuted }]}>Study time এ distraction block করো</Text>
+            <Text style={[styles.emptyTitle, { color: c.text }]}>No block routines</Text>
+            <Text style={[styles.emptySub, { color: c.textMuted }]}>Block distracting apps during study time</Text>
           </View>
         ) : (
           state.blockRoutines.map((r, i) => {
@@ -166,14 +180,14 @@ export default function AppBlockScreen() {
                       </Text>
                       <Text style={[styles.routineApps, { color: c.textFaint }]}>
                         {r.blockedApps.length} apps{r.blockShorts ? ' + Shorts' : ''}
-                        {r.hardBlock ? ' · 🔒 Hard' : ''}{r.deviceAdmin ? ' · 🛡️ Admin' : ''}
+                        {r.hardBlock ? ' · Hard block' : ''}{r.deviceAdmin ? ' · Admin' : ''}
                       </Text>
                     </View>
                     <View style={styles.routineActions}>
                       <Switch value={r.enabled}
                         onValueChange={v => updateBlockRoutine({ ...r, enabled: v })}
                         trackColor={{ true: c.accent }} style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }} />
-                      <TouchableOpacity onPress={() => Alert.alert('Delete?', `"${r.name}" delete করবে?`, [
+                      <TouchableOpacity onPress={() => Alert.alert('Delete?', `Delete "${r.name}"?`, [
                         { text: 'Cancel', style: 'cancel' },
                         { text: 'Delete', style: 'destructive', onPress: () => deleteBlockRoutine(r.id) },
                       ])}><Ionicons name="trash-outline" size={18} color={c.destructive} /></TouchableOpacity>
@@ -193,20 +207,20 @@ export default function AppBlockScreen() {
           <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>নতুন Block Routine</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>New Block Routine</Text>
 
-              <Text style={[styles.lbl, { color: c.textMuted }]}>নাম</Text>
+              <Text style={[styles.lbl, { color: c.textMuted }]}>Name</Text>
               <TextInput style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-                placeholder="যেমন: Morning Study Block" placeholderTextColor={c.textFaint}
+                placeholder="e.g. Morning Study Block" placeholderTextColor={c.textFaint}
                 value={rName} onChangeText={setRName} />
 
-              <Text style={[styles.lbl, { color: c.textMuted }]}>সময়</Text>
+              <Text style={[styles.lbl, { color: c.textMuted }]}>Time</Text>
               <View style={{ flexDirection: 'row', gap: 12 }}>
-                <TimePicker value={rStart} onChange={setRStart} label="শুরু" colors={c} />
-                <TimePicker value={rEnd} onChange={setREnd} label="শেষ" colors={c} />
+                <TimePicker value={rStart} onChange={setRStart} label="Start" colors={c} />
+                <TimePicker value={rEnd} onChange={setREnd} label="End" colors={c} />
               </View>
 
-              <Text style={[styles.lbl, { color: c.textMuted }]}>দিন (খালি = প্রতিদিন)</Text>
+              <Text style={[styles.lbl, { color: c.textMuted }]}>Days (empty = every day)</Text>
               <View style={styles.dayRow}>
                 {DAY_NAMES.map((d,i) => (
                   <TouchableOpacity key={i} style={[styles.dayBtn,
@@ -219,9 +233,9 @@ export default function AppBlockScreen() {
 
               {/* Options */}
               {[
-                { label: 'YouTube Shorts / Instagram Reels block', val: rShorts, set: setRShorts, color: c.accent },
-                { label: '🔒 Hard Block (uninstall ছাড়া unblock নয়)', val: rHard, set: setRHard, color: c.destructive },
-                { label: '🛡️ Device Admin (uninstall ও নয়)', val: rAdmin, set: (v:boolean)=>{ if(v) setRHard(true); setRAdmin(v); }, color: '#DC2626' },
+                { label: 'Block YouTube Shorts / Instagram Reels', val: rShorts, set: setRShorts, color: c.accent },
+                { label: 'Hard Block — cannot unblock without uninstalling this app', val: rHard, set: setRHard, color: c.destructive },
+                { label: 'Device Admin — cannot uninstall either (strongest)', val: rAdmin, set: (v:boolean)=>{ if(v) setRHard(true); setRAdmin(v); }, color: '#DC2626' },
               ].map((opt,i) => (
                 <View key={i} style={[styles.optRow, { borderColor: c.border }]}>
                   <Text style={[styles.optLabel, { color: c.text, flex: 1 }]}>{opt.label}</Text>
@@ -233,13 +247,13 @@ export default function AppBlockScreen() {
                 onPress={loadApps}>
                 <Ionicons name="apps" size={18} color={c.accent} />
                 <Text style={[styles.pickAppsTxt, { color: c.accent }]}>
-                  {rApps.length > 0 ? `${rApps.length}টি app selected` : 'Apps বেছে নাও'}
+                  {rApps.length > 0 ? `${rApps.length} apps selected` : 'Select apps to block'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.saveBtn, { backgroundColor: c.accent, opacity: rName.trim() && rApps.length > 0 ? 1 : 0.5 }]}
                 onPress={saveRoutine}>
-                <Text style={styles.saveTxt}>Save করো</Text>
+                <Text style={styles.saveTxt}>Save Routine</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -251,7 +265,7 @@ export default function AppBlockScreen() {
         <View style={styles.modalBg}>
           <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
-            <Text style={[styles.sheetTitle, { color: c.text }]}>Apps বেছে নাও</Text>
+            <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps to Block</Text>
             <TextInput style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
               placeholder="Search..." placeholderTextColor={c.textFaint}
               value={search} onChangeText={setSearch} />
@@ -287,44 +301,44 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.5 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
-  addTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  addTxt: { color: '#fff', fontWeight: '700', fontFamily: 'Inter_700Bold', fontSize: 14 },
   warnCard: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 20,
     padding: 14, borderRadius: 14, marginBottom: 8 },
-  warnTitle: { fontSize: 14, fontWeight: '700' },
+  warnTitle: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   warnSub: { fontSize: 12, marginTop: 2 },
   content: { paddingHorizontal: 20, paddingBottom: 100 },
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-  emptyTitle: { fontSize: 20, fontWeight: '700' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   emptySub: { fontSize: 14, marginTop: 8 },
   routineCard: { borderRadius: RADIUS.xl, padding: 16, marginBottom: 12, borderLeftWidth: 4 },
   routineTop: { flexDirection: 'row', alignItems: 'flex-start' },
   routineNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  routineName: { fontSize: 15, fontWeight: '700' },
+  routineName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   activeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  activeTxt: { fontSize: 11, fontWeight: '700' },
+  activeTxt: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   routineTime: { fontSize: 13, marginBottom: 4 },
   routineApps: { fontSize: 12 },
   routineActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, maxHeight: '90%' },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 22, fontWeight: '800', marginBottom: 20 },
-  lbl: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 16 },
+  sheetTitle: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 20 },
+  lbl: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 16 },
   input: { height: 50, borderRadius: 13, paddingHorizontal: 16, fontSize: 15, borderWidth: 1.5, marginBottom: 8 },
   dayRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 },
   dayBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, borderWidth: 1.5 },
-  dayTxt: { fontSize: 12, fontWeight: '700' },
+  dayTxt: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   optRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1 },
   optLabel: { fontSize: 14, lineHeight: 20 },
   pickAppsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderWidth: 2, borderRadius: 14, paddingVertical: 14, marginTop: 16, marginBottom: 12 },
-  pickAppsTxt: { fontSize: 15, fontWeight: '700' },
+  pickAppsTxt: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   saveBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  saveTxt: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  saveTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   appItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 },
   checkBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  appName: { fontSize: 14, fontWeight: '600' },
+  appName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   appPkg: { fontSize: 11, marginTop: 1 },
 });

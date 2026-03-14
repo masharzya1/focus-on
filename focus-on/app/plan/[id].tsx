@@ -31,6 +31,7 @@ export default function PlanDetailScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: c.bgCard }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
@@ -38,17 +39,24 @@ export default function PlanDetailScreen() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.planName, { color: c.text }]}>{plan.examName}</Text>
           <Text style={[styles.planSub, { color: daysLeft <= 7 ? c.destructive : c.textMuted }]}>
-            {daysLeft > 0 ? `${daysLeft} দিন বাকি` : 'আজই!'} · {prog}% শেষ
+            {daysLeft > 0 ? `${daysLeft} days left` : 'Exam day!'} · {prog}% done
           </Text>
         </View>
         {plan.blockApps && <Ionicons name="shield-checkmark" size={20} color={c.destructive} />}
       </View>
 
+      {/* Progress bar */}
       <View style={[styles.progBg, { backgroundColor: c.border }]}>
         <View style={[styles.progFill, { backgroundColor: c.accent, width: `${prog}%` }]} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {dates.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={[styles.emptyTxt, { color: c.textMuted }]}>No tasks scheduled yet.</Text>
+          </View>
+        )}
+
         {dates.map((date, di) => {
           const isToday = date === today;
           const tasks = byDate[date];
@@ -57,25 +65,35 @@ export default function PlanDetailScreen() {
               <View style={styles.dateHeader}>
                 <Text style={[styles.dateLabel, { color: isToday ? c.accent : c.textMuted },
                   isToday && styles.todayLabel]}>
-                  {isToday ? '📌 আজ' : date}
+                  {isToday ? '📌 Today' : date}
                 </Text>
               </View>
+
               {tasks.map(task => {
                 const subject = state.subjects.find(s => s.id === task.subjectId);
                 const topic = subject?.chapters.flatMap(ch => ch.topics).find(t => t.id === task.topicId);
+                // For chapter-only subjects, topicId = chapterId
+                const chapterName = subject?.chapters.find(ch => ch.id === task.chapterId)?.name;
+                const displayName = topic?.name || chapterName || 'Task';
+
                 return (
                   <TouchableOpacity key={task.id}
-                    style={[styles.taskCard, { backgroundColor: isToday ? c.bgCard : c.bgSecondary,
-                      borderLeftColor: task.completed ? c.success : isToday ? c.accent : c.border }]}
-                    onPress={() => !task.completed && completePlanTask(task.id)}>
-                    <View style={[styles.checkBox, { borderColor: task.completed ? c.success : c.border,
-                      backgroundColor: task.completed ? c.success : 'transparent' }]}>
+                    style={[styles.taskCard, {
+                      backgroundColor: isToday ? c.bgCard : c.bgSecondary,
+                      borderLeftColor: task.completed ? c.success : isToday ? c.accent : c.border,
+                    }]}
+                    onPress={() => !task.completed && completePlanTask(task.id)}
+                    activeOpacity={task.completed ? 1 : 0.75}>
+                    <View style={[styles.checkBox, {
+                      borderColor: task.completed ? c.success : c.border,
+                      backgroundColor: task.completed ? c.success : 'transparent',
+                    }]}>
                       {task.completed && <Ionicons name="checkmark" size={14} color="#fff" />}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.taskName, { color: task.completed ? c.textMuted : c.text },
                         task.completed && styles.taskDone]} numberOfLines={1}>
-                        {topic?.name || 'Topic'}
+                        {displayName}
                       </Text>
                       <Text style={[styles.taskSub, { color: c.textFaint }]}>
                         {subject?.name}
@@ -100,19 +118,21 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16,
     paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingBottom: 14 },
   backBtn: { padding: 4 },
-  planName: { fontSize: 18, fontWeight: '800' },
+  planName: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   planSub: { fontSize: 12, marginTop: 2 },
   progBg: { height: 3 },
   progFill: { height: '100%' },
   content: { padding: 16 },
   dateHeader: { marginTop: 8, marginBottom: 8 },
-  dateLabel: { fontSize: 13, fontWeight: '700' },
+  dateLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   todayLabel: { fontSize: 15 },
   taskCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
     borderRadius: RADIUS.xl, marginBottom: 8, borderLeftWidth: 4 },
   checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  taskName: { fontSize: 14, fontWeight: '700' },
+  taskName: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   taskDone: { textDecorationLine: 'line-through', opacity: 0.5 },
   taskSub: { fontSize: 11, marginTop: 2 },
-  taskMins: { fontSize: 12, fontWeight: '600' },
+  taskMins: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  empty: { alignItems: 'center', paddingTop: 60 },
+  emptyTxt: { fontSize: 15 },
 });

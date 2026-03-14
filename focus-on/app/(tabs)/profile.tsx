@@ -30,6 +30,16 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={[styles.root, { backgroundColor: c.bg }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={c.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: c.text }]}>Profile</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
       {/* Avatar & XP */}
       <Animated.View entering={FadeInDown.springify()} style={[styles.hero, { backgroundColor: c.bgCard }]}>
         <View style={[styles.avatar, { backgroundColor: c.accentSoft }]}>
@@ -43,11 +53,20 @@ export default function ProfileScreen() {
         <Text style={[styles.xpNext, { color: c.textFaint }]}>{earned}/{total} XP to next level</Text>
 
         <View style={styles.statsRow}>
-          <View style={styles.stat}><Text style={[styles.statNum, { color: c.text }]}>{state.streak}</Text><Text style={[styles.statLabel, { color: c.textMuted }]}>🔥 Streak</Text></View>
+          <View style={styles.stat}>
+            <Text style={[styles.statNum, { color: c.text }]}>{state.streak}</Text>
+            <Text style={[styles.statLabel, { color: c.textMuted }]}>🔥 Streak</Text>
+          </View>
           <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-          <View style={styles.stat}><Text style={[styles.statNum, { color: c.text }]}>{state.totalTopicsCompleted}</Text><Text style={[styles.statLabel, { color: c.textMuted }]}>✅ Topics</Text></View>
+          <View style={styles.stat}>
+            <Text style={[styles.statNum, { color: c.text }]}>{state.totalTopicsCompleted}</Text>
+            <Text style={[styles.statLabel, { color: c.textMuted }]}>Topics done</Text>
+          </View>
           <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-          <View style={styles.stat}><Text style={[styles.statNum, { color: c.text }]}>{state.subjects.length}</Text><Text style={[styles.statLabel, { color: c.textMuted }]}>📚 Subjects</Text></View>
+          <View style={styles.stat}>
+            <Text style={[styles.statNum, { color: c.text }]}>{state.subjects.length}</Text>
+            <Text style={[styles.statLabel, { color: c.textMuted }]}>Subjects</Text>
+          </View>
         </View>
       </Animated.View>
 
@@ -72,20 +91,22 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingHorizontal: 20, paddingBottom: 100 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   hero: { borderRadius: RADIUS.xl, padding: 24, alignItems: 'center', marginBottom: 20 },
   avatar: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  levelBadge: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  levelBadge: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 4 },
   xpTotal: { fontSize: 14, marginBottom: 12 },
   xpBg: { height: 8, width: '100%', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
   xpFill: { height: '100%', borderRadius: 4 },
-  xpNext: { fontSize: 11, marginBottom: 20 },
-  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', alignItems: 'center' },
-  stat: { alignItems: 'center', flex: 1 },
-  statNum: { fontSize: 22, fontWeight: '800' },
+  xpNext: { fontSize: 12, marginBottom: 20 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 0, width: '100%' },
+  stat: { flex: 1, alignItems: 'center' },
+  statNum: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   statLabel: { fontSize: 12, marginTop: 2 },
   statDivider: { width: 1, height: 36 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   gridCard: { borderRadius: RADIUS.xl, padding: 20, alignItems: 'center', gap: 10 },
   gridIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  gridLabel: { fontSize: 14, fontWeight: '700' },
+  gridLabel: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
 });

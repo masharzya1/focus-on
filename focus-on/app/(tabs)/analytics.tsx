@@ -7,7 +7,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS } from '@/constants/theme';
 
-const DAY_LABELS = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহ', 'শুক্র', 'শনি'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const h = useSharedValue(0);
@@ -98,16 +98,16 @@ export default function AnalyticsScreen() {
 
         {/* Stat cards */}
         <Animated.View entering={FadeInDown.delay(60).springify()} style={s.statRow}>
-          <StatCard icon="time-outline" label="মোট" value={`${Math.floor(stats.totalMins / 60)}h`} color="#6C63FF" bg={c.bgCard} />
-          <StatCard icon="calendar-outline" label="এই সপ্তাহ" value={`${stats.weekMins}m`} color="#3B82F6" bg={c.bgCard} />
-          <StatCard icon="trending-up-outline" label="দৈনিক গড়" value={`${stats.avgDaily}m`} color="#10B981" bg={c.bgCard} />
+          <StatCard icon="time-outline" label="Total" value={`${Math.floor(stats.totalMins / 60)}h`} color="#6C63FF" bg={c.bgCard} />
+          <StatCard icon="calendar-outline" label="This Week" value={`${stats.weekMins}m`} color="#3B82F6" bg={c.bgCard} />
+          <StatCard icon="trending-up-outline" label="Daily Avg" value={`${stats.avgDaily}m`} color="#10B981" bg={c.bgCard} />
           <StatCard icon="checkmark-circle-outline" label="Topics" value={String(stats.completedTopics)} color="#F59E0B" bg={c.bgCard} />
         </Animated.View>
 
         {/* Weekly bar chart */}
         <Animated.View entering={FadeInDown.delay(120).springify()}
           style={[s.card, { backgroundColor: c.bgCard }]}>
-          <Text style={[s.cardTitle, { color: c.text }]}>গত ৭ দিন</Text>
+          <Text style={[s.cardTitle, { color: c.text }]}>Last 7 Days</Text>
           <View style={s.barChart}>
             {stats.days.map((d, i) => (
               <View key={i} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
@@ -149,7 +149,7 @@ export default function AnalyticsScreen() {
         {stats.subjectStats.length === 0 && (
           <View style={s.empty}>
             <Text style={{ fontSize: 48, marginBottom: 12 }}>📊</Text>
-            <Text style={[s.emptyTxt, { color: c.textMuted }]}>এখনো কোনো data নেই।{'\n'}পড়া শুরু করলে এখানে দেখা যাবে।</Text>
+            <Text style={[s.emptyTxt, { color: c.textMuted }]}>No data yet.\nStart studying to see your analytics.</Text>
           </View>
         )}
 

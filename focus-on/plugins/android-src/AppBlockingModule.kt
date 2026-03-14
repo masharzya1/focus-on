@@ -1,5 +1,7 @@
 package PACKAGE_NAME_PLACEHOLDER
 
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -49,25 +51,37 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun startBlocking(blockedAppsJson: String) {
-        prefs.edit()
-            .putString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, blockedAppsJson)
-            .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, true)
-            .apply()
-        Log.d(TAG, "Blocking started: $blockedAppsJson")
+        try {
+            prefs.edit()
+                .putString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, blockedAppsJson)
+                .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, true)
+                .apply()
+            Log.d(TAG, "Blocking started: $blockedAppsJson")
+        } catch (e: Exception) {
+            Log.e(TAG, "startBlocking error: ${e.message}")
+        }
     }
 
     @ReactMethod
     fun stopBlocking() {
-        prefs.edit()
-            .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false)
-            .putBoolean(AppBlockerAccessibilityService.KEY_IS_ROUTINE_BLOCKING, false)
-            .apply()
-        Log.d(TAG, "Blocking stopped")
+        try {
+            prefs.edit()
+                .putBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false)
+                .putBoolean(AppBlockerAccessibilityService.KEY_IS_ROUTINE_BLOCKING, false)
+                .apply()
+            Log.d(TAG, "Blocking stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "stopBlocking error: ${e.message}")
+        }
     }
 
     @ReactMethod
     fun isBlockingActive(promise: Promise) {
-        promise.resolve(prefs.getBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false))
+        try {
+            promise.resolve(prefs.getBoolean(AppBlockerAccessibilityService.KEY_IS_BLOCKING, false))
+        } catch (e: Exception) {
+            promise.resolve(false)
+        }
     }
 
     @ReactMethod
@@ -80,11 +94,7 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: run { promise.resolve(false); return }
 
-            val serviceComponent = "$packageName/AppBlockerAccessibilityService"
-            val serviceComponentFull = "$packageName/${packageName}.AppBlockerAccessibilityService"
             val isEnabled = enabledServices.split(":").any { entry ->
-                entry.equals(serviceComponent, ignoreCase = true) ||
-                entry.equals(serviceComponentFull, ignoreCase = true) ||
                 entry.contains(packageName, ignoreCase = true)
             }
             promise.resolve(isEnabled)
@@ -95,34 +105,87 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun openAccessibilitySettings() {
-        reactApplicationContext.startActivity(
-            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
+        try {
+            reactApplicationContext.startActivity(
+                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "openAccessibilitySettings error: ${e.message}")
+        }
     }
 
     @ReactMethod
     fun getBlockedApps(promise: Promise) {
-        promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]")
+        try {
+            promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]")
+        } catch (e: Exception) {
+            promise.resolve("[]")
+        }
     }
 
     @ReactMethod
     fun saveRoutines(routinesJson: String) {
-        prefs.edit()
-            .putString(AppBlockerAccessibilityService.KEY_ROUTINES, routinesJson)
-            .apply()
-        Log.d(TAG, "Routines saved: $routinesJson")
+        try {
+            prefs.edit()
+                .putString(AppBlockerAccessibilityService.KEY_ROUTINES, routinesJson)
+                .apply()
+            Log.d(TAG, "Routines saved")
+        } catch (e: Exception) {
+            Log.e(TAG, "saveRoutines error: ${e.message}")
+        }
     }
 
-    /**
-     * Called from JS when user purchases Pro.
-     * Saves isPro to SharedPreferences so BlockOverlayActivity reads it natively
-     * and hides the ad banner for Pro users.
-     */
     @ReactMethod
     fun setProStatus(isPro: Boolean) {
-        prefs.edit().putBoolean("is_pro", isPro).apply()
-        Log.d(TAG, "Pro status set: $isPro")
+        try {
+            prefs.edit().putBoolean("is_pro", isPro).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "setProStatus error: ${e.message}")
+        }
     }
+
+    // ── Device Admin ──────────────────────────────────────────────────────────
+    @ReactMethod
+    fun requestDeviceAdmin(promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE)
+                    as? DevicePolicyManager
+            if (dpm == null) { promise.resolve(false); return }
+
+            val component = ComponentName(context, DeviceAdminReceiver::class.java)
+            if (dpm.isAdminActive(component)) {
+                promise.resolve(true)
+                return
+            }
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
+                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Grant Device Admin to enable the strongest app blocking — apps cannot be uninstalled while blocking is active.")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            // We resolve with false here — JS will retry isAdminActive after user returns
+            promise.resolve(false)
+        } catch (e: Exception) {
+            Log.e(TAG, "requestDeviceAdmin error: ${e.message}")
+            promise.resolve(false)
+        }
     }
+
+    @ReactMethod
+    fun isDeviceAdminActive(promise: Promise) {
+        try {
+            val context = reactApplicationContext
+            val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE)
+                    as? DevicePolicyManager
+            if (dpm == null) { promise.resolve(false); return }
+            val component = ComponentName(context, DeviceAdminReceiver::class.java)
+            promise.resolve(dpm.isAdminActive(component))
+        } catch (e: Exception) {
+            promise.resolve(false)
+        }
+    }
+}

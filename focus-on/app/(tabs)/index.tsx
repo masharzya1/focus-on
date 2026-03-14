@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,16 +9,16 @@ import { RADIUS } from '@/constants/theme';
 
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'শুভ সকাল! ☀️';
-  if (h < 17) return 'শুভ বিকেল! 🌤️';
-  return 'শুভ সন্ধ্যা! 🌙';
+  if (h < 12) return 'Good morning ☀️';
+  if (h < 17) return 'Good afternoon 🌤️';
+  return 'Good evening 🌙';
 }
 
 function StartButton({ onPress, color, darkColor }: { onPress: () => void; color: string; darkColor: string }) {
   const pressed = useSharedValue(0);
   const anim = useAnimatedStyle(() => ({
     transform: [{ scale: withTiming(pressed.value ? 0.97 : 1, { duration: 80 }) }],
-    shadowOpacity: withTiming(pressed.value ? 0.15 : 0.3, { duration: 80 }),
+    shadowOpacity: withTiming(pressed.value ? 0.15 : 0.32, { duration: 80 }),
   }));
   return (
     <Animated.View style={[styles.startOuter, { backgroundColor: darkColor, shadowColor: color }, anim]}>
@@ -29,7 +29,7 @@ function StartButton({ onPress, color, darkColor }: { onPress: () => void; color
         onPressOut={() => { pressed.value = 0; }}
       >
         <Ionicons name="timer" size={26} color="#fff" />
-        <Text style={styles.startTxt}>Focus শুরু করো</Text>
+        <Text style={styles.startTxt}>Start Focus</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -55,26 +55,34 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Header: greeting + streak ── */}
+      {/* ── Header: greeting + streak + profile ── */}
       <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: c.textMuted }]}>{getGreeting()}</Text>
           <Text style={[styles.appName, { color: c.text }]}>Focus On</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.streakBadge, { backgroundColor: '#FFF3E0' }]}
-          onPress={() => router.push('/(tabs)/profile')}
-        >
-          <Text style={{ fontSize: 20 }}>🔥</Text>
-          <Text style={[styles.streakNum, { color: '#E65100' }]}>{state.streak}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[styles.streakBadge, { backgroundColor: '#FFF3E0' }]}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <Text style={{ fontSize: 18 }}>🔥</Text>
+            <Text style={[styles.streakNum, { color: '#E65100' }]}>{state.streak}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.avatarBtn, { backgroundColor: c.accentSoft }]}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <Text style={{ fontSize: 20 }}>🧑‍🎓</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* ── Daily goal progress ── */}
       <Animated.View entering={FadeInDown.delay(80).springify()}
         style={[styles.goalCard, { backgroundColor: c.bgCard }]}>
         <View style={styles.goalTop}>
-          <Text style={[styles.goalLabel, { color: c.textMuted }]}>আজকের Goal</Text>
+          <Text style={[styles.goalLabel, { color: c.textMuted }]}>Today's Goal</Text>
           <Text style={[styles.goalTime, { color: c.accent }]}>
             {todayMin}m / {goalMin}m
           </Text>
@@ -88,7 +96,7 @@ export default function HomeScreen() {
           />
         </View>
         {progress >= 1 && (
-          <Text style={[styles.goalDone, { color: c.success }]}>🎉 আজকের goal শেষ!</Text>
+          <Text style={[styles.goalDone, { color: c.success }]}>🎉 Goal complete!</Text>
         )}
       </Animated.View>
 
@@ -105,7 +113,7 @@ export default function HomeScreen() {
       {todayTasks.length > 0 && (
         <Animated.View entering={FadeInDown.delay(240).springify()}
           style={[styles.tasksCard, { backgroundColor: c.bgCard }]}>
-          <Text style={[styles.tasksTitle, { color: c.text }]}>আজকের Plan</Text>
+          <Text style={[styles.tasksTitle, { color: c.text }]}>Today's Plan</Text>
           {todayTasks.map((task, i) => {
             const subject = state.subjects.find(s => s.id === task.subjectId);
             const topic = subject?.chapters.flatMap(ch => ch.topics).find(t => t.id === task.topicId);
@@ -132,15 +140,15 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* Empty state — no plan yet */}
+      {/* Empty state */}
       {todayTasks.length === 0 && (
         <Animated.View entering={FadeInDown.delay(240).springify()}
           style={[styles.emptyPlan, { backgroundColor: c.bgCard }]}>
           <Text style={{ fontSize: 36, marginBottom: 10 }}>📅</Text>
-          <Text style={[styles.emptyTxt, { color: c.textMuted }]}>আজকের কোনো plan নেই</Text>
+          <Text style={[styles.emptyTxt, { color: c.textMuted }]}>No plan for today</Text>
           <TouchableOpacity style={[styles.planBtn, { backgroundColor: c.accentSoft }]}
             onPress={() => router.push('/(tabs)/plan')}>
-            <Text style={[styles.planBtnTxt, { color: c.accent }]}>Plan বানাও →</Text>
+            <Text style={[styles.planBtnTxt, { color: c.accent }]}>Create a plan →</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -162,20 +170,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', paddingBottom: 4,
   },
-  greeting: { fontSize: 14, fontWeight: '500', marginBottom: 3 },
-  appName: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  greeting: { fontSize: 14, fontWeight: '500', fontFamily: 'Inter_500Medium', marginBottom: 3 },
+  appName: { fontSize: 30, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: -1 },
   streakBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18,
   },
-  streakNum: { fontSize: 18, fontWeight: '800' },
+  streakNum: { fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  avatarBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
   goalCard: { borderRadius: RADIUS.xl, padding: 18 },
   goalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  goalLabel: { fontSize: 14, fontWeight: '600' },
-  goalTime: { fontSize: 14, fontWeight: '800' },
+  goalLabel: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  goalTime: { fontSize: 14, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   progBg: { height: 10, borderRadius: 5, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 5 },
-  goalDone: { fontSize: 13, fontWeight: '600', marginTop: 10 },
+  goalDone: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold', marginTop: 10 },
   startOuter: {
     borderRadius: 20, paddingBottom: 5,
     shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 8,
@@ -184,17 +197,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 12, height: 64, borderRadius: 16,
   },
-  startTxt: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
+  startTxt: { color: '#fff', fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: 0.2 },
   tasksCard: { borderRadius: RADIUS.xl, padding: 18 },
-  tasksTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },
+  tasksTitle: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 14 },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
   taskDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  taskName: { fontSize: 14, fontWeight: '600' },
+  taskName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   done: { textDecorationLine: 'line-through', opacity: 0.5 },
   taskSub: { fontSize: 11, marginTop: 2 },
-  taskMins: { fontSize: 12, fontWeight: '600' },
+  taskMins: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   emptyPlan: { borderRadius: RADIUS.xl, padding: 28, alignItems: 'center' },
   emptyTxt: { fontSize: 14, marginBottom: 14 },
   planBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
-  planBtnTxt: { fontSize: 14, fontWeight: '700' },
+  planBtnTxt: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
 });

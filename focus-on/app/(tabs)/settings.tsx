@@ -62,15 +62,15 @@ export default function SettingsScreen() {
         <Section title="Timer" />
         <Animated.View entering={FadeInDown.delay(60).springify()}
           style={[st.card, { backgroundColor: c.bgCard }]}>
-          <Row icon="timer-outline" label="Focus দৈর্ঘ্য">
+          <Row icon="timer-outline" label="Focus Duration">
             <Stepper value={settings.pomodoroFocus} min={5} max={120} step={5}
               suffix="m" onChange={v => updateSettings({ pomodoroFocus: v })} />
           </Row>
-          <Row icon="cafe-outline" label="Break দৈর্ঘ্য">
+          <Row icon="cafe-outline" label="Break Duration">
             <Stepper value={settings.pomodoroBreak} min={1} max={30} step={1}
               suffix="m" onChange={v => updateSettings({ pomodoroBreak: v })} />
           </Row>
-          <Row icon="trophy-outline" label="দৈনিক Goal" iconColor="#F59E0B">
+          <Row icon="trophy-outline" label="Daily Goal" iconColor="#F59E0B">
             <Stepper value={settings.dailyGoalMinutes} min={15} max={480} step={15}
               suffix="m" onChange={v => updateSettings({ dailyGoalMinutes: v })} />
           </Row>
@@ -104,7 +104,7 @@ export default function SettingsScreen() {
           style={[st.card, { backgroundColor: c.bgCard }]}>
           <View style={[st.infoBox, { backgroundColor: c.bgSecondary }]}>
             <View style={st.infoRow}>
-              <Text style={[st.infoLabel, { color: c.textMuted }]}>মোট Sessions</Text>
+              <Text style={[st.infoLabel, { color: c.textMuted }]}>Total Sessions</Text>
               <Text style={[st.infoVal, { color: c.text }]}>{state.sessions.filter(s => s.completed).length}</Text>
             </View>
             <View style={st.infoRow}>

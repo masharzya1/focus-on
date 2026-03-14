@@ -6,6 +6,17 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { View } from 'react-native';
 import { useAutoBlocking } from '@/hooks/useAutoBlocking';
 import { useEffect } from 'react';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 
 function InnerLayout() {
   const { colors, isDark } = useTheme();
@@ -32,6 +43,23 @@ function InnerLayout() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  // Wait for fonts before rendering — prevents flash of system font
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <StudyProvider>
       <ThemeProvider>

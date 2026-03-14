@@ -1,23 +1,8 @@
-/**
- * withAppBlocking.js
- *
- * Expo Config Plugin for App Blocking Native Module.
- * This plugin:
- *   1. Copies Kotlin files to the Android project
- *   2. Adds required permissions to AndroidManifest.xml
- *   3. Registers the AccessibilityService in AndroidManifest.xml
- *   4. Registers BlockOverlayActivity in AndroidManifest.xml
- *   5. Registers the NativeModule in MainApplication.kt
- *
- * Usage in app.json:
- *   "plugins": ["./plugins/withAppBlocking"]
- */
-
 const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
-// ── Step 1: Copy Kotlin source files into android/ ──────────────────────────
+// ── Step 1: Copy Kotlin source files ────────────────────────────────────────
 function withKotlinFiles(config) {
   return withDangerousMod(config, [
     'android',
@@ -34,7 +19,8 @@ function withKotlinFiles(config) {
         'AppBlockingModule.kt',
         'AppBlockingPackage.kt',
         'AppBlockerAccessibilityService.kt',
-        'BlockOverlayActivity.kt',   // ← new
+        'BlockOverlayActivity.kt',
+        'DeviceAdminReceiver.kt',
       ];
 
       for (const file of kotlinFiles) {
@@ -44,13 +30,13 @@ function withKotlinFiles(config) {
           let content = fs.readFileSync(src, 'utf8');
           content = content.replace(/PACKAGE_NAME_PLACEHOLDER/g, packageName);
           fs.writeFileSync(dest, content);
-          console.log(`✅ Copied ${file} → ${dest}`);
+          console.log(`Copied ${file}`);
         } else {
-          console.warn(`⚠️  Could not find ${src}`);
+          console.warn(`Missing: ${src}`);
         }
       }
 
-      // Copy res/xml file
+      // Copy res/xml
       const xmlDir = path.join(androidRoot, 'app/src/main/res/xml');
       fs.mkdirSync(xmlDir, { recursive: true });
       const xmlSrc = path.join(pluginDir, 'accessibility_service_config.xml');
@@ -59,15 +45,28 @@ function withKotlinFiles(config) {
         let content = fs.readFileSync(xmlSrc, 'utf8');
         content = content.replace(/PACKAGE_NAME_PLACEHOLDER/g, packageName);
         fs.writeFileSync(xmlDest, content);
-        console.log(`✅ Copied accessibility_service_config.xml → ${xmlDest}`);
+        console.log('Copied accessibility_service_config.xml');
       }
+
+      // Create device_admin.xml for DeviceAdminReceiver
+      const adminXmlDir = path.join(androidRoot, 'app/src/main/res/xml');
+      const adminXmlDest = path.join(adminXmlDir, 'device_admin.xml');
+      const adminXmlContent = `<?xml version="1.0" encoding="utf-8"?>
+<device-admin>
+  <uses-policies>
+    <limit-password />
+    <watch-login />
+  </uses-policies>
+</device-admin>`;
+      fs.writeFileSync(adminXmlDest, adminXmlContent);
+      console.log('Created device_admin.xml');
 
       return config;
     },
   ]);
 }
 
-// ── Step 2: Add permissions, service & overlay activity to AndroidManifest ──
+// ── Step 2: AndroidManifest.xml ──────────────────────────────────────────────
 function withManifest(config) {
   return withAndroidManifest(config, async (config) => {
     const manifest = config.modResults;
@@ -78,11 +77,11 @@ function withManifest(config) {
     const requiredPermissions = [
       'android.permission.QUERY_ALL_PACKAGES',
       'android.permission.FOREGROUND_SERVICE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
+      'android.permission.RECEIVE_BOOT_COMPLETED',
     ];
 
-    if (!manifest.manifest['uses-permission']) {
-      manifest.manifest['uses-permission'] = [];
-    }
+    if (!manifest.manifest['uses-permission']) manifest.manifest['uses-permission'] = [];
 
     for (const perm of requiredPermissions) {
       const exists = manifest.manifest['uses-permission'].some(
@@ -90,20 +89,16 @@ function withManifest(config) {
       );
       if (!exists) {
         manifest.manifest['uses-permission'].push({ $: { 'android:name': perm } });
-        console.log(`✅ Added permission: ${perm}`);
       }
     }
 
     if (!application.service) application.service = [];
     if (!application.activity) application.activity = [];
+    if (!application.receiver) application.receiver = [];
 
     // AccessibilityService
     const serviceName = `${packageName}.AppBlockerAccessibilityService`;
-    const serviceExists = application.service.some(
-      (s) => s.$?.['android:name'] === serviceName
-    );
-
-    if (!serviceExists) {
+    if (!application.service.some((s) => s.$?.['android:name'] === serviceName)) {
       application.service.push({
         $: {
           'android:name': serviceName,
@@ -120,19 +115,14 @@ function withManifest(config) {
           },
         }],
       });
-      console.log(`✅ Added AccessibilityService to AndroidManifest`);
     }
 
     // BlockOverlayActivity
-    const overlayActivityName = `${packageName}.BlockOverlayActivity`;
-    const overlayExists = application.activity.some(
-      (a) => a.$?.['android:name'] === overlayActivityName
-    );
-
-    if (!overlayExists) {
+    const overlayName = `${packageName}.BlockOverlayActivity`;
+    if (!application.activity.some((a) => a.$?.['android:name'] === overlayName)) {
       application.activity.push({
         $: {
-          'android:name': overlayActivityName,
+          'android:name': overlayName,
           'android:exported': 'false',
           'android:theme': '@android:style/Theme.Black.NoTitleBar.Fullscreen',
           'android:launchMode': 'singleInstance',
@@ -140,14 +130,34 @@ function withManifest(config) {
           'android:showOnLockScreen': 'true',
         },
       });
-      console.log(`✅ Added BlockOverlayActivity to AndroidManifest`);
+    }
+
+    // DeviceAdminReceiver
+    const adminName = `${packageName}.DeviceAdminReceiver`;
+    if (!application.receiver.some((r) => r.$?.['android:name'] === adminName)) {
+      application.receiver.push({
+        $: {
+          'android:name': adminName,
+          'android:permission': 'android.permission.BIND_DEVICE_ADMIN',
+          'android:exported': 'true',
+        },
+        'meta-data': [{
+          $: {
+            'android:name': 'android.app.device_admin',
+            'android:resource': '@xml/device_admin',
+          },
+        }],
+        'intent-filter': [{
+          action: [{ $: { 'android:name': 'android.app.action.DEVICE_ADMIN_ENABLED' } }],
+        }],
+      });
     }
 
     return config;
   });
 }
 
-// ── Step 3: Register the NativeModule package in MainApplication.kt ─────────
+// ── Step 3: Register NativeModule in MainApplication.kt ─────────────────────
 function withMainApplication(config) {
   return withDangerousMod(config, [
     'android',
@@ -156,21 +166,16 @@ function withMainApplication(config) {
       const packagePath = packageName.replace(/\./g, '/');
       const androidRoot = config.modRequest.platformProjectRoot;
       const mainAppPath = path.join(
-        androidRoot,
-        'app/src/main/java',
-        packagePath,
-        'MainApplication.kt'
+        androidRoot, 'app/src/main/java', packagePath, 'MainApplication.kt'
       );
 
       if (!fs.existsSync(mainAppPath)) {
-        console.warn('⚠️  MainApplication.kt not found, skipping module registration');
+        console.warn('MainApplication.kt not found, skipping');
         return config;
       }
 
       let content = fs.readFileSync(mainAppPath, 'utf8');
-
       if (!content.includes('AppBlockingPackage')) {
-        // Find the last import line and insert after it
         const lastImportIndex = content.lastIndexOf('\nimport ');
         const insertAfter = content.indexOf('\n', lastImportIndex + 1);
         content =
@@ -178,16 +183,13 @@ function withMainApplication(config) {
           `\nimport ${packageName}.AppBlockingPackage` +
           content.slice(insertAfter);
 
-        // Add to packages list
         content = content.replace(
           /PackageList\(this\)\.packages/,
           'PackageList(this).packages.also { it.add(AppBlockingPackage()) }'
         );
 
         fs.writeFileSync(mainAppPath, content);
-        console.log('✅ Registered AppBlockingPackage in MainApplication.kt');
-      } else {
-        console.log('ℹ️  AppBlockingPackage already registered');
+        console.log('Registered AppBlockingPackage in MainApplication.kt');
       }
 
       return config;
@@ -195,7 +197,6 @@ function withMainApplication(config) {
   ]);
 }
 
-// ── Main export ──────────────────────────────────────────────────────────────
 module.exports = function withAppBlocking(config) {
   config = withKotlinFiles(config);
   config = withManifest(config);
