@@ -174,8 +174,8 @@ export default function AnalyticsScreen() {
             <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
               <Ionicons name="time-outline" size={36} color={c.textFaint} />
               <Text style={{ color: c.textMuted, fontSize: 13, textAlign: 'center' }}>
-                Usage Access permission needed{'
-'}to track daily app usage
+                Usage Access permission needed
+to track daily app usage
               </Text>
             </View>
           ) : usageStats.length === 0 ? (
