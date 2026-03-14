@@ -2,8 +2,13 @@ import { NativeModules, Platform } from 'react-native';
 
 const { AppBlockingModule } = NativeModules;
 
+export interface InstalledApp {
+  name: string;
+  packageName: string;
+}
+
 const AppBlocking = {
-  async getInstalledApps(): Promise<{ name: string; packageName: string }[]> {
+  async getInstalledApps(): Promise<InstalledApp[]> {
     if (Platform.OS !== 'android') return [];
     try {
       const json: string = await AppBlockingModule.getInstalledApps();
@@ -16,7 +21,6 @@ const AppBlocking = {
   startBlocking(blockedApps: string[], blockShorts = false): void {
     if (Platform.OS !== 'android') return;
     try {
-      // When blockShorts=true, also add "reels:<pkg>" entries for reel-capable apps
       const reelPackages = [
         'com.instagram.android',
         'com.google.android.youtube',
@@ -26,10 +30,7 @@ const AppBlocking = {
       const finalApps = [...blockedApps];
       if (blockShorts) {
         for (const pkg of reelPackages) {
-          // Only add reels:<pkg> if the whole app is NOT already blocked
-          if (!blockedApps.includes(pkg)) {
-            finalApps.push(`reels:${pkg}`);
-          }
+          if (!blockedApps.includes(pkg)) finalApps.push(`reels:${pkg}`);
         }
       }
       AppBlockingModule.startBlocking(JSON.stringify(finalApps));
@@ -38,34 +39,22 @@ const AppBlocking = {
 
   stopBlocking(): void {
     if (Platform.OS !== 'android') return;
-    try {
-      AppBlockingModule.stopBlocking();
-    } catch {}
+    try { AppBlockingModule.stopBlocking(); } catch {}
   },
 
   async isBlockingActive(): Promise<boolean> {
     if (Platform.OS !== 'android') return false;
-    try {
-      return await AppBlockingModule.isBlockingActive();
-    } catch {
-      return false;
-    }
+    try { return await AppBlockingModule.isBlockingActive(); } catch { return false; }
   },
 
   async isAccessibilityEnabled(): Promise<boolean> {
     if (Platform.OS !== 'android') return false;
-    try {
-      return await AppBlockingModule.isAccessibilityEnabled();
-    } catch {
-      return false;
-    }
+    try { return await AppBlockingModule.isAccessibilityEnabled(); } catch { return false; }
   },
 
   openAccessibilitySettings(): void {
     if (Platform.OS !== 'android') return;
-    try {
-      AppBlockingModule.openAccessibilitySettings();
-    } catch {}
+    try { AppBlockingModule.openAccessibilitySettings(); } catch {}
   },
 
   async getBlockedApps(): Promise<string[]> {
@@ -73,21 +62,21 @@ const AppBlocking = {
     try {
       const json: string = await AppBlockingModule.getBlockedApps();
       return JSON.parse(json);
-    } catch {
-      return [];
-    }
+    } catch { return []; }
+  },
+
+  saveRoutines(routines: object[]): void {
+    if (Platform.OS !== 'android') return;
+    try { AppBlockingModule.saveRoutines(JSON.stringify(routines)); } catch {}
   },
 
   /**
-   * Saves all routines to native SharedPreferences so the AccessibilityService
-   * can enforce them even when the app is fully closed.
-   * Call this whenever routines change.
+   * Syncs Pro status to native SharedPreferences so BlockOverlayActivity
+   * can conditionally show/hide ads without going through JS.
    */
-  saveRoutines(routines: object[]): void {
+  setProStatus(isPro: boolean): void {
     if (Platform.OS !== 'android') return;
-    try {
-      AppBlockingModule.saveRoutines(JSON.stringify(routines));
-    } catch {}
+    try { AppBlockingModule.setProStatus(isPro); } catch {}
   },
 };
 
