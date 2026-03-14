@@ -8,8 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { RADIUS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
+import PaywallModal from '@/components/PaywallModal';
 import type { AppBlockRoutine } from '@/types/study';
 
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -93,11 +95,17 @@ function TimePicker({ value, onChange, label, colors }: {
 export default function AppBlockScreen() {
   const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
   const { colors: c } = useTheme();
+  const { isPro } = useAuth();
+
+  // Free tier limits
+  const FREE_MAX_ROUTINES = 1;
+  const FREE_MAX_APPS = 3;
 
   const [accessibilityEnabled, setAccessibilityEnabled] = useState(false);
   const [installedApps, setInstalledApps] = useState<{name:string;packageName:string}[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [showAppPicker, setShowAppPicker] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [appSearch, setAppSearch] = useState('');
   const [formName, setFormName] = useState('');
   const [formStart, setFormStart] = useState('09:00');
@@ -113,9 +121,8 @@ export default function AppBlockScreen() {
         AppBlocking.isAccessibilityEnabled().then(setAccessibilityEnabled);
     };
     checkAccess();
-    // Re-check every time app comes back to foreground (e.g. returning from Settings)
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') checkAccess();
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') checkAccess();
     });
     return () => sub.remove();
   }, []));
@@ -126,7 +133,11 @@ export default function AppBlockScreen() {
     );
   }, []));
 
-  useFocusEffect(useCallback(() => { applyActiveRoutines(); }, [state.blockRoutines]));
+  useFocusEffect(useCallback(() => {
+    // Bug 1 fix: immediately push routines to native + apply on focus
+    AppBlocking.saveRoutines(state.blockRoutines);
+    applyActiveRoutines();
+  }, [state.blockRoutines]));
 
   function applyActiveRoutines() {
     if (Platform.OS !== 'android') return;
@@ -135,8 +146,6 @@ export default function AppBlockScreen() {
       r.enabled && (r.days.length === 0 || r.days.includes(today)) &&
       now >= r.startTime && now <= r.endTime
     );
-    // Push latest routines to native so service works when app is closed
-    AppBlocking.saveRoutines(state.blockRoutines);
     if (active.length > 0)
       AppBlocking.startBlocking([...new Set(active.flatMap(r => r.blockedApps))], active.some(r => r.blockShorts));
     else AppBlocking.stopBlocking();
@@ -156,6 +165,21 @@ export default function AppBlockScreen() {
   function saveRoutine() {
     if (!formName.trim() || formApps.length === 0) {
       Alert.alert('Missing info', 'Enter a name and pick at least one app.'); return;
+    }
+    // Free tier: max 1 routine
+    if (!isPro && !editingId && state.blockRoutines.length >= FREE_MAX_ROUTINES) {
+      setShowPaywall(true); return;
+    }
+    // Free tier: max 3 apps per routine
+    if (!isPro && formApps.length > FREE_MAX_APPS) {
+      Alert.alert(
+        'Free limit reached',
+        `Free plan allows up to ${FREE_MAX_APPS} apps per routine. Upgrade to Pro for unlimited.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => setShowPaywall(true) },
+        ]
+      ); return;
     }
     const r: AppBlockRoutine = {
       id: editingId || Date.now().toString(),
@@ -218,7 +242,13 @@ export default function AppBlockScreen() {
 
         <View style={{ padding: 16 }}>
           <TouchableOpacity style={[s.createBtn, { backgroundColor: c.accent, borderBottomColor: c.accentDark }]}
-            onPress={() => { resetForm(); setShowCreate(true); }}>
+            onPress={() => {
+              if (!isPro && state.blockRoutines.length >= FREE_MAX_ROUTINES) {
+                setShowPaywall(true);
+              } else {
+                resetForm(); setShowCreate(true);
+              }
+            }}>
             <Ionicons name="add-circle-outline" size={20} color="#fff" />
             <Text style={{ fontSize: 15, fontWeight: '800', color: '#fff' }}>New Block Routine</Text>
           </TouchableOpacity>
@@ -388,6 +418,18 @@ export default function AppBlockScreen() {
               <Text style={{ color: c.accent, fontWeight: '800' }}>Done ({formApps.length})</Text>
             </TouchableOpacity>
           </View>
+          {!isPro && formApps.length >= FREE_MAX_APPS && (
+            <TouchableOpacity
+              style={{ margin: 12, padding: 12, borderRadius: RADIUS.lg, backgroundColor: c.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              onPress={() => { setShowAppPicker(false); setShowPaywall(true); }}
+            >
+              <Ionicons name="lock-closed" size={16} color={c.accent} />
+              <Text style={{ color: c.accent, fontSize: 13, fontWeight: '600', flex: 1 }}>
+                Free plan: {FREE_MAX_APPS} apps max. Upgrade for unlimited.
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={c.accent} />
+            </TouchableOpacity>
+          )}
           <View style={[s.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
             <Ionicons name="search-outline" size={16} color={c.textMuted} />
             <TextInput style={{ color: c.text, flex: 1, marginLeft: 8, fontSize: 14 }}
@@ -400,13 +442,18 @@ export default function AppBlockScreen() {
             contentContainerStyle={{ padding: 12 }}
             renderItem={({ item }) => {
               const sel = formApps.includes(item.packageName);
+              const locked = !isPro && !sel && formApps.length >= FREE_MAX_APPS;
               return (
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12,
                     borderRadius: RADIUS.lg, marginBottom: 6, borderWidth: 1,
                     backgroundColor: sel ? c.accentSoft : c.bgCard,
-                    borderColor: sel ? c.accent+'44' : c.border }}
-                  onPress={() => setFormApps(p => sel ? p.filter(x=>x!==item.packageName) : [...p,item.packageName])}
+                    borderColor: sel ? c.accent+'44' : c.border,
+                    opacity: locked ? 0.4 : 1 }}
+                  onPress={() => {
+                    if (locked) { setShowAppPicker(false); setShowPaywall(true); return; }
+                    setFormApps(p => sel ? p.filter(x=>x!==item.packageName) : [...p,item.packageName]);
+                  }}
                 >
                   <View style={{ width: 40, height: 40, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: sel ? c.accent+'22' : c.bgSecondary }}>
@@ -426,6 +473,8 @@ export default function AppBlockScreen() {
           />
         </View>
       </Modal>
+
+      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 }

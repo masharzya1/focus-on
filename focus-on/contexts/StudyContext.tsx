@@ -2,8 +2,12 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppState, Subject, StudySession, StudyPlan, AppSettings, AppBlockRoutine } from '@/types/study';
 import { DEFAULT_SETTINGS } from '@/types/study';
+import { syncToFirestore, loadFromFirestore } from '@/services/sync';
+import { setupAllNotifications } from '@/services/notifications';
 
 const STORAGE_KEY = 'focuson_data_v2';
+const TIMER_BLOCKED_APPS_KEY = 'focuson_timer_blocked_apps';
+const TIMER_BLOCK_SHORTS_KEY = 'focuson_timer_block_shorts';
 
 const defaultState: AppState = {
   subjects: [],
@@ -35,7 +39,7 @@ async function saveState(state: AppState) {
   } catch {}
 }
 
-// ── Context interface ────────────────────────────────────────────────────────
+// ── Context interface ─────────────────────────────────────────────────────────
 interface StudyContextValue {
   state: AppState;
   ready: boolean;
@@ -64,6 +68,9 @@ interface StudyContextValue {
   getStreak: () => number;
   getSubjectProgress: (subjectId: string) => number;
   getTodayPlanTasks: () => { planId: string; taskId: string; topicId: string; subjectId: string; estimatedMinutes: number; type: 'study'|'revision'; completed: boolean }[];
+  // Firebase sync
+  syncWithFirebase: (uid: string) => Promise<void>;
+  mergeFirebaseData: (uid: string) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -73,6 +80,8 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstLoad = useRef(true);
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentUid = useRef<string | null>(null);
 
   // Load on mount
   useEffect(() => {
@@ -83,12 +92,23 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Auto-save with debounce
+  // Auto-save locally + debounced Firebase sync
   useEffect(() => {
     if (isFirstLoad.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveState(state), 500);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+    saveTimer.current = setTimeout(async () => {
+      await saveState(state);
+      // Sync to Firebase if logged in
+      if (currentUid.current) {
+        if (syncTimer.current) clearTimeout(syncTimer.current);
+        syncTimer.current = setTimeout(() => {
+          if (currentUid.current) syncToFirestore(currentUid.current, state);
+        }, 2000); // extra debounce for Firebase
+      }
+    }, 500);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
   }, [state]);
 
   // Auto streak update
@@ -104,6 +124,51 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [state.sessions, ready]);
+
+  // Reschedule notifications when plans change
+  useEffect(() => {
+    if (!ready || state.studyPlans.length === 0) return;
+    setupAllNotifications(
+      state.studyPlans.map(p => ({ examName: p.examName, examDate: p.examDate }))
+    );
+  }, [state.studyPlans, ready]);
+
+  // ── Firebase sync methods ──────────────────────────────────────────────────
+  const syncWithFirebase = useCallback(async (uid: string) => {
+    currentUid.current = uid;
+    await syncToFirestore(uid, state);
+  }, [state]);
+
+  // Merge Firebase data with local (Firebase wins for isPro, local wins for content)
+  const mergeFirebaseData = useCallback(async (uid: string) => {
+    currentUid.current = uid;
+    const remoteState = await loadFromFirestore(uid);
+    if (!remoteState) {
+      // First login — push local data to Firebase
+      await syncToFirestore(uid, state);
+      return;
+    }
+    // Merge: take whichever has more data
+    setState(prev => {
+      const merged: AppState = {
+        ...prev,
+        subjects: remoteState.subjects?.length >= prev.subjects.length
+          ? remoteState.subjects : prev.subjects,
+        sessions: remoteState.sessions?.length >= prev.sessions.length
+          ? remoteState.sessions : prev.sessions,
+        studyPlans: remoteState.studyPlans?.length >= prev.studyPlans.length
+          ? remoteState.studyPlans : prev.studyPlans,
+        blockRoutines: remoteState.blockRoutines?.length >= prev.blockRoutines.length
+          ? remoteState.blockRoutines : prev.blockRoutines,
+        xp: Math.max(prev.xp, remoteState.xp || 0),
+        streak: Math.max(prev.streak, remoteState.streak || 0),
+        level: Math.max(prev.level, remoteState.level || 1),
+        totalTopicsCompleted: Math.max(prev.totalTopicsCompleted, remoteState.totalTopicsCompleted || 0),
+        settings: { ...DEFAULT_SETTINGS, ...prev.settings },
+      };
+      return merged;
+    });
+  }, [state]);
 
   const addSubject = useCallback((subject: Subject) => {
     setState(p => ({ ...p, subjects: [...p.subjects, subject] }));
@@ -154,7 +219,6 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         todaySessionsCompleted: isToday ? p.todaySessionsCompleted + 1 : 1,
         todaySessionsDate: today,
       };
-      // Auto-complete plan task
       if (session.topicId) {
         newState = {
           ...newState,
@@ -255,6 +319,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
       updateSettings, gainXp,
       getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
+      syncWithFirebase, mergeFirebaseData,
     }}>
       {children}
     </StudyContext.Provider>
@@ -265,4 +330,24 @@ export function useStudy(): StudyContextValue {
   const ctx = useContext(StudyContext);
   if (!ctx) throw new Error('useStudy must be used inside StudyProvider');
   return ctx;
+}
+
+// ── Timer blocked apps persistence ─────────────────────────────────────────
+// These are stored separately so they persist across app restarts
+export async function saveTimerBlockedApps(apps: string[], blockShorts: boolean): Promise<void> {
+  await AsyncStorage.setItem(TIMER_BLOCKED_APPS_KEY, JSON.stringify(apps));
+  await AsyncStorage.setItem(TIMER_BLOCK_SHORTS_KEY, JSON.stringify(blockShorts));
+}
+
+export async function loadTimerBlockedApps(): Promise<{ blockedApps: string[]; blockShorts: boolean }> {
+  try {
+    const appsRaw = await AsyncStorage.getItem(TIMER_BLOCKED_APPS_KEY);
+    const shortsRaw = await AsyncStorage.getItem(TIMER_BLOCK_SHORTS_KEY);
+    return {
+      blockedApps: appsRaw ? JSON.parse(appsRaw) : [],
+      blockShorts: shortsRaw ? JSON.parse(shortsRaw) : false,
+    };
+  } catch {
+    return { blockedApps: [], blockShorts: false };
+  }
 }

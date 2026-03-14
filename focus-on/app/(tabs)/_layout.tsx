@@ -53,7 +53,7 @@ function CenterBtn({ focused, color }: { focused: boolean; color: string }) {
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <Animated.View style={[styles.centerBtn, {
-      backgroundColor: color,
+      backgroundColor: focused ? color : "#8a83f0",
       borderBottomColor: '#3730A3',
       shadowColor: color,
       shadowOpacity: focused ? 0.55 : 0.28,

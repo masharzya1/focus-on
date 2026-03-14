@@ -15,6 +15,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
+import { saveTimerBlockedApps, loadTimerBlockedApps } from '@/contexts/StudyContext';
 import type { StudySession } from '@/types/study';
 
 const TIMER_KEY = 'focuson_timer_state';
@@ -118,11 +119,21 @@ export default function TimerScreen() {
   const [appSearch, setAppSearch] = useState('');
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
 
+  // Persist blocked apps selection so it survives app restarts
+  useEffect(() => {
+    saveTimerBlockedApps(blockedApps, blockShorts);
+  }, [blockedApps, blockShorts]);
+
   const intervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
   const appStateRef = useRef<AppStateStatus>('active');
 
   useEffect(() => {
     restoreTimer();
+    // Bug fix: load persisted blocked apps so they survive app restarts
+    loadTimerBlockedApps().then(({ blockedApps: apps, blockShorts: shorts }) => {
+      setBlockedApps(apps);
+      setBlockShorts(shorts);
+    });
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 

@@ -4,13 +4,16 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { RADIUS } from '@/constants/theme';
+import PaywallModal from '@/components/PaywallModal';
 
 export default function SettingsScreen() {
   const { state, updateSettings } = useStudy();
   const { colors: c } = useTheme();
+  const { user, isPro, signInWithGoogle, signOut } = useAuth();
   const { settings } = state;
-  const [isPro, setIsPro] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   const allTopics = state.subjects.flatMap(s => s.chapters.flatMap(ch => ch.topics));
   const sessions = state.sessions.filter(s => s.completed);
@@ -131,6 +134,61 @@ export default function SettingsScreen() {
         </Animated.View>
 
 
+        {/* Account */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)} style={[se.section, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+          <View style={se.sectionHeader}>
+            <View style={[se.sectionIcon, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="person-circle-outline" size={18} color={c.accent} />
+            </View>
+            <Text style={[se.sectionTitle, { color: c.text }]}>Account</Text>
+          </View>
+          {user ? (
+            <View>
+              <View style={[se.row, { borderBottomColor: c.border }]}>
+                <View style={[se.statIconWrap, { backgroundColor: c.accentSoft }]}>
+                  <Ionicons name="person-outline" size={16} color={c.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[se.rowLabel, { color: c.text }]}>{user.displayName || 'User'}</Text>
+                  <Text style={[se.rowSub, { color: c.textMuted }]}>{user.email}</Text>
+                </View>
+                {isPro && (
+                  <View style={[se.proBadge, { backgroundColor: c.accentSoft }]}>
+                    <Ionicons name="star" size={12} color={c.accent} />
+                    <Text style={[se.proBadgeText, { color: c.accent }]}>Pro</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity
+                style={[se.row, { borderBottomColor: 'transparent' }]}
+                onPress={() => Alert.alert('Sign out', 'Are you sure?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Sign out', style: 'destructive', onPress: signOut },
+                ])}
+              >
+                <View style={[se.statIconWrap, { backgroundColor: c.destructive + '18' }]}>
+                  <Ionicons name="log-out-outline" size={16} color={c.destructive} />
+                </View>
+                <Text style={[se.rowLabel, { color: c.destructive }]}>Sign out</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[se.row, { borderBottomColor: 'transparent' }]}
+              onPress={signInWithGoogle}
+            >
+              <View style={[se.statIconWrap, { backgroundColor: '#EA433520' }]}>
+                <Ionicons name="logo-google" size={16} color="#EA4335" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[se.rowLabel, { color: c.text }]}>Sign in with Google</Text>
+                <Text style={[se.rowSub, { color: c.textMuted }]}>Required to purchase Pro & sync data</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={c.textFaint} />
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+
         {/* Subscription */}
         <Animated.View entering={FadeInDown.delay(230).duration(400)} style={[se.section, { backgroundColor: c.bgCard, borderColor: c.border }]}>
           <View style={se.sectionHeader}>
@@ -140,9 +198,9 @@ export default function SettingsScreen() {
             <Text style={[se.sectionTitle, { color: c.text }]}>Plan</Text>
           </View>
 
-          {/* Free tier */}
-          {!isPro && (
+          {!isPro ? (
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              {/* Free */}
               <View style={[se.planCard, { backgroundColor: c.bgSecondary, borderColor: c.border }]}>
                 <View style={se.planRow}>
                   <View>
@@ -153,12 +211,7 @@ export default function SettingsScreen() {
                     <Text style={[se.planBadgeText, { color: c.textMuted }]}>Active</Text>
                   </View>
                 </View>
-                {[
-                  '1 block routine',
-                  '3 apps max per routine',
-                  'Basic overlay',
-                  'Manual focus only',
-                ].map((f, i) => (
+                {['1 block routine', '3 apps max per routine', 'Ads in overlay', 'Manual focus only'].map((f, i) => (
                   <View key={i} style={se.featureRow}>
                     <Ionicons name="checkmark-circle-outline" size={15} color={c.textMuted} />
                     <Text style={[se.featureText, { color: c.textMuted }]}>{f}</Text>
@@ -166,29 +219,21 @@ export default function SettingsScreen() {
                 ))}
               </View>
 
-              {/* Pro card */}
+              {/* Pro */}
               <View style={[se.planCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '60', marginTop: 12 }]}>
                 <View style={se.planRow}>
                   <View>
                     <Text style={[se.planName, { color: c.accent }]}>Pro ⭐</Text>
-                    <Text style={[se.planPrice, { color: c.accent }]}>৳199 / month</Text>
+                    <Text style={[se.planPrice, { color: c.accent }]}>৳999 one-time · Lifetime</Text>
                   </View>
                   <TouchableOpacity
                     style={[se.upgradeBtn, { backgroundColor: c.accent, borderBottomColor: c.accentDark }]}
-                    onPress={() => Alert.alert('Coming Soon', 'Payment integration coming soon! 🚀')}
+                    onPress={() => setShowPaywall(true)}
                   >
                     <Text style={se.upgradeBtnText}>Upgrade</Text>
                   </TouchableOpacity>
                 </View>
-                {[
-                  'Unlimited routines & apps',
-                  'Auto-blocking by schedule',
-                  'Custom overlay quotes',
-                  'Focus stats & streaks',
-                  'Reels / Shorts blocking',
-                  'No ads in overlay',
-                  'Homescreen widget (soon)',
-                ].map((f, i) => (
+                {['Unlimited routines & apps', 'Auto-blocking by schedule', 'Reels / Shorts blocking', 'Ad-free overlay', 'Cross-device sync', 'Smart reminders'].map((f, i) => (
                   <View key={i} style={se.featureRow}>
                     <Ionicons name="checkmark-circle" size={15} color={c.accent} />
                     <Text style={[se.featureText, { color: c.text }]}>{f}</Text>
@@ -196,16 +241,13 @@ export default function SettingsScreen() {
                 ))}
               </View>
             </View>
-          )}
-
-          {/* Pro active */}
-          {isPro && (
+          ) : (
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               <View style={[se.planCard, { backgroundColor: c.accentSoft, borderColor: c.accent + '60' }]}>
                 <View style={se.planRow}>
                   <View>
                     <Text style={[se.planName, { color: c.accent }]}>Pro ⭐ Active</Text>
-                    <Text style={[se.planPrice, { color: c.textMuted }]}>All features unlocked</Text>
+                    <Text style={[se.planPrice, { color: c.textMuted }]}>Lifetime · All features unlocked</Text>
                   </View>
                   <Ionicons name="shield-checkmark" size={28} color={c.accent} />
                 </View>
@@ -213,6 +255,8 @@ export default function SettingsScreen() {
             </View>
           )}
         </Animated.View>
+
+        <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
 
         {/* About */}
         <Animated.View entering={FadeInDown.delay(260).duration(400)} style={[se.section, { backgroundColor: c.bgCard, borderColor: c.border }]}>
@@ -269,4 +313,6 @@ const se = StyleSheet.create({
   featureText: { fontSize: 13 },
   upgradeBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: RADIUS.lg, borderBottomWidth: 3 },
   upgradeBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  proBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full },
+  proBadgeText: { fontSize: 12, fontWeight: '700' },
 });
