@@ -5,7 +5,10 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.util.Log
-import com.facebook.react.bridge.*
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
 
 class AppBlockingModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -72,8 +75,6 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         try {
             val context = reactApplicationContext
             val packageName = context.packageName
-            // Android stores enabled services as "package/ServiceClass:package/ServiceClass"
-            // We must check for our specific service class, not just the package name
             val enabledServices = Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
@@ -106,16 +107,22 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_BLOCKED_APPS, "[]") ?: "[]")
     }
 
-    /**
-     * Saves all block routines to SharedPreferences so the AccessibilityService
-     * can read and enforce them even when the app is closed.
-     * Call this whenever routines are created, updated, or deleted.
-     */
     @ReactMethod
     fun saveRoutines(routinesJson: String) {
         prefs.edit()
             .putString(AppBlockerAccessibilityService.KEY_ROUTINES, routinesJson)
             .apply()
         Log.d(TAG, "Routines saved: $routinesJson")
+    }
+
+    /**
+     * Called from JS when user purchases Pro.
+     * Saves isPro to SharedPreferences so BlockOverlayActivity reads it natively
+     * and hides the ad banner for Pro users.
+     */
+    @ReactMethod
+    fun setProStatus(isPro: Boolean) {
+        prefs.edit().putBoolean("is_pro", isPro).apply()
+        Log.d(TAG, "Pro status set: $isPro")
     }
     }
