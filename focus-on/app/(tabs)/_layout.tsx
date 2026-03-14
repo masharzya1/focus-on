@@ -1,6 +1,6 @@
 import { Tabs, useRouter, usePathname } from 'expo-router';
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming,
 } from 'react-native-reanimated';
@@ -8,18 +8,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS } from '@/constants/theme';
 
+const NUM_TABS = 5;
+
 // ── Sliding pill background ───────────────────────────────────────────────────
-function SlideIndicator({ activeIndex, color }: { activeIndex: number; color: string }) {
+function SlideIndicator({ activeIndex, color, tabWidth }: {
+  activeIndex: number; color: string; tabWidth: number;
+}) {
   const x = useSharedValue(0);
-  const TAB_W = 72;
   useEffect(() => {
-    x.value = withTiming(activeIndex * TAB_W, { duration: 220 });
-  }, [activeIndex]);
+    x.value = withTiming(activeIndex * tabWidth, { duration: 220 });
+  }, [activeIndex, tabWidth]);
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <Animated.View
       pointerEvents="none"
-      style={[styles.indicator, style, { backgroundColor: color + '22', width: TAB_W }]}
+      style={[styles.indicator, style, { backgroundColor: color + '22', width: tabWidth }]}
     />
   );
 }
@@ -65,6 +68,7 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const [tabWidth, setTabWidth] = useState(Dimensions.get('window').width / NUM_TABS);
 
   const activeIndex = React.useMemo(() => {
     if (pathname.includes('subjects')) return 1;
@@ -73,6 +77,11 @@ export default function TabLayout() {
     if (pathname.includes('app-block'))return 4;
     return 0; // index / home
   }, [pathname]);
+
+  const onTabBarLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setTabWidth(w / NUM_TABS);
+  }, []);
 
   return (
     <Tabs
@@ -84,8 +93,11 @@ export default function TabLayout() {
         tabBarLabelStyle: styles.label,
         animation: 'shift',
         tabBarBackground: () => (
-          <View style={[styles.tabBg, { backgroundColor: colors.tabBg, borderTopColor: colors.tabBorder }]}>
-            <SlideIndicator activeIndex={activeIndex} color={colors.accent} />
+          <View
+            style={[styles.tabBg, { backgroundColor: colors.tabBg, borderTopColor: colors.tabBorder }]}
+            onLayout={onTabBarLayout}
+          >
+            <SlideIndicator activeIndex={activeIndex} color={colors.accent} tabWidth={tabWidth} />
           </View>
         ),
         tabBarStyle: {
