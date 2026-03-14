@@ -5,16 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const h = useSharedValue(0);
   const pct = max > 0 ? value / max : 0;
-  useEffect(() => {
-    h.value = withDelay(300, withTiming(pct, { duration: 700 }));
-  }, [pct]);
+  useEffect(() => { h.value = withDelay(300, withTiming(pct, { duration: 700 })); }, [pct]);
   const anim = useAnimatedStyle(() => ({ height: `${h.value * 100}%` as any }));
   return (
     <View style={{ flex: 1, height: 80, justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
@@ -46,8 +44,7 @@ export default function AnalyticsScreen() {
     const now = new Date();
     const weekSessions = state.sessions.filter(s => {
       if (!s.completed) return false;
-      const d = new Date(s.startTime);
-      return (now.getTime() - d.getTime()) < 7 * 86400000;
+      return (now.getTime() - new Date(s.startTime).getTime()) < 7 * 86400000;
     });
 
     const totalMins = state.sessions.filter(s => s.completed).reduce((a, s) => a + s.durationMinutes, 0);
@@ -55,26 +52,20 @@ export default function AnalyticsScreen() {
     const avgDaily = Math.round(weekMins / 7);
     const completedTopics = state.subjects.flatMap(s => s.chapters.flatMap(c => c.topics)).filter(t => t.completed).length;
 
-    // Last 7 days bar data
     const days: { label: string; mins: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const mins = state.sessions
-        .filter(s => s.completed && s.startTime.startsWith(dateStr))
-        .reduce((a, s) => a + s.durationMinutes, 0);
+      const mins = state.sessions.filter(s => s.completed && s.startTime.startsWith(dateStr)).reduce((a, s) => a + s.durationMinutes, 0);
       days.push({ label: DAY_LABELS[d.getDay()], mins });
     }
 
-    // Subject breakdown
     const subjectStats = state.subjects.map(sub => {
       const topics = sub.chapters.flatMap(ch => ch.topics);
       const done = topics.filter(t => t.completed).length;
       const total = topics.length;
-      const mins = state.sessions
-        .filter(s => s.completed && s.subjectId === sub.id)
-        .reduce((a, s) => a + s.durationMinutes, 0);
+      const mins = state.sessions.filter(s => s.completed && s.subjectId === sub.id).reduce((a, s) => a + s.durationMinutes, 0);
       return { ...sub, done, total, mins, progress: total > 0 ? Math.round((done / total) * 100) : 0 };
     });
 
@@ -105,8 +96,7 @@ export default function AnalyticsScreen() {
         </Animated.View>
 
         {/* Weekly bar chart */}
-        <Animated.View entering={FadeInDown.delay(120).springify()}
-          style={[s.card, { backgroundColor: c.bgCard }]}>
+        <Animated.View entering={FadeInDown.delay(120).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
           <Text style={[s.cardTitle, { color: c.text }]}>Last 7 Days</Text>
           <View style={s.barChart}>
             {stats.days.map((d, i) => (
@@ -121,8 +111,7 @@ export default function AnalyticsScreen() {
 
         {/* Subject breakdown */}
         {stats.subjectStats.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(180).springify()}
-            style={[s.card, { backgroundColor: c.bgCard }]}>
+          <Animated.View entering={FadeInDown.delay(180).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
             <Text style={[s.cardTitle, { color: c.text }]}>Subject Progress</Text>
             {stats.subjectStats.map((sub, i) => (
               <View key={sub.id} style={[s.subRow, i > 0 && { borderTopColor: c.border, borderTopWidth: 1 }]}>
@@ -135,7 +124,7 @@ export default function AnalyticsScreen() {
                     <Text style={[s.subPct, { color: sub.color }]}>{sub.progress}%</Text>
                   </View>
                   <View style={[s.progBg, { backgroundColor: c.border }]}>
-                    <Animated.View style={[s.progFill, { backgroundColor: sub.color, width: `${sub.progress}%` }]} />
+                    <View style={[s.progFill, { backgroundColor: sub.color, width: `${sub.progress}%` }]} />
                   </View>
                   <Text style={[s.subStats, { color: c.textFaint }]}>
                     {sub.done}/{sub.total} topics · {sub.mins}m studied
@@ -146,11 +135,15 @@ export default function AnalyticsScreen() {
           </Animated.View>
         )}
 
+        {/* Empty state — icon instead of emoji */}
         {stats.subjectStats.length === 0 && (
-          <View style={s.empty}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>📊</Text>
-            <Text style={[s.emptyTxt, { color: c.textMuted }]}>No data yet.\nStart studying to see your analytics.</Text>
-          </View>
+          <Animated.View entering={FadeInDown.delay(120).springify()} style={s.empty}>
+            <View style={[s.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="bar-chart-outline" size={40} color={c.accent} />
+            </View>
+            <Text style={[s.emptyTitle, { color: c.text }]}>No data yet</Text>
+            <Text style={[s.emptyTxt, { color: c.textMuted }]}>Start studying to see your analytics</Text>
+          </Animated.View>
         )}
 
         <View style={{ height: 40 }} />
@@ -167,26 +160,28 @@ const s = StyleSheet.create({
     paddingBottom: 14, borderBottomWidth: 1,
   },
   backBtn: { width: 40, alignItems: 'flex-start' },
-  title: { fontSize: 18, fontWeight: '800' },
+  title: { fontSize: 18, fontFamily: FONTS.black },
   content: { padding: 16, gap: 14 },
   statRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, borderRadius: RADIUS.xl, padding: 12, alignItems: 'center', gap: 6 },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statVal: { fontSize: 18, fontWeight: '800' },
-  statLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '600', textAlign: 'center' },
+  statVal: { fontSize: 18, fontFamily: FONTS.black },
+  statLabel: { fontSize: 10, color: '#9CA3AF', fontFamily: FONTS.semibold, textAlign: 'center' },
   card: { borderRadius: RADIUS.xl, padding: 18 },
-  cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
+  cardTitle: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 16 },
   barChart: { flexDirection: 'row', gap: 6, alignItems: 'flex-end' },
-  barLabel: { fontSize: 10, fontWeight: '600' },
-  barVal: { fontSize: 9 },
+  barLabel: { fontSize: 10, fontFamily: FONTS.semibold },
+  barVal: { fontSize: 9, fontFamily: FONTS.regular },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   subIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   subTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  subName: { fontSize: 14, fontWeight: '700' },
-  subPct: { fontSize: 14, fontWeight: '800' },
+  subName: { fontSize: 14, fontFamily: FONTS.bold },
+  subPct: { fontSize: 14, fontFamily: FONTS.black },
   progBg: { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
   progFill: { height: '100%', borderRadius: 3 },
-  subStats: { fontSize: 11 },
-  empty: { alignItems: 'center', paddingVertical: 60 },
-  emptyTxt: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  subStats: { fontSize: 11, fontFamily: FONTS.regular },
+  empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyIconCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 20, fontFamily: FONTS.bold },
+  emptyTxt: { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center' },
 });
