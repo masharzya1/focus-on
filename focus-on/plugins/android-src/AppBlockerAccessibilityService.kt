@@ -7,9 +7,13 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AppBlockerAccessibilityService : AccessibilityService() {
 
@@ -18,7 +22,9 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         const val PREFS_NAME = "AppBlockingPrefs"
         const val KEY_BLOCKED_APPS = "blocked_apps"
         const val KEY_IS_BLOCKING = "is_blocking"
+        const val KEY_IS_ROUTINE_BLOCKING = "is_routine_blocking"  // set only by routine sync
         const val KEY_SERVICE_RUNNING = "service_running"
+        const val KEY_ROUTINES = "block_routines"
         const val NOTIFICATION_CHANNEL_ID = "focus_on_blocking"
 
         // ── Whole-app blocking ───────────────────────────────────────────────
@@ -84,6 +90,15 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     private var lastContentCheckTime = 0L
     private val CONTENT_CHECK_DEBOUNCE_MS = 800L
 
+    // Routine-aware sync — runs every 60s independently of JS layer
+    private val routineHandler = Handler(Looper.getMainLooper())
+    private val routineSyncRunnable = object : Runnable {
+        override fun run() {
+            syncFromRoutines()
+            routineHandler.postDelayed(this, 60_000L)
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -99,6 +114,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         }
         Log.d(TAG, "Service connected")
         createNotificationChannel()
+        // Sync immediately, then every 60s — works even when app is closed
+        routineHandler.post(routineSyncRunnable)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -228,9 +245,90 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         )
     }
 
+    /**
+     * Reads saved routines from SharedPreferences and decides whether blocking
+     * should be active right now — completely independent of the JS layer.
+     * Called every 60 seconds by routineSyncRunnable.
+     */
+    private fun syncFromRoutines() {
+        try {
+            val routinesJson = prefs.getString(KEY_ROUTINES, null) ?: return
+            val routines = JSONArray(routinesJson)
+
+            val now = currentTime()
+            val todayIdx = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) - 1 // 0=Sun
+
+            val allApps = mutableSetOf<String>()
+            var blockShorts = false
+            var anyActive = false
+
+            for (i in 0 until routines.length()) {
+                val r: JSONObject = routines.getJSONObject(i)
+                if (!r.optBoolean("enabled", false)) continue
+
+                val start = r.optString("startTime", "")
+                val end = r.optString("endTime", "")
+                if (start.isEmpty() || end.isEmpty()) continue
+
+                val days = r.optJSONArray("days")
+                val matchesDay = days == null || days.length() == 0 ||
+                    (0 until days.length()).any { days.getInt(it) == todayIdx }
+
+                if (!matchesDay) continue
+                if (now < start || now > end) continue
+
+                // This routine is active right now
+                anyActive = true
+                val apps = r.optJSONArray("blockedApps") ?: continue
+                for (j in 0 until apps.length()) allApps.add(apps.getString(j))
+                if (r.optBoolean("blockShorts", false)) blockShorts = true
+            }
+
+            if (anyActive && allApps.isNotEmpty()) {
+                // Build the final list — add reels: prefixes if blockShorts
+                val reelPackages = setOf(
+                    "com.instagram.android", "com.google.android.youtube",
+                    "com.facebook.katana", "com.facebook.orca"
+                )
+                val finalApps = allApps.toMutableSet()
+                if (blockShorts) {
+                    for (pkg in reelPackages) {
+                        if (!finalApps.contains(pkg)) finalApps.add("reels:$pkg")
+                    }
+                }
+                val appsJson = JSONArray(finalApps.toList()).toString()
+                prefs.edit()
+                    .putString(KEY_BLOCKED_APPS, appsJson)
+                    .putBoolean(KEY_IS_BLOCKING, true)
+                    .putBoolean(KEY_IS_ROUTINE_BLOCKING, true)
+                    .apply()
+                Log.d(TAG, "Routine sync: blocking ON — $appsJson")
+            } else {
+                // Only turn off blocking if a routine was the one that turned it on.
+                // If a timer/manual call started blocking, leave it alone.
+                val wasRoutineBlocking = prefs.getBoolean(KEY_IS_ROUTINE_BLOCKING, false)
+                if (wasRoutineBlocking) {
+                    prefs.edit()
+                        .putBoolean(KEY_IS_BLOCKING, false)
+                        .putBoolean(KEY_IS_ROUTINE_BLOCKING, false)
+                        .apply()
+                    Log.d(TAG, "Routine sync: blocking OFF")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "syncFromRoutines error: ${e.message}")
+        }
+    }
+
+    private fun currentTime(): String {
+        val cal = java.util.Calendar.getInstance()
+        return "${String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))}:" +
+               "${String.format("%02d", cal.get(java.util.Calendar.MINUTE))}"
+    }
+
     private fun parseBlockedApps(json: String): Set<String> {
         return try {
-            val arr = org.json.JSONArray(json)
+            val arr = JSONArray(json)
             (0 until arr.length()).mapNotNull {
                 arr.optString(it).takeIf { s -> s.isNotEmpty() }
             }.toSet()
@@ -259,6 +357,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     override fun onInterrupt() { Log.d(TAG, "Interrupted") }
 
     override fun onDestroy() {
+        routineHandler.removeCallbacks(routineSyncRunnable)
         prefs.edit().putBoolean(KEY_SERVICE_RUNNING, false).apply()
         super.onDestroy()
     }
