@@ -270,7 +270,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             if ((cls.contains("EditText") || cls.contains("TextView")) && node.isClickable) {
                 val text = node.text?.toString() ?: ""
                 if (text.contains(".") && (text.startsWith("http") || text.contains("www.") ||
-                    text.matches(Regex("[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}.*")))) {
+                    text.matches(Regex("[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}.*")))) {
                     return text
                 }
             }
