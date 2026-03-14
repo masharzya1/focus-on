@@ -6,6 +6,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { View } from 'react-native';
 import { useAutoBlocking } from '@/hooks/useAutoBlocking';
 import { useEffect } from 'react';
+
 import {
   useFonts,
   Nunito_400Regular,
@@ -13,9 +14,9 @@ import {
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_800ExtraBold,
-  Nunito_900ExtraBlack,
 } from '@expo-google-fonts/nunito';
 import * as SplashScreen from 'expo-splash-screen';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,7 +51,6 @@ export default function RootLayout() {
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
-    Nunito_900ExtraBlack,
   });
 
   useEffect(() => {
@@ -62,10 +62,12 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <StudyProvider>
-      <ThemeProvider>
-        <InnerLayout />
-      </ThemeProvider>
-    </StudyProvider>
+    <AuthProvider>
+      <StudyProvider>
+        <ThemeProvider>
+          <InnerLayout />
+        </ThemeProvider>
+      </StudyProvider>
+    </AuthProvider>
   );
 }

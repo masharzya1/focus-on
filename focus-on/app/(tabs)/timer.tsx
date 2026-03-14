@@ -136,9 +136,9 @@ export default function TimerScreen() {
     <View style={[styles.root, { backgroundColor: c.bg }]}>
       {/* Header */}
       <Animated.View entering={FadeInDown.springify()} style={styles.header}>
-        <Text style={[styles.title, { color: c.text }]}>Focus Timer</Text>
         <TouchableOpacity onPress={() => setShowPicker(true)}
           style={[styles.settingsBtn, { backgroundColor: c.bgCard }]}>
+            Config Times
           <Ionicons name="options-outline" size={20} color={c.textMuted} />
         </TouchableOpacity>
       </Animated.View>

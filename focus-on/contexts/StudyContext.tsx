@@ -1,18 +1,7 @@
-/**
- * StudyContext — Zustand + AsyncStorage persist
- *
- * কেন Zustand AsyncStorage এর চেয়ে fast:
- * - শুধু changed slice re-render করে, পুরো tree না
- * - persist middleware smart — শুধু necessary data serialize করে
- * - No extra useEffect, no debounce timer, no race condition
- *
- * Install: npx expo install zustand
- * (AsyncStorage already আছে তোমার project এ)
- */
-
-import React from 'react';
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import React, {
+  createContext, useContext, useEffect, useReducer, useRef, useCallback,
+} from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AppState, Subject, StudySession,
@@ -20,8 +9,13 @@ import type {
 } from '@/types/study';
 import { DEFAULT_SETTINGS } from '@/types/study';
 
+const STORAGE_KEY = 'focuson_data_v3';
+
 // ── Default state ─────────────────────────────────────────────────────────────
-const defaultState: AppState = {
+const defaultState: AppState & {
+  lastStudyDate?: string;
+  todaySessionsDate?: string;
+} = {
   subjects: [],
   sessions: [],
   studyPlans: [],
@@ -33,12 +27,149 @@ const defaultState: AppState = {
   totalTopicsCompleted: 0,
   todaySessionsCompleted: 0,
   onboardingCompleted: false,
+  lastStudyDate: undefined,
+  todaySessionsDate: undefined,
 };
 
-// ── Store type ────────────────────────────────────────────────────────────────
-interface StudyStore extends AppState {
+type State = typeof defaultState;
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+type Action =
+  | { type: 'HYDRATE'; payload: Partial<State> }
+  | { type: 'ADD_SUBJECT'; payload: Subject }
+  | { type: 'UPDATE_SUBJECT'; payload: Subject }
+  | { type: 'DELETE_SUBJECT'; payload: string }
+  | { type: 'TOGGLE_TOPIC'; payload: { subjectId: string; chapterId: string; topicId: string } }
+  | { type: 'ADD_SESSION'; payload: StudySession }
+  | { type: 'ADD_PLAN'; payload: StudyPlan }
+  | { type: 'UPDATE_PLAN'; payload: StudyPlan }
+  | { type: 'DELETE_PLAN'; payload: string }
+  | { type: 'COMPLETE_TASK'; payload: string }
+  | { type: 'ADD_ROUTINE'; payload: AppBlockRoutine }
+  | { type: 'UPDATE_ROUTINE'; payload: AppBlockRoutine }
+  | { type: 'DELETE_ROUTINE'; payload: string }
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
+  | { type: 'GAIN_XP'; payload: number }
+  | { type: 'COMPLETE_ONBOARDING' };
+
+// ── Reducer ───────────────────────────────────────────────────────────────────
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+
+    case 'HYDRATE':
+      return { ...state, ...action.payload };
+
+    case 'ADD_SUBJECT':
+      return { ...state, subjects: [...state.subjects, action.payload] };
+
+    case 'UPDATE_SUBJECT':
+      return { ...state, subjects: state.subjects.map(s => s.id === action.payload.id ? action.payload : s) };
+
+    case 'DELETE_SUBJECT':
+      return { ...state, subjects: state.subjects.filter(s => s.id !== action.payload) };
+
+    case 'TOGGLE_TOPIC': {
+      const { subjectId, chapterId, topicId } = action.payload;
+      let didComplete = false;
+      const subjects = state.subjects.map(s => {
+        if (s.id !== subjectId) return s;
+        return {
+          ...s, chapters: s.chapters.map(c => {
+            if (c.id !== chapterId) return c;
+            return {
+              ...c, topics: c.topics.map(t => {
+                if (t.id !== topicId) return t;
+                const nowCompleted = !t.completed;
+                if (nowCompleted) didComplete = true;
+                return { ...t, completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : undefined };
+              }),
+            };
+          }),
+        };
+      });
+      return {
+        ...state,
+        subjects,
+        totalTopicsCompleted: didComplete ? state.totalTopicsCompleted + 1 : state.totalTopicsCompleted,
+      };
+    }
+
+    case 'ADD_SESSION': {
+      const session = action.payload;
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const newStreak = state.lastStudyDate === today ? state.streak
+        : state.lastStudyDate === yesterday ? state.streak + 1 : 1;
+
+      let studyPlans = state.studyPlans;
+      if (session.topicId) {
+        studyPlans = studyPlans.map(plan => ({
+          ...plan,
+          tasks: plan.tasks.map(t =>
+            t.topicId === session.topicId && !t.completed ? { ...t, completed: true } : t,
+          ),
+        }));
+      }
+      return {
+        ...state,
+        sessions: [...state.sessions, session],
+        studyPlans,
+        todaySessionsCompleted: state.todaySessionsDate === today ? state.todaySessionsCompleted + 1 : 1,
+        todaySessionsDate: today,
+        streak: newStreak,
+        lastStudyDate: today,
+      };
+    }
+
+    case 'ADD_PLAN':
+      return { ...state, studyPlans: [...state.studyPlans, action.payload] };
+
+    case 'UPDATE_PLAN':
+      return { ...state, studyPlans: state.studyPlans.map(p => p.id === action.payload.id ? action.payload : p) };
+
+    case 'DELETE_PLAN':
+      return { ...state, studyPlans: state.studyPlans.filter(p => p.id !== action.payload) };
+
+    case 'COMPLETE_TASK':
+      return {
+        ...state,
+        studyPlans: state.studyPlans.map(plan => ({
+          ...plan,
+          tasks: plan.tasks.map(t => t.id === action.payload ? { ...t, completed: true } : t),
+        })),
+      };
+
+    case 'ADD_ROUTINE':
+      return { ...state, blockRoutines: [...state.blockRoutines, action.payload] };
+
+    case 'UPDATE_ROUTINE':
+      return { ...state, blockRoutines: state.blockRoutines.map(r => r.id === action.payload.id ? action.payload : r) };
+
+    case 'DELETE_ROUTINE':
+      return { ...state, blockRoutines: state.blockRoutines.filter(r => r.id !== action.payload) };
+
+    case 'UPDATE_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.payload } };
+
+    case 'GAIN_XP': {
+      const newXp = state.xp + action.payload;
+      let remaining = newXp, lvl = 1;
+      while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
+      return { ...state, xp: newXp, level: lvl };
+    }
+
+    case 'COMPLETE_ONBOARDING':
+      return { ...state, onboardingCompleted: true };
+
+    default:
+      return state;
+  }
+}
+
+// ── Context type ──────────────────────────────────────────────────────────────
+interface StudyContextValue {
+  state: AppState;
   ready: boolean;
-  _setReady: (v: boolean) => void;
   addSubject: (s: Subject) => void;
   updateSubject: (s: Subject) => void;
   deleteSubject: (id: string) => void;
@@ -65,200 +196,152 @@ interface StudyStore extends AppState {
   }[];
 }
 
-// ── Zustand store ─────────────────────────────────────────────────────────────
-export const useStudyStore = create<StudyStore>()(
-  persist(
-    (set, get) => ({
-      ...defaultState,
-      ready: false,
-      _setReady: (v) => set({ ready: v }),
+const StudyContext = createContext<StudyContextValue | null>(null);
 
-      addSubject: (s) => set(p => ({ subjects: [...p.subjects, s] })),
-      updateSubject: (s) => set(p => ({ subjects: p.subjects.map(x => x.id === s.id ? s : x) })),
-      deleteSubject: (id) => set(p => ({ subjects: p.subjects.filter(s => s.id !== id) })),
-
-      toggleTopicComplete: (subjectId, chapterId, topicId) => {
-        let didComplete = false;
-        set(p => {
-          const subjects = p.subjects.map(s => {
-            if (s.id !== subjectId) return s;
-            return {
-              ...s, chapters: s.chapters.map(c => {
-                if (c.id !== chapterId) return c;
-                return {
-                  ...c, topics: c.topics.map(t => {
-                    if (t.id !== topicId) return t;
-                    const nowCompleted = !t.completed;
-                    if (nowCompleted) didComplete = true;
-                    return { ...t, completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : undefined };
-                  }),
-                };
-              }),
-            };
-          });
-          return { subjects, totalTopicsCompleted: didComplete ? p.totalTopicsCompleted + 1 : p.totalTopicsCompleted };
-        });
-        return didComplete;
+// ── Storage helpers ───────────────────────────────────────────────────────────
+// Web এ localStorage, native এ AsyncStorage।
+// localStorage কে AsyncStorage এর মতো wrap করা হয়েছে।
+const store = Platform.OS === 'web'
+  ? {
+      getItem: async (key: string) => {
+        if (typeof window === 'undefined') return null;
+        return window.localStorage.getItem(key);
       },
+      setItem: async (key: string, value: string) => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(key, value);
+      },
+    }
+  : {
+      getItem: (key: string) => AsyncStorage.getItem(key),
+      setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+    };
 
-      addSession: (session) => {
-        set(p => {
-          const today = new Date().toISOString().split('T')[0];
-          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-          const newStreak = p.lastStudyDate === today ? p.streak
-            : p.lastStudyDate === yesterday ? p.streak + 1 : 1;
+// ── Provider ──────────────────────────────────────────────────────────────────
+export function StudyProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, defaultState);
+  const [ready, setReady] = React.useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-          let studyPlans = p.studyPlans;
-          if (session.topicId) {
-            studyPlans = studyPlans.map(plan => ({
-              ...plan,
-              tasks: plan.tasks.map(t => t.topicId === session.topicId && !t.completed ? { ...t, completed: true } : t),
-            }));
+  // Load from storage on mount
+  useEffect(() => {
+    store.getItem(STORAGE_KEY)
+      .then(raw => {
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw);
+            dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved?.settings } } });
+          } catch {
+            // corrupt data — start fresh
           }
-
-          return {
-            sessions: [...p.sessions, session],
-            studyPlans,
-            todaySessionsCompleted: p.todaySessionsDate === today ? p.todaySessionsCompleted + 1 : 1,
-            todaySessionsDate: today,
-            streak: newStreak,
-            lastStudyDate: today,
-          };
-        });
-      },
-
-      addStudyPlan: (p) => set(s => ({ studyPlans: [...s.studyPlans, p] })),
-      updateStudyPlan: (p) => set(s => ({ studyPlans: s.studyPlans.map(x => x.id === p.id ? p : x) })),
-      deleteStudyPlan: (id) => set(p => ({ studyPlans: p.studyPlans.filter(pl => pl.id !== id) })),
-      completePlanTask: (taskId) => set(p => ({
-        studyPlans: p.studyPlans.map(plan => ({
-          ...plan, tasks: plan.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t),
-        })),
-      })),
-
-      addBlockRoutine: (r) => set(p => ({ blockRoutines: [...p.blockRoutines, r] })),
-      updateBlockRoutine: (r) => set(p => ({ blockRoutines: p.blockRoutines.map(x => x.id === r.id ? r : x) })),
-      deleteBlockRoutine: (id) => set(p => ({ blockRoutines: p.blockRoutines.filter(r => r.id !== id) })),
-
-      updateSettings: (s) => set(p => ({ settings: { ...p.settings, ...s } })),
-
-      gainXp: (amount) => {
-        let result = { newLevel: 1, isLevelUp: false };
-        set(p => {
-          const newXp = p.xp + amount;
-          let remaining = newXp, lvl = 1;
-          while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
-          result = { newLevel: lvl, isLevelUp: lvl > p.level };
-          return { xp: newXp, level: lvl };
-        });
-        return result;
-      },
-
-      completeOnboarding: () => set({ onboardingCompleted: true }),
-
-      getTodayMinutes: () => {
-        const today = new Date().toISOString().split('T')[0];
-        return get().sessions
-          .filter(s => s.completed && s.startTime.startsWith(today))
-          .reduce((sum, s) => sum + s.durationMinutes, 0);
-      },
-
-      getStreak: () => get().streak,
-
-      getSubjectProgress: (subjectId) => {
-        const s = get().subjects.find(x => x.id === subjectId);
-        if (!s) return 0;
-        const topics = s.chapters.flatMap(c => c.topics);
-        if (topics.length === 0) return 0;
-        return Math.round((topics.filter(t => t.completed).length / topics.length) * 100);
-      },
-
-      getTodayPlanTasks: () => {
-        const today = new Date().toISOString().split('T')[0];
-        const result: any[] = [];
-        get().studyPlans.forEach(plan => {
-          plan.tasks.filter(t => t.date === today).forEach(task => {
-            result.push({
-              planId: plan.id, taskId: task.id, topicId: task.topicId,
-              subjectId: task.subjectId, chapterId: task.chapterId,
-              estimatedMinutes: task.estimatedMinutes, type: task.type,
-              completed: task.completed, startTime: task.startTime, endTime: task.endTime,
-            });
-          });
-        });
-        return result;
-      },
-    }),
-    {
-      name: 'focuson_data_v3',
-      storage: createJSONStorage(() => AsyncStorage),
-      version: 3,
-      migrate: (persisted: any, version: number) => {
-        // Migrate from old Context-based storage
-        if (version < 3) {
-          return { ...defaultState, ...persisted, settings: { ...DEFAULT_SETTINGS, ...persisted?.settings } };
         }
-        return persisted as StudyStore;
-      },
-      onRehydrateStorage: () => (state) => {
-        if (state) state._setReady(true);
-      },
-      // Don't persist computed/internal fields
-      partialize: (state) => {
-        const { ready, _setReady, addSubject, updateSubject, deleteSubject,
-          toggleTopicComplete, addSession, addStudyPlan, updateStudyPlan,
-          deleteStudyPlan, completePlanTask, addBlockRoutine, updateBlockRoutine,
-          deleteBlockRoutine, updateSettings, gainXp, completeOnboarding,
-          getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
-          ...data } = state;
-        return data;
-      },
-    },
-  ),
-);
+      })
+      .catch(() => {/* storage unavailable — start fresh */})
+      .finally(() => setReady(true));
+  }, []);
 
-// ── useStudy — drop-in replacement, সব screen এ কাজ করবে ────────────────────
-export function useStudy() {
-  const store = useStudyStore();
-  return {
-    state: {
-      subjects: store.subjects,
-      sessions: store.sessions,
-      studyPlans: store.studyPlans,
-      blockRoutines: store.blockRoutines,
-      settings: store.settings,
-      streak: store.streak,
-      xp: store.xp,
-      level: store.level,
-      totalTopicsCompleted: store.totalTopicsCompleted,
-      todaySessionsCompleted: store.todaySessionsCompleted,
-      onboardingCompleted: store.onboardingCompleted,
-      lastStudyDate: (store as any).lastStudyDate,
-    } as AppState,
-    ready: store.ready,
-    addSubject: store.addSubject,
-    updateSubject: store.updateSubject,
-    deleteSubject: store.deleteSubject,
-    toggleTopicComplete: store.toggleTopicComplete,
-    addSession: store.addSession,
-    addStudyPlan: store.addStudyPlan,
-    updateStudyPlan: store.updateStudyPlan,
-    deleteStudyPlan: store.deleteStudyPlan,
-    completePlanTask: store.completePlanTask,
-    addBlockRoutine: store.addBlockRoutine,
-    updateBlockRoutine: store.updateBlockRoutine,
-    deleteBlockRoutine: store.deleteBlockRoutine,
-    updateSettings: store.updateSettings,
-    gainXp: store.gainXp,
-    completeOnboarding: store.completeOnboarding,
-    getTodayMinutes: store.getTodayMinutes,
-    getStreak: store.getStreak,
-    getSubjectProgress: store.getSubjectProgress,
-    getTodayPlanTasks: store.getTodayPlanTasks,
-  };
+  // Debounced save to storage on every state change
+  useEffect(() => {
+    if (!ready) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      store.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
+    }, 300);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [state, ready]);
+
+  // ── Action wrappers ─────────────────────────────────────────────────────────
+  const addSubject = useCallback((s: Subject) => dispatch({ type: 'ADD_SUBJECT', payload: s }), []);
+  const updateSubject = useCallback((s: Subject) => dispatch({ type: 'UPDATE_SUBJECT', payload: s }), []);
+  const deleteSubject = useCallback((id: string) => dispatch({ type: 'DELETE_SUBJECT', payload: id }), []);
+
+  const toggleTopicComplete = useCallback((subjectId: string, chapterId: string, topicId: string): boolean => {
+    const subject = state.subjects.find(s => s.id === subjectId);
+    const chapter = subject?.chapters.find(c => c.id === chapterId);
+    const topic = chapter?.topics.find(t => t.id === topicId);
+    const willComplete = topic ? !topic.completed : false;
+    dispatch({ type: 'TOGGLE_TOPIC', payload: { subjectId, chapterId, topicId } });
+    return willComplete;
+  }, [state.subjects]);
+
+  const addSession = useCallback((s: StudySession) => dispatch({ type: 'ADD_SESSION', payload: s }), []);
+  const addStudyPlan = useCallback((p: StudyPlan) => dispatch({ type: 'ADD_PLAN', payload: p }), []);
+  const updateStudyPlan = useCallback((p: StudyPlan) => dispatch({ type: 'UPDATE_PLAN', payload: p }), []);
+  const deleteStudyPlan = useCallback((id: string) => dispatch({ type: 'DELETE_PLAN', payload: id }), []);
+  const completePlanTask = useCallback((taskId: string) => dispatch({ type: 'COMPLETE_TASK', payload: taskId }), []);
+  const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
+  const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
+  const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
+  const updateSettings = useCallback((s: Partial<AppSettings>) => dispatch({ type: 'UPDATE_SETTINGS', payload: s }), []);
+
+  const gainXp = useCallback((amount: number): { newLevel: number; isLevelUp: boolean } => {
+    const newXp = state.xp + amount;
+    let remaining = newXp, lvl = 1;
+    while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
+    dispatch({ type: 'GAIN_XP', payload: amount });
+    return { newLevel: lvl, isLevelUp: lvl > state.level };
+  }, [state.xp, state.level]);
+
+  const completeOnboarding = useCallback(() => dispatch({ type: 'COMPLETE_ONBOARDING' }), []);
+
+  // ── Computed helpers ────────────────────────────────────────────────────────
+  const getTodayMinutes = useCallback((): number => {
+    const today = new Date().toISOString().split('T')[0];
+    return state.sessions
+      .filter(s => s.completed && s.startTime.startsWith(today))
+      .reduce((sum, s) => sum + s.durationMinutes, 0);
+  }, [state.sessions]);
+
+  const getStreak = useCallback((): number => state.streak, [state.streak]);
+
+  const getSubjectProgress = useCallback((subjectId: string): number => {
+    const s = state.subjects.find(x => x.id === subjectId);
+    if (!s) return 0;
+    const topics = s.chapters.flatMap(c => c.topics);
+    if (topics.length === 0) return 0;
+    return Math.round((topics.filter(t => t.completed).length / topics.length) * 100);
+  }, [state.subjects]);
+
+  const getTodayPlanTasks = useCallback(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const result: any[] = [];
+    state.studyPlans.forEach(plan => {
+      plan.tasks.filter(t => t.date === today).forEach(task => {
+        result.push({
+          planId: plan.id, taskId: task.id, topicId: task.topicId,
+          subjectId: task.subjectId, chapterId: task.chapterId,
+          estimatedMinutes: task.estimatedMinutes, type: task.type,
+          completed: task.completed, startTime: task.startTime, endTime: task.endTime,
+        });
+      });
+    });
+    return result;
+  }, [state.studyPlans]);
+
+  return (
+    <StudyContext.Provider value={{
+      state: state as AppState,
+      ready,
+      addSubject, updateSubject, deleteSubject,
+      toggleTopicComplete,
+      addSession,
+      addStudyPlan, updateStudyPlan, deleteStudyPlan, completePlanTask,
+      addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
+      updateSettings,
+      gainXp,
+      completeOnboarding,
+      getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
+    }}>
+      {children}
+    </StudyContext.Provider>
+  );
 }
 
-// ── StudyProvider — wrapper only, Zustand এর কোনো Provider লাগে না ───────────
-export function StudyProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-                                         }
+// ── useStudy — drop-in replacement ───────────────────────────────────────────
+export function useStudy(): StudyContextValue {
+  const ctx = useContext(StudyContext);
+  if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
+  return ctx;
+}

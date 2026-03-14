@@ -1,7 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getMessaging } from 'firebase/messaging';
+// NOTE: firebase/messaging is browser service-worker only — not React Native.
+// For push notifications in RN, use expo-notifications instead.
 
 const firebaseConfig = {
   apiKey: 'AIzaSyB65RJwakLa9BAwTov9nPRYkDmjVt8M17s',
