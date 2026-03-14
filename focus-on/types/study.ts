@@ -1,8 +1,9 @@
 export interface Subject {
   id: string;
   name: string;
-  color: string;   // e.g. "220 15% 25%"
-  icon: string;    // icon name
+  color: string;
+  icon: string;
+  topicBased: boolean;
   chapters: Chapter[];
   createdAt: string;
 }
@@ -49,22 +50,24 @@ export interface StudyPlan {
   dailyHours: number;
   createdAt: string;
   tasks: PlannedTask[];
+  // Blocking options (plan-level)
+  blockApps: boolean;
+  hardBlock: boolean;   // can't unblock from inside app
+  deviceAdmin: boolean; // can't uninstall without removing admin
+  blockedApps: string[];
 }
 
 export interface PlannedTask {
   id: string;
-  date: string;
+  date: string;        // YYYY-MM-DD
+  startTime?: string;  // HH:MM
+  endTime?: string;    // HH:MM
   topicId: string;
   subjectId: string;
+  chapterId: string;
   estimatedMinutes: number;
   completed: boolean;
   type: 'study' | 'revision';
-}
-
-export interface DifficultyLevel {
-  id: number;
-  label: string;
-  minutes: number;
 }
 
 export interface AppBlockRoutine {
@@ -72,10 +75,13 @@ export interface AppBlockRoutine {
   name: string;
   startTime: string;
   endTime: string;
-  days: number[];          // 0=Sun … 6=Sat, [] = every day
-  blockedApps: string[];   // package names
-  blockShorts: boolean;    // block Reels/Shorts/TikTok content
+  days: number[];
+  blockedApps: string[];
+  blockShorts: boolean;
   enabled: boolean;
+  hardBlock?: boolean;
+  deviceAdmin?: boolean;
+  fromPlanId?: string;
 }
 
 export interface AppSettings {
@@ -100,15 +106,8 @@ export interface AppState {
   totalTopicsCompleted: number;
   todaySessionsCompleted: number;
   todaySessionsDate?: string;
+  onboardingCompleted: boolean;
 }
-
-export const DEFAULT_DIFFICULTY_LEVELS: DifficultyLevel[] = [
-  { id: 1, label: 'Very Easy', minutes: 15 },
-  { id: 2, label: 'Easy',      minutes: 25 },
-  { id: 3, label: 'Medium',    minutes: 35 },
-  { id: 4, label: 'Hard',      minutes: 50 },
-  { id: 5, label: 'Very Hard', minutes: 60 },
-];
 
 export const DEFAULT_SETTINGS: AppSettings = {
   pomodoroFocus: 25,
@@ -120,12 +119,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const SUBJECT_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+  '#6C63FF','#3B82F6','#10B981','#F59E0B',
+  '#EF4444','#EC4899','#06B6D4','#84CC16',
 ];
 
 export const SUBJECT_ICONS = [
-  'book-open', 'calculator', 'flask', 'globe',
-  'laptop', 'palette', 'pencil', 'music',
-  'atom', 'brain',
+  'book-outline','calculator-outline','flask-outline','globe-outline',
+  'laptop-outline','color-palette-outline','musical-notes-outline',
+  'leaf-outline','pulse-outline','planet-outline','school-outline',
+  'code-slash-outline',
 ];
