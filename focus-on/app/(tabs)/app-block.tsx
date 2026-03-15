@@ -45,8 +45,8 @@ function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: 
   items: string[]; selectedIndex: number; onChange: (i: number) => void;
   width?: number; colors: any;
 }) {
-  const ITEM_H = 44;
-  const VISIBLE = 3;
+  const ITEM_H = 42;
+  const VISIBLE = 5;
   const scrollRef = useRef<ScrollView>(null);
   const isScrolling = useRef(false);
 
@@ -54,96 +54,64 @@ function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: 
     scrollRef.current?.scrollTo({ y: index * ITEM_H, animated });
   }, []);
 
+  // Sync scroll when selectedIndex changes externally (e.g. modal opens with value)
   useEffect(() => {
     if (!isScrolling.current) {
       setTimeout(() => scrollTo(selectedIndex, false), 30);
     }
   }, [selectedIndex]);
 
-  const goUp = () => {
-    const next = Math.max(0, selectedIndex - 1);
-    scrollTo(next, true);
-    onChange(next);
-  };
-
-  const goDown = () => {
-    const next = Math.min(items.length - 1, selectedIndex + 1);
-    scrollTo(next, true);
-    onChange(next);
-  };
-
   return (
-    <View style={{ width, alignItems: 'center' }}>
-      {/* Up arrow */}
-      <TouchableOpacity
-        onPress={goUp}
-        style={{ height: 32, width: '100%', alignItems: 'center', justifyContent: 'center',
-          opacity: selectedIndex === 0 ? 0.2 : 1 }}
-        activeOpacity={0.6}>
-        <Ionicons name="chevron-up" size={18} color={c.accent} />
-      </TouchableOpacity>
-
-      {/* Scroll wheel */}
-      <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative' }}>
-        <View style={{
-          position: 'absolute', top: ITEM_H, height: ITEM_H, left: 0, right: 0,
-          backgroundColor: c.accent + '22', borderRadius: 10,
-          borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
-          zIndex: 1,
-        }} style={{ pointerEvents: 'none' } as any} />
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_H}
-          decelerationRate="fast"
-          nestedScrollEnabled={true}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingVertical: ITEM_H }}
-          onScrollBeginDrag={() => { isScrolling.current = true; }}
-          onMomentumScrollEnd={e => {
-            isScrolling.current = false;
-            const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-            const clamped = Math.max(0, Math.min(i, items.length - 1));
-            scrollTo(clamped, true);
-            onChange(clamped);
-          }}
-          onScrollEndDrag={e => {
-            const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-            const clamped = Math.max(0, Math.min(i, items.length - 1));
-            scrollTo(clamped, true);
-            onChange(clamped);
-            setTimeout(() => { isScrolling.current = false; }, 100);
-          }}
-          onLayout={() => { setTimeout(() => scrollTo(selectedIndex, false), 50); }}
-        >
-          {items.map((item, i) => {
-            const active = i === selectedIndex;
-            return (
-              <TouchableOpacity key={i}
-                style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => { scrollTo(i, true); onChange(i); }} activeOpacity={0.7}>
-                <Text style={{
-                  fontSize: active ? 20 : 15,
-                  fontFamily: active ? FONTS.bold : FONTS.regular,
-                  color: active ? c.accent : c.textMuted,
-                  opacity: Math.abs(i - selectedIndex) > 1 ? 0.25 : 1,
-                }}>
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Down arrow */}
-      <TouchableOpacity
-        onPress={goDown}
-        style={{ height: 32, width: '100%', alignItems: 'center', justifyContent: 'center',
-          opacity: selectedIndex === items.length - 1 ? 0.2 : 1 }}
-        activeOpacity={0.6}>
-        <Ionicons name="chevron-down" size={18} color={c.accent} />
-      </TouchableOpacity>
+    <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative' }}>
+      {/* Selection highlight */}
+      <View style={{
+        position: 'absolute', top: ITEM_H * 2, height: ITEM_H, left: 0, right: 0,
+        backgroundColor: c.accent + '22', borderRadius: 10,
+        borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
+        zIndex: 1, pointerEvents: 'none',
+      }} />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        onScrollBeginDrag={() => { isScrolling.current = true; }}
+        onMomentumScrollEnd={e => {
+          isScrolling.current = false;
+          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(i, items.length - 1));
+          scrollTo(clamped, true);
+          onChange(clamped);
+        }}
+        onScrollEndDrag={e => {
+          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          const clamped = Math.max(0, Math.min(i, items.length - 1));
+          scrollTo(clamped, true);
+          onChange(clamped);
+          setTimeout(() => { isScrolling.current = false; }, 100);
+        }}
+        onLayout={() => {
+          setTimeout(() => scrollTo(selectedIndex, false), 50);
+        }}
+      >
+        {items.map((item, i) => {
+          const active = i === selectedIndex;
+          return (
+            <TouchableOpacity key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => { scrollTo(i, true); onChange(i); }} activeOpacity={0.7}>
+              <Text style={{
+                fontSize: active ? 20 : 16,
+                fontWeight: active ? '800' : '400',
+                color: active ? c.accent : c.textMuted,
+                opacity: Math.abs(i - selectedIndex) > 2 ? 0.2 : 1,
+              }}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -269,31 +237,39 @@ export default function AppBlockScreen() {
   const [rShorts, setRShorts] = useState(false);
   const [rHard, setRHard]     = useState(false);
   const [rAdmin, setRAdmin]   = useState(false);
+  const [rMaxUnlocks, setRMaxUnlocks] = useState(3);
+  const [rPassword, setRPassword]     = useState('');
+
+  // Emergency unlock modal
+  const [showEmergency, setShowEmergency]       = useState(false);
+  const [emergencyRoutine, setEmergencyRoutine] = useState<AppBlockRoutine | null>(null);
+  const [emergencyInput, setEmergencyInput]     = useState('');
+  const [emergencyError, setEmergencyError]     = useState('');
+
+  const [loadingApps, setLoadingApps] = useState(false);
 
   useFocusEffect(useCallback(() => {
     AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
     AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
     AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
+    // Preload apps in background so picker opens instantly
+    if (installedApps.length === 0) {
+      setLoadingApps(true);
+      AppBlocking.getInstalledApps()
+        .then(apps => { setInstalledApps(apps); setLoadingApps(false); })
+        .catch(() => setLoadingApps(false));
+    }
   }, []));
 
-  const loadApps = async (forPicker: 'routine' | 'limit' = 'routine') => {
-    try {
-      let apps = installedApps;
-      if (apps.length === 0) {
-        apps = await AppBlocking.getInstalledApps();
-        setInstalledApps(apps);
-      }
-      if (forPicker === 'limit') {
-        setLimitPickerFor('new');
-        setLimitSelectedApp(null);
-        setLimitMinutes(60);
-        setLimitAppSearch('');
-        setShowLimitModal(true);
-      } else {
-        setShowAppPicker(true);
-      }
-    } catch {
-      Alert.alert('Error', 'Could not load installed apps.');
+  const loadApps = (forPicker: 'routine' | 'limit' = 'routine') => {
+    if (forPicker === 'limit') {
+      setLimitPickerFor('new');
+      setLimitSelectedApp(null);
+      setLimitMinutes(60);
+      setLimitAppSearch('');
+      setShowLimitModal(true);
+    } else {
+      setShowAppPicker(true);
     }
   };
 
@@ -301,6 +277,7 @@ export default function AppBlockScreen() {
     setRName(''); setRStart('09:00'); setREnd('11:00');
     setRDays([]); setRApps([]); setRShorts(false);
     setRHard(false); setRAdmin(false); setEditingId(null);
+    setRMaxUnlocks(3); setRPassword('');
   };
 
   const openEdit = (r: AppBlockRoutine) => {
@@ -308,6 +285,8 @@ export default function AppBlockScreen() {
     setRName(r.name); setRStart(r.startTime); setREnd(r.endTime);
     setRDays(r.days); setRApps(r.blockedApps); setRShorts(r.blockShorts);
     setRHard(r.hardBlock ?? false); setRAdmin(r.deviceAdmin ?? false);
+    setRMaxUnlocks(r.maxEmergencyUnlocks ?? 3);
+    setRPassword(r.emergencyPassword ?? '');
     setShowCreate(true);
   };
 
@@ -321,6 +300,14 @@ export default function AppBlockScreen() {
       name: rName.trim(), startTime: rStart, endTime: rEnd,
       days: rDays, blockedApps: rApps, blockShorts: rShorts,
       enabled: true, hardBlock: rHard, deviceAdmin: rAdmin,
+      maxEmergencyUnlocks: rHard ? rMaxUnlocks : undefined,
+      emergencyPassword: (rHard && rPassword.trim()) ? rPassword.trim() : undefined,
+      emergencyUnlockCount: editingId
+        ? (state.blockRoutines.find(r => r.id === editingId)?.emergencyUnlockCount ?? 0)
+        : 0,
+      lastUnlockDate: editingId
+        ? state.blockRoutines.find(r => r.id === editingId)?.lastUnlockDate
+        : undefined,
     };
     if (editingId) updateBlockRoutine(routine);
     else addBlockRoutine(routine);
@@ -373,28 +360,18 @@ export default function AppBlockScreen() {
   };
 
   const handleAdminToggle = async (v: boolean) => {
-    if (v) {
-      setRHard(true);
-      const isActive = await AppBlocking.isDeviceAdminActive();
-      if (!isActive) {
-        Alert.alert(
-          'Device Admin Required',
-          'Focus On needs Device Admin permission so it cannot be uninstalled during active blocks. You will be taken to the permission screen.',
-          [
-            { text: 'Grant Permission', onPress: async () => {
-                await AppBlocking.requestDeviceAdmin();
-                setRAdmin(true);
-              }
-            },
-            { text: 'Cancel', style: 'cancel', onPress: () => setRAdmin(false) },
-          ]
-        );
-      } else {
-        setRAdmin(true);
-      }
-    } else {
-      setRAdmin(false);
-    }
+    if (!v) { setRAdmin(false); return; }
+    setRHard(true);
+    const isActive = await AppBlocking.isDeviceAdminActive();
+    if (isActive) { setRAdmin(true); return; }
+    // Not granted yet — open settings, then verify on return
+    await AppBlocking.requestDeviceAdmin();
+    // Wait 1.5s then re-check (user might have granted or cancelled)
+    setTimeout(async () => {
+      const granted = await AppBlocking.isDeviceAdminActive().catch(() => false);
+      setRAdmin(granted);
+      if (!granted) setRHard(false); // if cancelled, also turn off hard block
+    }, 1500);
   };
 
   const addWebsite = () => {
@@ -584,7 +561,28 @@ export default function AppBlockScreen() {
                           )}
                         </View>
                         <Switch value={r.enabled}
-                          onValueChange={v => updateBlockRoutine({ ...r, enabled: v })}
+                          onValueChange={v => {
+                            if (!v && r.hardBlock && r.enabled) {
+                              // Hard block — need emergency override
+                              const today = new Date().toISOString().split('T')[0];
+                              const count = r.lastUnlockDate === today
+                                ? (r.emergencyUnlockCount ?? 0) : 0;
+                              const max = r.maxEmergencyUnlocks ?? 3;
+                              if (count >= max) {
+                                Alert.alert(
+                                  '🔒 Max unlocks reached',
+                                  `You have used all ${max} emergency unlocks for today. This routine cannot be disabled until tomorrow.`
+                                );
+                                return;
+                              }
+                              setEmergencyRoutine(r);
+                              setEmergencyInput('');
+                              setEmergencyError('');
+                              setShowEmergency(true);
+                            } else {
+                              updateBlockRoutine({ ...r, enabled: v });
+                            }
+                          }}
                           trackColor={{ true: c.accent }}
                           style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }} />
                       </View>
@@ -786,6 +784,62 @@ export default function AppBlockScreen() {
                 </View>
               ))}
 
+              {/* Emergency unlock settings — only shown when hard block is on */}
+              {rHard && (
+                <View style={[styles.optRow, { borderColor: c.accent + '30', backgroundColor: c.accentSoft, flexDirection: 'column', alignItems: 'stretch', gap: 12 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.optIconBox, { backgroundColor: c.accent + '20' }]}>
+                      <Ionicons name="key-outline" size={16} color={c.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.optLabel, { color: c.text }]}>Emergency Override</Text>
+                      <Text style={[styles.optSub, { color: c.textMuted }]}>Allow turning off hard block max N times per day</Text>
+                    </View>
+                  </View>
+                  {/* Max unlocks stepper */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 13, fontFamily: FONTS.medium, color: c.textMuted }}>Max unlocks per day</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <TouchableOpacity style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.bgCard, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => setRMaxUnlocks(Math.max(1, rMaxUnlocks - 1))}>
+                        <Ionicons name="remove" size={16} color={c.accent} />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 18, fontFamily: FONTS.bold, color: c.accent, minWidth: 24, textAlign: 'center' }}>{rMaxUnlocks}</Text>
+                      <TouchableOpacity style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: c.bgCard, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => setRMaxUnlocks(Math.min(10, rMaxUnlocks + 1))}>
+                        <Ionicons name="add" size={16} color={c.accent} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {/* Optional password */}
+                  <Text style={[styles.lbl, { color: c.textMuted, marginTop: 0 }]}>Password (optional)</Text>
+                  <View style={[styles.input, { flexDirection: 'row', alignItems: 'center', height: 46 }]}>
+                    <Ionicons name="key-outline" size={15} color={c.textFaint} />
+                    <TextInput
+                      style={{ flex: 1, marginLeft: 8, color: c.text, fontFamily: FONTS.regular, fontSize: 14 }}
+                      placeholder="Set a PIN or password..."
+                      placeholderTextColor={c.textFaint}
+                      value={rPassword} onChangeText={setRPassword}
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* (options rendered above) */}
+              {([] as any[]).map((opt: any, i: number) => (
+                <View key={i} style={[styles.optRow, { borderColor: c.border, backgroundColor: c.bg }]}>
+                  <View style={[styles.optIconBox, { backgroundColor: opt.iconColor + '18' }]}>
+                    <Ionicons name={opt.icon} size={16} color={opt.iconColor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.optLabel, { color: c.text }]}>{opt.label}</Text>
+                    <Text style={[styles.optSub, { color: c.textMuted }]}>{opt.sub}</Text>
+                  </View>
+                  <Switch value={opt.val} onValueChange={opt.set} trackColor={{ true: opt.color }} />
+                </View>
+              ))}
+
               <TouchableOpacity style={[styles.pickAppsBtn, { backgroundColor: c.accentSoft, borderColor: c.accent }]}
                 onPress={() => loadApps('routine')}>
                 <Ionicons name="apps" size={18} color={c.accent} />
@@ -915,6 +969,86 @@ export default function AppBlockScreen() {
             </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      {/* ── Emergency Unlock Modal ── */}
+      <Modal visible={showEmergency} transparent animationType="fade"
+        onRequestClose={() => setShowEmergency(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Pressable style={styles.modalBg} onPress={() => setShowEmergency(false)}>
+            <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
+              <View style={[styles.handle, { backgroundColor: c.border }]} />
+              {/* Header */}
+              <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                  <Ionicons name="warning" size={28} color="#EF4444" />
+                </View>
+                <Text style={[styles.sheetTitle, { color: c.text, textAlign: 'center', marginBottom: 4 }]}>Emergency Override</Text>
+                <Text style={{ fontSize: 13, fontFamily: FONTS.regular, color: c.textMuted, textAlign: 'center', lineHeight: 18 }}>
+                  {(() => {
+                    if (!emergencyRoutine) return '';
+                    const today = new Date().toISOString().split('T')[0];
+                    const count = emergencyRoutine.lastUnlockDate === today
+                      ? (emergencyRoutine.emergencyUnlockCount ?? 0) : 0;
+                    const max = emergencyRoutine.maxEmergencyUnlocks ?? 3;
+                    return `${max - count} of ${max} emergency unlocks remaining today`;
+                  })()}
+                </Text>
+              </View>
+
+              {/* Password if set */}
+              {emergencyRoutine?.emergencyPassword && (
+                <>
+                  <Text style={[styles.lbl, { color: c.textMuted }]}>Enter password to unlock</Text>
+                  <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: emergencyError ? '#EF4444' : c.border }]}>
+                    <Ionicons name="key-outline" size={16} color={c.textMuted} />
+                    <TextInput
+                      style={{ color: c.text, flex: 1, marginLeft: 8, fontFamily: FONTS.regular }}
+                      placeholder="Password..." placeholderTextColor={c.textFaint}
+                      value={emergencyInput} onChangeText={t => { setEmergencyInput(t); setEmergencyError(''); }}
+                      secureTextEntry autoFocus
+                    />
+                  </View>
+                  {emergencyError ? (
+                    <Text style={{ color: '#EF4444', fontSize: 12, fontFamily: FONTS.regular, marginBottom: 8 }}>{emergencyError}</Text>
+                  ) : null}
+                </>
+              )}
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: '#EF4444', marginTop: 8 }]}
+                onPress={() => {
+                  if (!emergencyRoutine) return;
+                  // Check password
+                  if (emergencyRoutine.emergencyPassword) {
+                    if (emergencyInput !== emergencyRoutine.emergencyPassword) {
+                      setEmergencyError('Wrong password. Try again.');
+                      return;
+                    }
+                  }
+                  // Update unlock count
+                  const today = new Date().toISOString().split('T')[0];
+                  const prevCount = emergencyRoutine.lastUnlockDate === today
+                    ? (emergencyRoutine.emergencyUnlockCount ?? 0) : 0;
+                  updateBlockRoutine({
+                    ...emergencyRoutine,
+                    enabled: false,
+                    emergencyUnlockCount: prevCount + 1,
+                    lastUnlockDate: today,
+                  });
+                  setShowEmergency(false);
+                  setEmergencyRoutine(null);
+                }}>
+                <Ionicons name="shield-outline" size={18} color="#fff" />
+                <Text style={styles.saveTxt}>Disable Temporarily</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowEmergency(false)} style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+              <View style={{ height: 8 }} />
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Add Website Modal ── */}
