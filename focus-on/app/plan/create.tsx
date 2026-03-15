@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS, FONTS } from '@/constants/theme';
+import { RADIUS } from '@/constants/theme';
 import type { StudyPlan, PlannedTask } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
 import { setupAllNotifications } from '@/services/notifications';
@@ -30,19 +30,30 @@ function ScrollColumn({
   width: number; colors: any;
 }) {
   const scrollRef = useRef<ScrollView>(null);
+  const initialScroll = useRef(false);
 
+  // Scroll to selected index
   const scrollTo = (idx: number, animated = true) => {
     scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated });
   };
 
   React.useEffect(() => {
+    // Initial position without animation
     const timer = setTimeout(() => scrollTo(index, false), 10);
     return () => clearTimeout(timer);
   }, []);
 
+  // When external index changes (e.g. month changes -> day count changes)
   React.useEffect(() => {
     scrollTo(index, true);
   }, [index]);
+
+  const handleScroll = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y;
+    const snapped = Math.round(y / ITEM_H);
+    const clamped = Math.max(0, Math.min(items.length - 1, snapped));
+    if (clamped !== index) onIndexChange(clamped);
+  };
 
   const handleMomentumEnd = (e: any) => {
     const y = e.nativeEvent.contentOffset.y;
@@ -52,69 +63,78 @@ function ScrollColumn({
     onIndexChange(clamped);
   };
 
-  const goUp = () => {
-    const next = Math.max(0, index - 1);
-    scrollTo(next, true); onIndexChange(next);
-  };
-  const goDown = () => {
-    const next = Math.min(items.length - 1, index + 1);
-    scrollTo(next, true); onIndexChange(next);
-  };
+  const padding = Math.floor(VISIBLE / 2);
 
   return (
     <View style={{ width, alignItems: 'center' }}>
-      {/* Up arrow */}
-      <TouchableOpacity onPress={goUp}
-        style={{ height: 30, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: index === 0 ? 0.2 : 1 }}
-        activeOpacity={0.6}>
-        <Ionicons name="chevron-up" size={16} color={c.accent} />
-      </TouchableOpacity>
+      {/* Selection highlight bar */}
+      <View style={{
+        position: 'absolute', top: padding * ITEM_H,
+        height: ITEM_H, width: '100%',
+        backgroundColor: c.accentSoft,
+        borderRadius: 14, zIndex: 0,
+      }} pointerEvents="none" />
 
-      {/* Scroll */}
-      <View style={{ height: ITEM_H * 3, width, overflow: 'hidden', position: 'relative' }}>
-        <View style={{
-          position: 'absolute', top: ITEM_H, height: ITEM_H, left: 0, right: 0,
-          backgroundColor: c.accentSoft, borderRadius: 12, zIndex: 0,
-        }} style={{ pointerEvents: 'none' } as any} />
-        <ScrollView
-          ref={scrollRef}
-          style={{ height: ITEM_H * 3, width }}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_H}
-          decelerationRate="fast"
-          nestedScrollEnabled={true}
-          onMomentumScrollEnd={handleMomentumEnd}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingVertical: ITEM_H }}
-        >
-          {items.map((item, i) => {
-            const dist = Math.abs(i - index);
-            const isSelected = dist === 0;
-            return (
-              <TouchableOpacity key={i}
-                style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => { onIndexChange(i); scrollTo(i, true); }}
-                activeOpacity={0.7}>
-                <Text style={{
-                  fontSize: isSelected ? 19 : 15,
-                  fontFamily: isSelected ? FONTS.bold : FONTS.regular,
-                  color: isSelected ? c.accent : dist === 1 ? c.textMuted : c.textFaint,
-                  opacity: dist >= 2 ? 0.3 : 1,
-                }}>
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      {/* Fade top */}
+      <View style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: padding * ITEM_H, zIndex: 2,
+        backgroundColor: 'transparent',
+      }} pointerEvents="none">
+        {[...Array(padding)].map((_, i) => (
+          <View key={i} style={{
+            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
+            backgroundColor: c.bg,
+          }} />
+        ))}
       </View>
 
-      {/* Down arrow */}
-      <TouchableOpacity onPress={goDown}
-        style={{ height: 30, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: index === items.length - 1 ? 0.2 : 1 }}
-        activeOpacity={0.6}>
-        <Ionicons name="chevron-down" size={16} color={c.accent} />
-      </TouchableOpacity>
+      <ScrollView
+        ref={scrollRef}
+        style={{ height: VISIBLE * ITEM_H, width }}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        onScroll={handleScroll}
+        onMomentumScrollEnd={handleMomentumEnd}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingVertical: padding * ITEM_H }}
+      >
+        {items.map((item, i) => {
+          const dist = Math.abs(i - index);
+          const isSelected = dist === 0;
+          return (
+            <TouchableOpacity
+              key={i}
+              style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => { onIndexChange(i); scrollTo(i, true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={{
+                fontSize: isSelected ? 20 : 16,
+                fontWeight: isSelected ? '800' : '400',
+                color: isSelected ? c.accent : dist === 1 ? c.textMuted : c.textFaint,
+                opacity: dist >= 2 ? 0.4 : 1,
+              }}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Fade bottom */}
+      <View style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height: padding * ITEM_H, zIndex: 2,
+      }} pointerEvents="none">
+        {[...Array(padding)].reverse().map((_, i) => (
+          <View key={i} style={{
+            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
+            backgroundColor: c.bg,
+          }} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -325,10 +345,24 @@ export default function CreatePlanScreen() {
 
     addStudyPlan(plan);
 
-    // Schedule notifications for this plan
+    // Schedule notifications for this plan + per-task notifications
     try {
+      const allPlans = [...state.studyPlans, plan];
+      const taskNotifs = plan.tasks
+        .filter(t => t.startTime)
+        .map(t => {
+          const item = selectedItems.find(s => s.topicId === t.topicId);
+          return {
+            date: t.date,
+            startTime: t.startTime,
+            topicName: item?.name ?? 'Study task',
+            subjectName: state.subjects.find(s => s.id === t.subjectId)?.name ?? '',
+            estimatedMinutes: t.estimatedMinutes,
+          };
+        });
       await setupAllNotifications(
-        [...state.studyPlans, plan].map(p => ({ examName: p.examName, examDate: p.examDate }))
+        allPlans.map(p => ({ examName: p.examName, examDate: p.examDate })),
+        taskNotifs
       );
     } catch { /* silently fail — don't block save */ }
 
