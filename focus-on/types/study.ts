@@ -8,12 +8,20 @@ export interface Subject {
   createdAt: string;
 }
 
+export interface ChapterTodo {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface Chapter {
   id: string;
   subjectId: string;
   name: string;
   topics: Topic[];
   priority: 'low' | 'medium' | 'high';
+  estimatedMinutes?: number;
+  todos?: ChapterTodo[];
 }
 
 export interface Topic {
@@ -50,24 +58,43 @@ export interface StudyPlan {
   dailyHours: number;
   createdAt: string;
   tasks: PlannedTask[];
-  // Blocking options (plan-level)
   blockApps: boolean;
-  hardBlock: boolean;   // can't unblock from inside app
-  deviceAdmin: boolean; // can't uninstall without removing admin
+  hardBlock: boolean;
+  deviceAdmin: boolean;
   blockedApps: string[];
 }
 
 export interface PlannedTask {
   id: string;
-  date: string;        // YYYY-MM-DD
-  startTime?: string;  // HH:MM
-  endTime?: string;    // HH:MM
+  date: string;
+  startTime?: string;
+  endTime?: string;
   topicId: string;
   subjectId: string;
   chapterId: string;
   estimatedMinutes: number;
   completed: boolean;
   type: 'study' | 'revision';
+}
+
+// Active task — returned by getActiveNowTask()
+export interface ActiveTask {
+  planId: string;
+  taskId: string;
+  topicId: string;
+  subjectId: string;
+  chapterId: string;
+  estimatedMinutes: number;
+  startTime: string;
+  endTime: string;
+  subjectName: string;
+  subjectColor: string;
+  subjectIcon: string;
+  topicName: string;       // topic name OR chapter name for chapter-only subjects
+  isChapterOnly: boolean;
+  blockApps: boolean;
+  hardBlock: boolean;
+  deviceAdmin: boolean;
 }
 
 export interface AppTimeLimit {
@@ -90,6 +117,11 @@ export interface AppBlockRoutine {
   hardBlock?: boolean;
   deviceAdmin?: boolean;
   fromPlanId?: string;
+  // Emergency override settings
+  emergencyUnlockCount?: number;   // how many times unlocked today
+  maxEmergencyUnlocks?: number;    // default 3
+  emergencyPassword?: string;      // optional PIN/password
+  lastUnlockDate?: string;         // YYYY-MM-DD, to reset daily count
 }
 
 export interface AppSettings {
