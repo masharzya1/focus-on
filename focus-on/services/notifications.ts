@@ -120,16 +120,52 @@ export async function scheduleExamReminder(
   }
 }
 
-export async function schedulePlanReminder(): Promise<void> {
+// Smart routine reminder — fires 1hr before first task of the day
+// Call this every time tasks are updated/created
+export async function scheduleRoutineReminder(tasks: {
+  date: string;
+  startTime?: string;
+  topicName: string;
+}[]): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  // Cancel any existing routine reminder
+  const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of allScheduled) {
+    if ((n.content.data as any)?.type === 'routine_reminder') {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
+    }
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayTasks = tasks.filter(t => t.date === today && t.startTime);
+  if (todayTasks.length === 0) return;
+
+  // Find earliest startTime
+  const sorted = [...todayTasks].sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+  const earliest = sorted[0];
+  if (!earliest.startTime) return;
+
+  const [h, m] = earliest.startTime.split(':').map(Number);
+  const taskStart = new Date();
+  taskStart.setHours(h, m, 0, 0);
+
+  // Notify 1 hour before
+  const notifyAt = new Date(taskStart.getTime() - 60 * 60 * 1000);
+  const secsUntil = (notifyAt.getTime() - Date.now()) / 1000;
+  if (secsUntil < 30) return; // too soon or already past
+
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "📋 Today's study tasks are waiting!",
-      body: 'You have tasks planned for today. Tap to get started.',
+      title: `📚 আর ১ ঘন্টা! Routine set করো`,
+      body: `${sorted.length}টা task আজকে আছে। ${earliest.topicName} শুরু ${earliest.startTime} এ।`,
       sound: true,
+      data: { type: 'routine_reminder', screen: 'home' },
+      ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 8, minute: 30,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: notifyAt,
     },
   });
 }
@@ -198,3 +234,55 @@ export async function setupAllNotifications(
     await scheduleTaskNotifications(tasks);
   }
 }
+// ── Daily "set your routine" reminder ────────────────────────────────────────
+// Fires every morning when the user has tasks for today but hasn't set routine yet.
+// Call once on app start and whenever a new plan is created.
+// ── New day routine reminder ─────────────────────────────────────────────────
+// Fires at 00:01 AM when the new day starts — if tomorrow has unscheduled tasks.
+// Call this every evening after routine is set (or when plan is created).
+export async function scheduleNewDayRoutineReminder(
+  tomorrowTasks: { topicName: string }[],
+): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  // Cancel any existing new-day reminder
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of all) {
+    if ((n.content.data as any)?.type === 'daily_routine_set') {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
+    }
+  }
+
+  if (tomorrowTasks.length === 0) return;
+
+  // Fire at 00:01 AM tonight (next midnight + 1 min)
+  const midnight = new Date();
+  midnight.setDate(midnight.getDate() + 1);
+  midnight.setHours(0, 1, 0, 0);
+
+  const secsUntil = (midnight.getTime() - Date.now()) / 1000;
+  if (secsUntil < 10) return;
+
+  const count = tomorrowTasks.length;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🌙 নতুন দিন শুরু!',
+      body: `আজকে ${count}টা task আছে। Home এ গিয়ে routine set করো।`,
+      sound: true,
+      data: { type: 'daily_routine_set', screen: 'home' },
+      ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: midnight,
+    },
+  });
+}
+
+// Keep old name as alias for backward compat
+export async function scheduleDailyRoutineSetReminder(
+  hasTodayTasks: boolean,
+): Promise<void> {
+  // No-op — replaced by scheduleNewDayRoutineReminder
+  return;
+    }
