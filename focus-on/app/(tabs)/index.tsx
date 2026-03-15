@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
+import type { ActiveTask } from '@/types/study';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -35,8 +36,62 @@ function StartButton({ onPress, color, darkColor }: { onPress: () => void; color
   );
 }
 
+// ── Active Task Banner ────────────────────────────────────────────────────────
+function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => void }) {
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.02, { duration: 900 }),
+        withTiming(1, { duration: 900 }),
+      ),
+      -1, true
+    );
+  }, []);
+
+  const anim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+
+  return (
+    <Animated.View style={anim}>
+      <TouchableOpacity
+        style={[styles.activeBanner, { backgroundColor: task.subjectColor + '15', borderColor: task.subjectColor + '40' }]}
+        onPress={onPress}
+        activeOpacity={0.88}
+      >
+        {/* Left accent bar */}
+        <View style={[styles.bannerAccent, { backgroundColor: task.subjectColor }]} />
+
+        <View style={[styles.bannerIcon, { backgroundColor: task.subjectColor + '20' }]}>
+          <Ionicons name={task.subjectIcon as any} size={22} color={task.subjectColor} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <View style={styles.bannerTopRow}>
+            <View style={[styles.liveDot, { backgroundColor: task.subjectColor }]} />
+            <Text style={[styles.bannerLive, { color: task.subjectColor }]}>Study Time!</Text>
+            <Text style={[styles.bannerTime, { color: task.subjectColor + 'AA' }]}>
+              {task.startTime} – {task.endTime}
+            </Text>
+          </View>
+          <Text style={[styles.bannerTopic, { color: '#1E1B4B' }]} numberOfLines={1}>
+            {task.topicName}
+          </Text>
+          <Text style={[styles.bannerSubject, { color: task.subjectColor }]}>
+            {task.subjectName} · {task.estimatedMinutes}m
+          </Text>
+        </View>
+
+        <View style={[styles.bannerBtn, { backgroundColor: task.subjectColor }]}>
+          <Ionicons name="play" size={16} color="#fff" />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function HomeScreen() {
-  const { state, getTodayMinutes } = useStudy();
+  const { state, getTodayMinutes, getActiveNowTask } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
   const greeting = getGreeting();
@@ -49,6 +104,35 @@ export default function HomeScreen() {
   const todayTasks = state.studyPlans
     .flatMap(p => p.tasks.filter(t => t.date === today))
     .slice(0, 5);
+
+  // Active task — refreshes every 30s
+  const [activeTask, setActiveTask] = useState<ActiveTask | null>(null);
+  useEffect(() => {
+    const refresh = () => setActiveTask(getActiveNowTask());
+    refresh();
+    const interval = setInterval(refresh, 30_000);
+    return () => clearInterval(interval);
+  }, [getActiveNowTask]);
+
+  const goToTimer = (task?: ActiveTask) => {
+    if (task) {
+      router.push({
+        pathname: '/(tabs)/timer',
+        params: {
+          taskId: task.taskId,
+          topicId: task.topicId,
+          chapterId: task.chapterId,
+          subjectId: task.subjectId,
+          topicName: task.topicName,
+          subjectName: task.subjectName,
+          subjectColor: task.subjectColor,
+          estimatedMinutes: String(task.estimatedMinutes),
+        },
+      });
+    } else {
+      router.push('/(tabs)/timer');
+    }
+  };
 
   return (
     <ScrollView
@@ -66,7 +150,6 @@ export default function HomeScreen() {
           <Text style={[styles.appName, { color: c.text }]}>Focus On</Text>
         </View>
         <View style={styles.headerRight}>
-          {/* Streak */}
           <TouchableOpacity
             style={[styles.streakBadge, { backgroundColor: '#FFF3E0' }]}
             onPress={() => router.push('/(tabs)/profile')}
@@ -74,7 +157,6 @@ export default function HomeScreen() {
             <Ionicons name="flame" size={17} color="#E65100" />
             <Text style={[styles.streakNum, { color: '#E65100' }]}>{state.streak}</Text>
           </TouchableOpacity>
-          {/* Avatar */}
           <TouchableOpacity
             style={[styles.avatarBtn, { backgroundColor: c.accentSoft }]}
             onPress={() => router.push('/(tabs)/profile')}
@@ -83,6 +165,13 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      {/* Active Task Banner — shown when there's a task happening right now */}
+      {activeTask && (
+        <Animated.View entering={FadeInDown.delay(40).springify()}>
+          <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} />
+        </Animated.View>
+      )}
 
       {/* Daily goal */}
       <Animated.View entering={FadeInDown.delay(80).springify()}
@@ -108,9 +197,13 @@ export default function HomeScreen() {
         )}
       </Animated.View>
 
-      {/* Start button */}
+      {/* Start button — if no active task show generic, else show task-specific */}
       <Animated.View entering={FadeInDown.delay(160).springify()}>
-        <StartButton onPress={() => router.push('/(tabs)/timer')} color={c.accent} darkColor={c.accentDark} />
+        <StartButton
+          onPress={() => goToTimer(activeTask ?? undefined)}
+          color={activeTask ? activeTask.subjectColor : c.accent}
+          darkColor={activeTask ? activeTask.subjectColor + 'CC' : c.accentDark}
+        />
       </Animated.View>
 
       {/* Today's tasks */}
@@ -124,24 +217,57 @@ export default function HomeScreen() {
           {todayTasks.map((task, i) => {
             const subject = state.subjects.find(s => s.id === task.subjectId);
             const topic = subject?.chapters.flatMap(ch => ch.topics).find(t => t.id === task.topicId);
+            const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
+            const displayName = topic?.name ?? chapter?.name ?? 'Topic';
+            const isActive = activeTask?.taskId === task.id;
+
             return (
-              <View key={task.id}
-                style={[styles.taskRow, i < todayTasks.length - 1 && { borderBottomWidth: 1, borderColor: c.border }]}>
-                <View style={[styles.taskDot, { backgroundColor: task.completed ? c.success : c.accent }]} />
+              <TouchableOpacity
+                key={task.id}
+                style={[
+                  styles.taskRow,
+                  i < todayTasks.length - 1 && { borderBottomWidth: 1, borderColor: c.border },
+                  isActive && { backgroundColor: c.accentSoft, borderRadius: 10, paddingHorizontal: 8 },
+                ]}
+                onPress={() => {
+                  if (!task.completed && subject) {
+                    router.push({
+                      pathname: '/(tabs)/timer',
+                      params: {
+                        taskId: task.id,
+                        topicId: task.topicId,
+                        chapterId: task.chapterId,
+                        subjectId: task.subjectId,
+                        topicName: displayName,
+                        subjectName: subject.name,
+                        subjectColor: subject.color,
+                        estimatedMinutes: String(task.estimatedMinutes),
+                      },
+                    });
+                  }
+                }}
+                activeOpacity={task.completed ? 1 : 0.75}
+              >
+                <View style={[styles.taskDot, {
+                  backgroundColor: task.completed ? c.success : isActive ? c.accent : c.border,
+                }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.taskName, { color: task.completed ? c.textMuted : c.text },
                     task.completed && styles.done]} numberOfLines={1}>
-                    {topic?.name || 'Topic'}
+                    {displayName}
                   </Text>
                   <Text style={[styles.taskSub, { color: c.textFaint }]}>
                     {subject?.name}{task.startTime ? ` · ${task.startTime}` : ''}
+                    {isActive ? ' · Now' : ''}
                   </Text>
                 </View>
                 {task.completed
                   ? <Ionicons name="checkmark-circle" size={18} color={c.success} />
-                  : <Text style={[styles.taskMins, { color: c.textFaint }]}>{task.estimatedMinutes}m</Text>
+                  : isActive
+                    ? <Ionicons name="play-circle" size={20} color={c.accent} />
+                    : <Text style={[styles.taskMins, { color: c.textFaint }]}>{task.estimatedMinutes}m</Text>
                 }
-              </View>
+              </TouchableOpacity>
             );
           })}
         </Animated.View>
@@ -174,23 +300,41 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 4 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   greeting: { fontSize: 14, fontFamily: FONTS.medium },
-  appName: { fontSize: 30, fontFamily: FONTS.black, letterSpacing: -0.5 },
+  appName: { fontSize: 30, fontFamily: FONTS.bold, letterSpacing: -0.5 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
-  streakNum: { fontSize: 16, fontFamily: FONTS.black },
+  streakNum: { fontSize: 16, fontFamily: FONTS.bold },
   avatarBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  // Active task banner
+  activeBanner: {
+    borderRadius: RADIUS.xl, borderWidth: 1.5,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, paddingRight: 14, overflow: 'hidden',
+  },
+  bannerAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
+  bannerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
+  bannerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  bannerLive: { fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  bannerTime: { fontSize: 11, fontFamily: FONTS.regular },
+  bannerTopic: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 1 },
+  bannerSubject: { fontSize: 12, fontFamily: FONTS.medium },
+  bannerBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  // Goal card
   goalCard: { borderRadius: RADIUS.xl, padding: 18 },
   goalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   goalLabelRow: { flexDirection: 'row', alignItems: 'center' },
   goalLabel: { fontSize: 14, fontFamily: FONTS.semibold },
-  goalTime: { fontSize: 14, fontFamily: FONTS.black },
+  goalTime: { fontSize: 14, fontFamily: FONTS.bold },
   progBg: { height: 10, borderRadius: 5, overflow: 'hidden' },
   progFill: { height: '100%', borderRadius: 5 },
   goalDoneRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   goalDone: { fontSize: 13, fontFamily: FONTS.semibold },
+  // Start button
   startOuter: { borderRadius: 20, paddingBottom: 5, shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 8 },
   startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 64, borderRadius: 16 },
-  startTxt: { color: '#fff', fontSize: 20, fontFamily: FONTS.black, letterSpacing: 0.2 },
+  startTxt: { color: '#fff', fontSize: 20, fontFamily: FONTS.bold, letterSpacing: 0.2 },
+  // Tasks card
   tasksCard: { borderRadius: RADIUS.xl, padding: 18 },
   tasksTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   tasksTitle: { fontSize: 16, fontFamily: FONTS.bold },
@@ -200,6 +344,7 @@ const styles = StyleSheet.create({
   done: { textDecorationLine: 'line-through', opacity: 0.5 },
   taskSub: { fontSize: 11, marginTop: 2, fontFamily: FONTS.regular },
   taskMins: { fontSize: 12, fontFamily: FONTS.semibold },
+  // Empty state
   emptyPlan: { borderRadius: RADIUS.xl, padding: 28, alignItems: 'center', gap: 12 },
   emptyIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTxt: { fontSize: 14, fontFamily: FONTS.medium },
