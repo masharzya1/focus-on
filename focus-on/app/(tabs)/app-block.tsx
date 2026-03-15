@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules,
+  Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules, KeyboardAvoidingView,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,14 +68,15 @@ function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: 
         position: 'absolute', top: ITEM_H * 2, height: ITEM_H, left: 0, right: 0,
         backgroundColor: c.accent + '22', borderRadius: 10,
         borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
-        zIndex: 1, pointerEvents: 'none',
-      }} />
+        zIndex: 1,
+      }} style={{ pointerEvents: 'none' } as any} />
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
         decelerationRate="fast"
         contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        scrollEventThrottle={16}
         onScrollBeginDrag={() => { isScrolling.current = true; }}
         onMomentumScrollEnd={e => {
           isScrolling.current = false;
@@ -888,8 +889,9 @@ export default function AppBlockScreen() {
       {/* ── Add Website Modal ── */}
       <Modal visible={showAddWebsite} transparent animationType="slide"
         onRequestClose={() => { setShowAddWebsite(false); setWebsiteInput(''); }}>
-        <View style={styles.modalBg}>
-          <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={styles.modalBg}>
+            <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <View style={styles.sheetHeader}>
               <TouchableOpacity onPress={() => { setShowAddWebsite(false); setWebsiteInput(''); }}>
@@ -943,9 +945,10 @@ export default function AppBlockScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <View style={{ height: 20 }} />
+              <View style={{ height: 20 }} />
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
