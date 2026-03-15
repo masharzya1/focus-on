@@ -84,48 +84,46 @@ export const RADIUS = {
   full: 999,
 };
 
-// ── Spacing — use these, never hardcode ──────────────────────────────────────
-// Apple HIG: minimum touch target 44pt, consistent 16/20/24 rhythm
+// ── Spacing ──────────────────────────────────────────────────────────────────
 export const SPACING = {
   xs:  4,
   sm:  8,
   md:  12,
-  lg:  16,   // card padding, list gap
-  xl:  20,   // horizontal screen margin
-  xxl: 24,   // section gap
+  lg:  16,
+  xl:  20,
+  xxl: 24,
   xxxl: 32,
 };
 
 // ── Safe area top ────────────────────────────────────────────────────────────
-// Consistent across all screens — iOS 56, Android 44
 import { Platform } from 'react-native';
 export const HEADER_TOP = Platform.OS === 'ios' ? 56 : 44;
 
 // ── Progress bar ─────────────────────────────────────────────────────────────
-// One height everywhere
 export const PROGRESS_HEIGHT = 6;
 
-// ── Typography ───────────────────────────────────────────────────────────────
+// ── Typography — Comfortaa ───────────────────────────────────────────────────
 export const FONTS = {
-  regular:   'Nunito_400Regular',
-  medium:    'Nunito_500Medium',
-  semibold:  'Nunito_600SemiBold',
-  bold:      'Nunito_700Bold',
-  extrabold: 'Nunito_800ExtraBold',
-  black:     'Nunito_900ExtraBlack',
+  light:     'Comfortaa_300Light',
+  regular:   'Comfortaa_400Regular',
+  medium:    'Comfortaa_500Medium',
+  semibold:  'Comfortaa_600SemiBold',
+  bold:      'Comfortaa_700Bold',
+  extrabold: 'Comfortaa_700Bold',  // Comfortaa max weight is 700
+  black:     'Comfortaa_700Bold',  // Comfortaa max weight is 700
 };
 
 // ── Type scale ───────────────────────────────────────────────────────────────
 export const TYPE = {
-  largeTitle: { fontSize: 30, fontFamily: FONTS.black,     letterSpacing: -0.5 },
-  title1:     { fontSize: 24, fontFamily: FONTS.black,     letterSpacing: -0.3 },
-  title2:     { fontSize: 20, fontFamily: FONTS.black,     letterSpacing: -0.2 },
-  title3:     { fontSize: 18, fontFamily: FONTS.bold                           },
-  headline:   { fontSize: 16, fontFamily: FONTS.bold                           },
-  body:       { fontSize: 15, fontFamily: FONTS.regular                        },
-  callout:    { fontSize: 14, fontFamily: FONTS.medium                         },
-  subhead:    { fontSize: 13, fontFamily: FONTS.semibold                       },
-  footnote:   { fontSize: 12, fontFamily: FONTS.regular                        },
-  caption:    { fontSize: 11, fontFamily: FONTS.medium,    letterSpacing: 0.5  },
-  label:      { fontSize: 11, fontFamily: FONTS.bold,      letterSpacing: 1,   textTransform: 'uppercase' as const },
+  largeTitle: { fontSize: 30, fontFamily: FONTS.bold,     letterSpacing: -0.5 },
+  title1:     { fontSize: 24, fontFamily: FONTS.bold,     letterSpacing: -0.3 },
+  title2:     { fontSize: 20, fontFamily: FONTS.bold,     letterSpacing: -0.2 },
+  title3:     { fontSize: 18, fontFamily: FONTS.bold                          },
+  headline:   { fontSize: 16, fontFamily: FONTS.bold                          },
+  body:       { fontSize: 15, fontFamily: FONTS.regular                       },
+  callout:    { fontSize: 14, fontFamily: FONTS.medium                        },
+  subhead:    { fontSize: 13, fontFamily: FONTS.semibold                      },
+  footnote:   { fontSize: 12, fontFamily: FONTS.regular                       },
+  caption:    { fontSize: 11, fontFamily: FONTS.medium,   letterSpacing: 0.5  },
+  label:      { fontSize: 11, fontFamily: FONTS.bold,     letterSpacing: 1,   textTransform: 'uppercase' as const },
 };
