@@ -4,7 +4,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Fad
 import { Ionicons } from '@expo/vector-icons';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 import type { StudySession } from '@/types/study';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
@@ -48,8 +48,8 @@ function CircularProgress({ progress, timeStr, mode, isRunning, accent, text, mu
         ))}
       </View>
       {/* Center text */}
-      <Text style={{ fontSize: 56, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', color: text, letterSpacing: -2 }}>{timeStr}</Text>
-      <Text style={{ fontSize: 12, color: muted, fontWeight: '700', fontFamily: 'Inter_700Bold', marginTop: 4, textTransform: 'uppercase', letterSpacing: 2.5 }}>
+      <Text style={{ fontSize: 56, fontWeight: '800', fontFamily: FONTS.bold, color: text, letterSpacing: -2 }}>{timeStr}</Text>
+      <Text style={{ fontSize: 12, color: muted, fontWeight: '700', fontFamily: FONTS.bold, marginTop: 4, textTransform: 'uppercase', letterSpacing: 2.5 }}>
         {mode === 'focus' ? 'Focus' : 'Break'}
       </Text>
     </Animated.View>
@@ -181,7 +181,7 @@ export default function TimerScreen() {
         </TouchableOpacity>
 
         <View style={[styles.iconBtn, { backgroundColor: c.bgCard }]}>
-          <Text style={{ fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', color: c.textMuted }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', fontFamily: FONTS.bold, color: c.textMuted }}>
             {mode === 'focus' ? `${customFocus}m` : `${customBreak}m`}
           </Text>
         </View>
@@ -232,11 +232,11 @@ const styles = StyleSheet.create({
     width: '100%', paddingHorizontal: 24,
     paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 8,
   },
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', letterSpacing: -0.5 },
-  settingsBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 28, fontWeight: '800', fontFamily: FONTS.bold, letterSpacing: -0.5 },
+  settingsBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12 },
   modeRow: { flexDirection: 'row', borderRadius: 14, padding: 4, gap: 4, marginTop: 16 },
   modeBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10 },
-  modeTxt: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  modeTxt: { fontSize: 14, fontWeight: '700', fontFamily: FONTS.bold },
   circleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   controls: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 60 },
   iconBtn: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
@@ -248,12 +248,12 @@ const styles = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 24 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', fontFamily: FONTS.bold, marginBottom: 24 },
   pickerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  pickerLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  pickerLabel: { fontSize: 16, fontWeight: '600', fontFamily: FONTS.semibold },
   pickerCtrl: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   adjBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  pickerVal: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', minWidth: 50, textAlign: 'center' },
+  pickerVal: { fontSize: 18, fontWeight: '800', fontFamily: FONTS.bold, minWidth: 50, textAlign: 'center' },
   applyBtn: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  applyTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  applyTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: FONTS.bold },
 });
