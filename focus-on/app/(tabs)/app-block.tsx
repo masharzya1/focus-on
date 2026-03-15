@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules,
+  KeyboardAvoidingView, Pressable,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -826,19 +827,7 @@ export default function AppBlockScreen() {
                 </View>
               )}
 
-              {/* (options rendered above) */}
-              {([] as any[]).map((opt: any, i: number) => (
-                <View key={i} style={[styles.optRow, { borderColor: c.border, backgroundColor: c.bg }]}>
-                  <View style={[styles.optIconBox, { backgroundColor: opt.iconColor + '18' }]}>
-                    <Ionicons name={opt.icon} size={16} color={opt.iconColor} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.optLabel, { color: c.text }]}>{opt.label}</Text>
-                    <Text style={[styles.optSub, { color: c.textMuted }]}>{opt.sub}</Text>
-                  </View>
-                  <Switch value={opt.val} onValueChange={opt.set} trackColor={{ true: opt.color }} />
-                </View>
-              ))}
+
 
               <TouchableOpacity style={[styles.pickAppsBtn, { backgroundColor: c.accentSoft, borderColor: c.accent }]}
                 onPress={() => loadApps('routine')}>
@@ -879,6 +868,11 @@ export default function AppBlockScreen() {
                 placeholder="Search apps..." placeholderTextColor={c.textFaint}
                 value={appSearch} onChangeText={setAppSearch} />
             </View>
+            {loadingApps && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 13 }}>Loading apps...</Text>
+              </View>
+            )}
             <FlatList
               data={filteredApps} keyExtractor={i => i.packageName}
               style={{ maxHeight: 400 }}
