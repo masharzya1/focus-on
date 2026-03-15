@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, Modal, Pressable,
@@ -86,6 +86,184 @@ function DatePickerModal({ visible, current, onClose, onSelect, colors: c }: {
   );
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function pad(n: number) { return String(n).padStart(2, '0'); }
+function to12h(h: number, m: number) {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 === 0 ? 12 : h % 12;
+  return { time: `${h12}:${pad(m)}`, ampm };
+}
+function parseTime(s?: string): { h: number; m: number } | null {
+  if (!s) return null;
+  const [h, m] = s.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return { h, m };
+}
+
+// ── Time Edit Modal (per-task) ─────────────────────────────────────────────────
+function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave, colors: c }: {
+  visible: boolean;
+  task: { id: string; startTime?: string; endTime?: string; date: string } | null;
+  taskName: string;
+  subjectColor: string;
+  onClose: () => void;
+  onSave: (taskId: string, startTime: string, endTime: string, newDate?: string) => void;
+  colors: any;
+}) {
+  const [sh, setSh] = useState(8);
+  const [sm, setSm] = useState(0);
+  const [eh, setEh] = useState(9);
+  const [em, setEm] = useState(0);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!visible) { initialized.current = false; return; }
+    if (initialized.current) return;
+    initialized.current = true;
+
+    if (task?.startTime && task?.endTime) {
+      const s = parseTime(task.startTime);
+      const e = parseTime(task.endTime);
+      if (s) { setSh(s.h); setSm(s.m); }
+      if (e) { setEh(e.h); setEm(e.m); }
+    } else {
+      // Default: current time rounded to nearest 15
+      const now = new Date();
+      let ch = now.getHours();
+      let cm = Math.ceil(now.getMinutes() / 15) * 15;
+      if (cm >= 60) { ch += 1; cm = 0; }
+      if (ch > 23) { ch = 23; cm = 0; }
+      setSh(ch); setSm(cm);
+      const endM = ch * 60 + cm + 60;
+      setEh(Math.min(23, Math.floor(endM / 60))); setEm(endM % 60);
+    }
+  }, [visible]);
+
+  if (!task) return null;
+
+  const adjustStart = (dMin: number) => {
+    let t = sh * 60 + sm + dMin;
+    t = Math.max(0, t); // allow up to overflow
+    const dur = (eh * 60 + em) - (sh * 60 + sm);
+    const newEnd = t + Math.max(15, dur);
+    setSh(Math.floor(t / 60)); setSm(t % 60);
+    setEh(Math.floor(newEnd / 60)); setEm(newEnd % 60);
+  };
+
+  const adjustEnd = (dMin: number) => {
+    let t = eh * 60 + em + dMin;
+    t = Math.max(sh * 60 + sm + 15, t); // min 15 min
+    setEh(Math.floor(t / 60)); setEm(t % 60);
+  };
+
+  const overflowsToTomorrow = sh >= 24;
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  const handleSave = () => {
+    const clampSh = Math.min(23, sh);
+    const clampEh = Math.min(23, eh);
+    const newDate = overflowsToTomorrow ? tomorrow : undefined;
+    onSave(task.id, `${pad(clampSh)}:${pad(sm)}`, `${pad(clampEh)}:${pad(em)}`, newDate);
+    onClose();
+  };
+
+  const Stepper = ({ h, m, onMinus, onPlus, onToggleAmPm }: {
+    h: number; m: number; onMinus: () => void; onPlus: () => void; onToggleAmPm: () => void;
+  }) => {
+    const { time, ampm } = to12h(h >= 24 ? h - 24 : h, m);
+    const displayAmPm = h >= 24 ? (h - 24 >= 12 ? 'PM' : 'AM') : ampm;
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <TouchableOpacity
+          style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' }}
+          onPress={onMinus}>
+          <Ionicons name="remove" size={15} color={subjectColor} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: subjectColor + '18', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 }}
+          onPress={onToggleAmPm}>
+          <Text style={{ fontSize: 16, fontFamily: 'System', fontWeight: '700', color: subjectColor }}>{time}</Text>
+          <View style={{ backgroundColor: subjectColor + '30', borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: subjectColor }}>{displayAmPm}</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: c.bgSecondary, alignItems: 'center', justifyContent: 'center' }}
+          onPress={onPlus}>
+          <Ionicons name="add" size={15} color={subjectColor} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }} onPress={onClose}>
+        <Pressable
+          style={[{ borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44 }, { backgroundColor: c.bgCard }]}
+          onPress={e => e.stopPropagation()}>
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center', marginBottom: 20 }} />
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: subjectColor + '20', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="time-outline" size={22} color={subjectColor} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontFamily: 'System', fontWeight: '700', color: c.text }}>{taskName}</Text>
+              <Text style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>Set start & end time</Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            <Stepper
+              h={sh} m={sm}
+              onMinus={() => adjustStart(-15)}
+              onPlus={() => adjustStart(15)}
+              onToggleAmPm={() => {
+                const t = sh * 60 + sm;
+                const newT = t + (sh < 12 ? 12 * 60 : -12 * 60);
+                const dur = (eh * 60 + em) - (sh * 60 + sm);
+                setSh(Math.floor(Math.max(0, newT) / 60)); setSm(newT % 60);
+                const ne = Math.max(0, newT) + Math.max(15, dur);
+                setEh(Math.floor(ne / 60)); setEm(ne % 60);
+              }}
+            />
+            <Text style={{ color: c.textFaint, fontSize: 16 }}>→</Text>
+            <Stepper
+              h={eh} m={em}
+              onMinus={() => adjustEnd(-15)}
+              onPlus={() => adjustEnd(15)}
+              onToggleAmPm={() => {
+                const cur = eh * 60 + em;
+                const newT = cur + (eh < 12 ? 12 * 60 : -12 * 60);
+                setEh(Math.floor(Math.max(sh * 60 + sm + 15, newT) / 60)); setEm(newT % 60);
+              }}
+            />
+          </View>
+
+          {overflowsToTomorrow && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 14 }}>
+              <Ionicons name="information-circle" size={16} color="#D97706" />
+              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>This task will move to tomorrow's plan</Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={{ marginTop: 20, height: 52, borderRadius: 16, backgroundColor: subjectColor, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+            onPress={handleSave}>
+            <Ionicons name="checkmark" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'System', fontWeight: '700' }}>Save Time</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onClose} style={{ alignItems: 'center', paddingVertical: 12 }}>
+            <Text style={{ color: c.textMuted, fontSize: 14 }}>Cancel</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -114,6 +292,7 @@ export default function PlanDetailScreen() {
 
   // Date picker
   const [movingTask, setMovingTask] = useState<PlannedTask | null>(null);
+  const [editingTimeTask, setEditingTimeTask] = useState<PlannedTask | null>(null);
   const [showRescheduleConfirm, setShowRescheduleConfirm] = useState(false);
   const [rescheduledCount, setRescheduledCount] = useState(0);
 
@@ -147,6 +326,23 @@ export default function PlanDetailScreen() {
       tasks: plan.tasks.map(t =>
         t.id === task.id ? { ...t, completed: !t.completed } : t
       ),
+    });
+  };
+
+  const saveTaskTime = (taskId: string, startTime: string, endTime: string, newDate?: string) => {
+    updateStudyPlan({
+      ...plan,
+      tasks: plan.tasks.map(t => {
+        if (t.id !== taskId) return t;
+        return { ...t, startTime, endTime, ...(newDate ? { date: newDate } : {}) };
+      }),
+    });
+  };
+
+  const clearTaskTime = (taskId: string) => {
+    updateStudyPlan({
+      ...plan,
+      tasks: plan.tasks.map(t => t.id === taskId ? { ...t, startTime: undefined, endTime: undefined } : t),
     });
   };
 
@@ -321,13 +517,28 @@ export default function PlanDetailScreen() {
                       </View>
                     </View>
 
-                    {/* Reschedule button */}
+                    {/* Action buttons: time + date */}
                     {!task.completed && (
-                      <TouchableOpacity
-                        style={[styles.moveBtn, { backgroundColor: c.accentSoft }]}
-                        onPress={() => setMovingTask(task)}>
-                        <Ionicons name="calendar-outline" size={15} color={c.accent} />
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {/* Time edit button */}
+                        <TouchableOpacity
+                          style={[styles.moveBtn, {
+                            backgroundColor: task.startTime ? (subject?.color ?? c.accent) + '20' : c.bgSecondary,
+                          }]}
+                          onPress={() => setEditingTimeTask(task)}>
+                          <Ionicons
+                            name={task.startTime ? 'time' : 'time-outline'}
+                            size={15}
+                            color={task.startTime ? (subject?.color ?? c.accent) : c.textFaint}
+                          />
+                        </TouchableOpacity>
+                        {/* Date move button */}
+                        <TouchableOpacity
+                          style={[styles.moveBtn, { backgroundColor: c.accentSoft }]}
+                          onPress={() => setMovingTask(task)}>
+                          <Ionicons name="calendar-outline" size={15} color={c.accent} />
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </TouchableOpacity>
                 );
@@ -391,6 +602,26 @@ export default function PlanDetailScreen() {
           onSelect={newDate => { moveTask(movingTask.id, newDate); setMovingTask(null); }}
         />
       )}
+
+      {/* Time editor */}
+      {editingTimeTask && (() => {
+        const subject = state.subjects.find(s => s.id === editingTimeTask.subjectId);
+        const taskName = getDisplayName(editingTimeTask);
+        return (
+          <TimeEditModal
+            visible={!!editingTimeTask}
+            task={editingTimeTask}
+            taskName={taskName}
+            subjectColor={subject?.color ?? c.accent}
+            colors={c}
+            onClose={() => setEditingTimeTask(null)}
+            onSave={(taskId, startTime, endTime, newDate) => {
+              saveTaskTime(taskId, startTime, endTime, newDate);
+              setEditingTimeTask(null);
+            }}
+          />
+        );
+      })()}
     </View>
   );
 }

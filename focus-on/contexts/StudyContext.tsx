@@ -142,7 +142,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, studyPlans: state.studyPlans.map(p => p.id === action.payload.id ? action.payload : p) };
 
     case 'DELETE_PLAN':
-      return { ...state, studyPlans: state.studyPlans.filter(p => p.id !== action.payload) };
+      return {
+        ...state,
+        studyPlans: state.studyPlans.filter(p => p.id !== action.payload),
+        // Also remove any auto-created block routines that belonged to this plan
+        blockRoutines: state.blockRoutines.filter(r => (r as any).fromPlanId !== action.payload),
+      };
 
     case 'COMPLETE_TASK':
       return {
