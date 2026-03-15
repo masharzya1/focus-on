@@ -1,6 +1,7 @@
 import { Tabs, usePathname } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Platform, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -48,6 +49,7 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const pathname = usePathname();
   const [tabWidth, setTabWidth] = useState(Dimensions.get('window').width / NUM_TABS);
+  const { bottom: bottomInset } = useSafeAreaInsets();
 
   const activeIndex = React.useMemo(() => {
     if (pathname.includes('subjects')) return 1;
@@ -78,8 +80,8 @@ export default function TabLayout() {
         ),
         tabBarStyle: {
           backgroundColor: 'transparent', borderTopWidth: 0,
-          height: 62 + (Platform.OS === 'ios' ? 22 : 0),
-          paddingBottom: Platform.OS === 'ios' ? 22 : 8,
+          height: 62 + (bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 22 : 16),
+          paddingBottom: bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 22 : 16,
           paddingTop: 4, elevation: 0,
         },
       }}
