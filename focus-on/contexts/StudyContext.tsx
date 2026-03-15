@@ -7,6 +7,10 @@ import type {
   AppState, Subject, StudySession,
   StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit, ActiveTask,
 } from '@/types/study';
+import {
+  rescheduleMissedTasks, calculateAdaptiveCapacity,
+  type AcceptanceRecord,
+} from '@/utils/smartSchedule';
 import { DEFAULT_SETTINGS } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
 
@@ -16,6 +20,7 @@ const STORAGE_KEY = 'focuson_data_v3';
 const defaultState: AppState & {
   lastStudyDate?: string;
   todaySessionsDate?: string;
+  acceptanceRecords: AcceptanceRecord[];
 } = {
   subjects: [],
   sessions: [],
@@ -31,6 +36,7 @@ const defaultState: AppState & {
   onboardingCompleted: false,
   lastStudyDate: undefined,
   todaySessionsDate: undefined,
+  acceptanceRecords: [] as AcceptanceRecord[],
 };
 
 type State = typeof defaultState;
@@ -56,7 +62,9 @@ type Action =
   | { type: 'DELETE_TIME_LIMIT'; payload: string }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'GAIN_XP'; payload: number }
-  | { type: 'COMPLETE_ONBOARDING' };
+  | { type: 'COMPLETE_ONBOARDING' }
+  | { type: 'RESCHEDULE_MISSED'; payload: { planId: string; updatedTasks: any[] } }
+  | { type: 'RECORD_ACCEPTANCE'; payload: AcceptanceRecord };
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 function reducer(state: State, action: Action): State {
@@ -155,41 +163,30 @@ function reducer(state: State, action: Action): State {
         tasks: plan.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t),
       }));
 
-      // Mark topic or chapter todo done
+      // Mark topic or chapter done based on structure
       let totalTopicsCompleted = state.totalTopicsCompleted;
       const subjects = state.subjects.map(subj => {
         if (subj.id !== subjectId) return subj;
-
-        if (subj.topicBased) {
-          // chapter-only: mark all todos done
-          return {
-            ...subj,
-            chapters: subj.chapters.map(ch => {
-              if (ch.id !== chapterId) return ch;
-              totalTopicsCompleted += 1;
-              return {
-                ...ch,
-                todos: (ch.todos ?? []).map(t => ({ ...t, completed: true })),
-              };
-            }),
-          };
-        } else {
-          // topic-based: mark specific topic done
-          return {
-            ...subj,
-            chapters: subj.chapters.map(ch => {
-              if (ch.id !== chapterId) return ch;
-              return {
-                ...ch,
-                topics: ch.topics.map(t => {
-                  if (t.id !== topicId) return t;
-                  if (!t.completed) totalTopicsCompleted += 1;
-                  return { ...t, completed: true, completedAt: new Date().toISOString() };
-                }),
-              };
-            }),
-          };
-        }
+        return {
+          ...subj,
+          chapters: subj.chapters.map(ch => {
+            if (ch.id !== chapterId) return ch;
+            // Chapter-only (no topics) → mark chapter completed
+            if (ch.topics.length === 0) {
+              if (!ch.completed) totalTopicsCompleted += 1;
+              return { ...ch, completed: true, completedAt: new Date().toISOString() };
+            }
+            // Topic-based → mark specific topic done
+            return {
+              ...ch,
+              topics: ch.topics.map(t => {
+                if (t.id !== topicId) return t;
+                if (!t.completed) totalTopicsCompleted += 1;
+                return { ...t, completed: true, completedAt: new Date().toISOString() };
+              }),
+            };
+          }),
+        };
       });
 
       return { ...state, studyPlans, subjects, totalTopicsCompleted };
@@ -223,6 +220,23 @@ function reducer(state: State, action: Action): State {
 
     case 'COMPLETE_ONBOARDING':
       return { ...state, onboardingCompleted: true };
+
+    case 'RESCHEDULE_MISSED':
+      return {
+        ...state,
+        studyPlans: state.studyPlans.map(p =>
+          p.id === action.payload.planId
+            ? { ...p, tasks: action.payload.updatedTasks }
+            : p
+        ),
+      };
+
+    case 'RECORD_ACCEPTANCE': {
+      const records = [...(state.acceptanceRecords || []), action.payload];
+      // Keep only last 14 days
+      const cutoff = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+      return { ...state, acceptanceRecords: records.filter(r => r.date >= cutoff) };
+    }
 
     default:
       return state;
@@ -262,6 +276,9 @@ interface StudyContextValue {
     completed: boolean; startTime?: string; endTime?: string;
   }[];
   getActiveNowTask: () => ActiveTask | null;
+  rescheduleMissedTasks: () => number;
+  getAcceptanceRate: () => number;
+  getAdaptiveSuggestion: (planId: string) => string | null;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -347,6 +364,56 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'COMPLETE_TASK_AND_TOPIC', payload: { taskId, subjectId, chapterId, topicId } });
   }, []);
 
+  const rescheduleMissed = useCallback((): number => {
+    let totalRescheduled = 0;
+    state.studyPlans.forEach(plan => {
+      if (plan.tasks.some(t => !t.completed && t.date < new Date().toISOString().split('T')[0])) {
+        const { updatedTasks, rescheduledCount } = rescheduleMissedTasks(
+          plan.tasks,
+          plan.studyDays ?? [],
+          plan.examDate,
+          plan.revisionDays ?? 3,
+        );
+        if (rescheduledCount > 0) {
+          dispatch({ type: 'RESCHEDULE_MISSED', payload: { planId: plan.id, updatedTasks } });
+          totalRescheduled += rescheduledCount;
+        }
+      }
+    });
+    return totalRescheduled;
+  }, [state.studyPlans]);
+
+  const recordAcceptance = useCallback((date: string) => {
+    const todayTasks = state.studyPlans
+      .flatMap(p => p.tasks)
+      .filter(t => t.date === date);
+    if (todayTasks.length === 0) return;
+    dispatch({
+      type: 'RECORD_ACCEPTANCE',
+      payload: {
+        date,
+        scheduled: todayTasks.length,
+        completed: todayTasks.filter(t => t.completed).length,
+      },
+    });
+  }, [state.studyPlans]);
+
+  const getAcceptanceRate = useCallback((): number => {
+    const records = state.acceptanceRecords || [];
+    if (records.length < 3) return 1;
+    const total = records.reduce((s: number, r: AcceptanceRecord) => s + r.scheduled, 0);
+    const done  = records.reduce((s: number, r: AcceptanceRecord) => s + r.completed, 0);
+    return total === 0 ? 1 : done / total;
+  }, [state.acceptanceRecords]);
+
+  const getAdaptiveSuggestion = useCallback((planId: string): string | null => {
+    const plan = state.studyPlans.find(p => p.id === planId);
+    if (!plan) return null;
+    const records = state.acceptanceRecords || [];
+    const { message } = calculateAdaptiveCapacity(plan.dailyCount, records);
+    return message ?? null;
+  }, [state.studyPlans, state.acceptanceRecords]);
+
   const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
   const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
   const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
@@ -391,7 +458,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         result.push({
           planId: plan.id, taskId: task.id, topicId: task.topicId,
           subjectId: task.subjectId, chapterId: task.chapterId,
-          estimatedMinutes: task.estimatedMinutes, type: task.type,
+          estimatedMinutes: task.estimatedMinutes ?? 40, type: task.type,
           completed: task.completed, startTime: task.startTime, endTime: task.endTime,
         });
       });
@@ -409,14 +476,16 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       for (const task of plan.tasks) {
         if (task.completed) continue;
         if (task.date !== today) continue;
-        if (!task.startTime || !task.endTime) continue;
-        if (nowStr < task.startTime || nowStr > task.endTime) continue;
+        // If task has a scheduled time, only show during that window
+        if (task.startTime && task.endTime) {
+          if (nowStr < task.startTime || nowStr > task.endTime) continue;
+        }
 
         // Found an active task — build the full info
         const subject = state.subjects.find(s => s.id === task.subjectId);
         if (!subject) continue;
 
-        const isChapterOnly = subject.topicBased;
+        const isChapterOnly = !subject.chapters.some(ch => ch.topics.length > 0);
         let topicName = '';
 
         if (isChapterOnly) {
@@ -435,7 +504,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           topicId: task.topicId,
           subjectId: task.subjectId,
           chapterId: task.chapterId,
-          estimatedMinutes: task.estimatedMinutes,
+          estimatedMinutes: task.estimatedMinutes ?? 40,
           startTime: task.startTime,
           endTime: task.endTime,
           subjectName: subject.name,
@@ -468,6 +537,9 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       completeOnboarding,
       getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
       getActiveNowTask,
+      rescheduleMissedTasks: rescheduleMissed,
+      getAcceptanceRate,
+      getAdaptiveSuggestion,
     }}>
       {children}
     </StudyContext.Provider>
@@ -478,4 +550,4 @@ export function useStudy(): StudyContextValue {
   const ctx = useContext(StudyContext);
   if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
   return ctx;
-  }
+}

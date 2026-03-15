@@ -1,12 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence } from 'react-native-reanimated';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Platform, Modal, Pressable, TextInput, KeyboardAvoidingView,
+} from 'react-native';
+import Animated, {
+  FadeInDown, useSharedValue, useAnimatedStyle,
+  withTiming, withRepeat, withSequence,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
-import type { ActiveTask } from '@/types/study';
+import type { ActiveTask, PlannedTask } from '@/types/study';
+import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -15,7 +23,17 @@ function getGreeting() {
   return { text: 'Good evening', icon: 'moon' as const, color: '#8C85FF' };
 }
 
-function StartButton({ onPress, color, darkColor }: { onPress: () => void; color: string; darkColor: string }) {
+function pad(n: number) { return String(n).padStart(2, '0'); }
+function to12h(h: number, m: number) {
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12  = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${pad(m)} ${ampm}`;
+}
+
+// ── Start Button ──────────────────────────────────────────────────────────────
+function StartButton({ onPress, color, darkColor, label }: {
+  onPress: () => void; color: string; darkColor: string; label?: string;
+}) {
   const pressed = useSharedValue(0);
   const anim = useAnimatedStyle(() => ({
     transform: [{ scale: withTiming(pressed.value ? 0.97 : 1, { duration: 80 }) }],
@@ -30,7 +48,7 @@ function StartButton({ onPress, color, darkColor }: { onPress: () => void; color
         onPressOut={() => { pressed.value = 0; }}
       >
         <Ionicons name="timer" size={26} color="#fff" />
-        <Text style={styles.startTxt}>Start Focus</Text>
+        <Text style={styles.startTxt}>{label ?? 'Start Focus'}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -39,49 +57,43 @@ function StartButton({ onPress, color, darkColor }: { onPress: () => void; color
 // ── Active Task Banner ────────────────────────────────────────────────────────
 function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => void }) {
   const pulse = useSharedValue(1);
-
   useEffect(() => {
     pulse.value = withRepeat(
-      withSequence(
-        withTiming(1.02, { duration: 900 }),
-        withTiming(1, { duration: 900 }),
-      ),
+      withSequence(withTiming(1.02, { duration: 900 }), withTiming(1, { duration: 900 })),
       -1, true
     );
   }, []);
-
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
   return (
     <Animated.View style={anim}>
       <TouchableOpacity
         style={[styles.activeBanner, { backgroundColor: task.subjectColor + '15', borderColor: task.subjectColor + '40' }]}
-        onPress={onPress}
-        activeOpacity={0.88}
+        onPress={onPress} activeOpacity={0.88}
       >
-        {/* Left accent bar */}
         <View style={[styles.bannerAccent, { backgroundColor: task.subjectColor }]} />
-
         <View style={[styles.bannerIcon, { backgroundColor: task.subjectColor + '20' }]}>
           <Ionicons name={task.subjectIcon as any} size={22} color={task.subjectColor} />
         </View>
-
         <View style={{ flex: 1 }}>
           <View style={styles.bannerTopRow}>
             <View style={[styles.liveDot, { backgroundColor: task.subjectColor }]} />
-            <Text style={[styles.bannerLive, { color: task.subjectColor }]}>Study Time!</Text>
-            <Text style={[styles.bannerTime, { color: task.subjectColor + 'AA' }]}>
-              {task.startTime} – {task.endTime}
+            <Text style={[styles.bannerLive, { color: task.subjectColor }]}>
+              {task.startTime ? 'Study Time!' : 'Up next'}
             </Text>
+            {!!task.startTime && !!task.endTime && (
+              <Text style={[styles.bannerTime, { color: task.subjectColor + 'AA' }]}>
+                {task.startTime} – {task.endTime}
+              </Text>
+            )}
           </View>
           <Text style={[styles.bannerTopic, { color: '#1E1B4B' }]} numberOfLines={1}>
             {task.topicName}
           </Text>
           <Text style={[styles.bannerSubject, { color: task.subjectColor }]}>
-            {task.subjectName} · {task.estimatedMinutes}m
+            {task.subjectName}
           </Text>
         </View>
-
         <View style={[styles.bannerBtn, { backgroundColor: task.subjectColor }]}>
           <Ionicons name="play" size={16} color="#fff" />
         </View>
@@ -90,43 +102,326 @@ function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => 
   );
 }
 
+// ── Morning Routine Modal ─────────────────────────────────────────────────────
+function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors: c }: {
+  visible: boolean;
+  tasks: PlannedTask[];
+  subjects: ReturnType<typeof useStudy>['state']['subjects'];
+  onSave: (updated: { id: string; startTime: string; endTime: string }[]) => void;
+  onClose: () => void;
+  colors: any;
+}) {
+  // Each task has start + end time
+  const [times, setTimes] = useState<Record<string, { sh: number; sm: number; eh: number; em: number }>>({});
+
+  useEffect(() => {
+    if (!visible) return;
+    let curH = 8, curM = 0;
+    const init: Record<string, { sh: number; sm: number; eh: number; em: number }> = {};
+    for (const task of tasks) {
+      const endMins = curH * 60 + curM + 60; // default 1hr per task
+      const eh = Math.min(23, Math.floor(endMins / 60));
+      const em = endMins % 60;
+      init[task.id] = { sh: curH, sm: curM, eh, em };
+      curH = eh; curM = em;
+    }
+    setTimes(init);
+  }, [visible, tasks]);
+
+  const adjust = (taskId: string, field: 'start' | 'end', dMin: number) => {
+    setTimes(prev => {
+      const cur = prev[taskId] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
+      const next = { ...prev };
+
+      if (field === 'start') {
+        // Only move start, keep duration same
+        let startTotal = cur.sh * 60 + cur.sm + dMin;
+        startTotal = Math.max(0, Math.min(23 * 60 + 58, startTotal));
+        const duration = (cur.eh * 60 + cur.em) - (cur.sh * 60 + cur.sm);
+        const endTotal = Math.min(23 * 60 + 59, startTotal + Math.max(0, duration));
+        next[taskId] = {
+          sh: Math.floor(startTotal / 60), sm: startTotal % 60,
+          eh: Math.floor(endTotal / 60), em: endTotal % 60,
+        };
+      } else {
+        // Move end, cascade ALL subsequent tasks by same delta
+        let endTotal = cur.eh * 60 + cur.em + dMin;
+        endTotal = Math.max(cur.sh * 60 + cur.sm + 15, Math.min(23 * 60 + 59, endTotal)); // min 15 min duration
+        next[taskId] = { ...cur, eh: Math.floor(endTotal / 60), em: endTotal % 60 };
+
+        // Cascade all subsequent tasks
+        let cascadeStart = endTotal;
+        const idx = tasks.findIndex(t => t.id === taskId);
+        for (let i = idx + 1; i < tasks.length; i++) {
+          const nt = tasks[i];
+          const nc = next[nt.id] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
+          const dur = Math.max(15, (nc.eh * 60 + nc.em) - (nc.sh * 60 + nc.sm));
+          const newEnd = Math.min(23 * 60 + 59, cascadeStart + dur);
+          next[nt.id] = {
+            sh: Math.floor(cascadeStart / 60), sm: cascadeStart % 60,
+            eh: Math.floor(newEnd / 60), em: newEnd % 60,
+          };
+          cascadeStart = newEnd;
+        }
+      }
+      return next;
+    });
+  };
+
+  const getDisplayName = (task: PlannedTask) => {
+    const subject = subjects.find(s => s.id === task.subjectId);
+    if (!subject) return 'Task';
+    const chapter = subject.chapters.find(ch => ch.id === task.chapterId);
+    if (!chapter || chapter.topics.length === 0) return chapter?.name ?? 'Chapter';
+    const topic = chapter.topics.find(t => t.id === task.topicId);
+    return topic?.name ?? chapter.name;
+  };
+
+  const handleSave = () => {
+    const updated = tasks.map(task => {
+      const t = times[task.id] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
+      return {
+        id: task.id,
+        startTime: `${pad(t.sh)}:${pad(t.sm)}`,
+        endTime: `${pad(t.eh)}:${pad(t.em)}`,
+      };
+    });
+    onSave(updated);
+  };
+
+  const Stepper = ({ value, onMinus, onPlus, color }: { value: string; onMinus: () => void; onPlus: () => void; color: string }) => (
+    <View style={styles.timeStepper}>
+      <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onMinus}>
+        <Ionicons name="remove" size={14} color={color} />
+      </TouchableOpacity>
+      <View style={[styles.timeDisplay, { backgroundColor: color + '18', borderRadius: 8 }]}>
+        <Text style={[styles.timeText, { color }]}>{value}</Text>
+      </View>
+      <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onPlus}>
+        <Ionicons name="add" size={14} color={color} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <Pressable style={styles.modalBg} onPress={onClose}>
+          <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
+            <View style={[styles.handle, { backgroundColor: c.border }]} />
+
+            <View style={styles.sheetHeaderRow}>
+              <View style={[styles.routineIconCircle, { backgroundColor: c.accentSoft }]}>
+                <Ionicons name="sunny" size={22} color={c.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sheetTitle, { color: c.text }]}>Set Today's Routine</Text>
+                <Text style={[styles.sheetSub, { color: c.textMuted }]}>Set start & end time for each topic</Text>
+              </View>
+            </View>
+
+            {/* Header row */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 4 }}>
+              <Text style={{ flex: 1, fontSize: 11, fontFamily: FONTS.bold, color: c.textFaint, textTransform: 'uppercase', letterSpacing: 0.6 }}>Topic</Text>
+              <Text style={{ width: 120, fontSize: 11, fontFamily: FONTS.bold, color: c.textFaint, textTransform: 'uppercase', letterSpacing: 0.6, textAlign: 'center' }}>Start → End</Text>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {tasks.map((task, i) => {
+                const t = times[task.id] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
+                const subject = subjects.find(s => s.id === task.subjectId);
+                const displayName = getDisplayName(task);
+                const color = subject?.color ?? c.accent;
+
+                return (
+                  <View key={task.id}
+                    style={[styles.routineTaskRow, { borderTopColor: c.border, borderTopWidth: i > 0 ? 1 : 0, flexWrap: 'wrap', gap: 8 }]}>
+                    <View style={{ flex: 1, minWidth: 100 }}>
+                      <Text style={[styles.routineTaskName, { color: c.text }]} numberOfLines={1}>{displayName}</Text>
+                      {subject && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+                          <Text style={[styles.routineTaskSub, { color: c.textFaint }]}>{subject.name}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Stepper
+                        value={to12h(t.sh, t.sm)}
+                        onMinus={() => adjust(task.id, 'start', -15)}
+                        onPlus={() => adjust(task.id, 'start', 15)}
+                        color={color}
+                      />
+                      <Text style={{ color: c.textFaint, fontSize: 12 }}>→</Text>
+                      <Stepper
+                        value={to12h(t.eh, t.em)}
+                        onMinus={() => adjust(task.id, 'end', -15)}
+                        onPlus={() => adjust(task.id, 'end', 15)}
+                        color={color}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 16 }]}
+              onPress={handleSave}>
+              <Ionicons name="checkmark" size={18} color="#fff" />
+              <Text style={[styles.saveTxt, { color: '#fff' }]}>Set Routine & Get Notified</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={onClose} style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 14 }}>
+                I'll study without a schedule
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
-  const { state, getTodayMinutes, getActiveNowTask } = useStudy();
+  const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
   const greeting = getGreeting();
 
   const todayMin = getTodayMinutes();
-  const goalMin = state.settings.dailyGoalMinutes;
+  const goalMin  = state.settings.dailyGoalMinutes;
   const progress = Math.min(todayMin / goalMin, 1);
+  const today    = new Date().toISOString().split('T')[0];
 
-  const today = new Date().toISOString().split('T')[0];
+  // Today's tasks across all plans
   const todayTasks = state.studyPlans
     .flatMap(p => p.tasks.filter(t => t.date === today))
     .slice(0, 5);
 
+  // Morning routine: tasks that don't have a startTime yet
+  const unscheduledTasks = state.studyPlans
+    .flatMap(p => p.tasks.filter(t => t.date === today && !t.completed && !t.startTime));
+  const needsRoutine = unscheduledTasks.length > 0;
+
+  const [showRoutine, setShowRoutine] = useState(false);
+
   // Active task — refreshes every 30s
   const [activeTask, setActiveTask] = useState<ActiveTask | null>(null);
-  useEffect(() => {
+
+  useFocusEffect(useCallback(() => {
     const refresh = () => setActiveTask(getActiveNowTask());
     refresh();
     const interval = setInterval(refresh, 30_000);
     return () => clearInterval(interval);
-  }, [getActiveNowTask]);
+  }, [getActiveNowTask]));
+
+  // Setup Android notification channel on mount
+  useEffect(() => {
+    setupAndroidChannel().catch(() => {});
+    const t = setTimeout(() => rescheduleMissedTasks(), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Show routine modal automatically in the morning (once per day)
+  useEffect(() => {
+    const h = new Date().getHours();
+    if (needsRoutine) {
+      const timer = setTimeout(() => setShowRoutine(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [needsRoutine]);
+
+  const handleSaveRoutine = async (
+    updates: { id: string; startTime: string; endTime: string }[]
+  ) => {
+    // 1. Save times to tasks
+    for (const plan of state.studyPlans) {
+      const hasUpdates = plan.tasks.some(t => updates.find(u => u.id === t.id));
+      if (!hasUpdates) continue;
+      const updatedTasks = plan.tasks.map(task => {
+        const u = updates.find(x => x.id === task.id);
+        if (!u) return task;
+        return { ...task, startTime: u.startTime, endTime: u.endTime };
+      });
+      updateStudyPlan({ ...plan, tasks: updatedTasks });
+
+      // Block routine handled below after notifications
+    }
+
+    // 3. Schedule notifications
+    try {
+      const taskNotifs = updates.map(u => {
+        const task = state.studyPlans.flatMap(p => p.tasks).find(t => t.id === u.id);
+        const subject = task ? state.subjects.find(s => s.id === task.subjectId) : null;
+        const chapter = subject?.chapters.find(ch => ch.id === task?.chapterId);
+        const topic   = chapter?.topics.find(t => t.id === task?.topicId);
+        const name    = topic?.name ?? chapter?.name ?? 'Study task';
+        return {
+          date: today,
+          startTime: u.startTime,
+          topicName: name,
+          subjectName: subject?.name ?? '',
+          estimatedMinutes: task?.estimatedMinutes ?? 40,
+        };
+      });
+      await scheduleTaskNotifications(taskNotifs);
+    } catch {}
+
+    // Auto-create per-task block routines (one per task, exact time window)
+    const todayDay = new Date().getDay();
+
+    for (const plan of state.studyPlans) {
+      if (!plan.blockApps || plan.blockedApps.length === 0) continue;
+
+      // Remove ALL old system routines for this plan
+      state.blockRoutines
+        .filter(r => r.fromPlanId === plan.id)
+        .forEach(r => deleteBlockRoutine(r.id));
+
+      // Create one routine per task
+      for (const update of updates) {
+        const task = plan.tasks.find(t => t.id === update.id);
+        if (!task) continue;
+        if (!update.startTime || !update.endTime) continue;
+
+        // Get topic/chapter name for label
+        const subject = state.subjects.find(s => s.id === task.subjectId);
+        const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
+        const topic   = chapter?.topics.find(t => t.id === task.topicId);
+        const taskName = topic?.name ?? chapter?.name ?? 'Task';
+
+        addBlockRoutine({
+          id: `plan_${plan.id}_task_${task.id}`,
+          name: `📚 ${taskName}`,
+          startTime: update.startTime,
+          endTime: update.endTime,
+          days: [todayDay],
+          blockedApps: plan.blockedApps,
+          blockShorts: false,
+          enabled: true,
+          hardBlock: plan.hardBlock ?? false,
+          deviceAdmin: plan.deviceAdmin ?? false,
+          fromPlanId: plan.id,
+        });
+      }
+    }
+
+    setShowRoutine(false);
+  };
 
   const goToTimer = (task?: ActiveTask) => {
     if (task) {
       router.push({
         pathname: '/(tabs)/timer',
         params: {
-          taskId: task.taskId,
-          topicId: task.topicId,
-          chapterId: task.chapterId,
-          subjectId: task.subjectId,
-          topicName: task.topicName,
-          subjectName: task.subjectName,
+          taskId: task.taskId, topicId: task.topicId,
+          chapterId: task.chapterId, subjectId: task.subjectId,
+          topicName: task.topicName, subjectName: task.subjectName,
           subjectColor: task.subjectColor,
-          estimatedMinutes: String(task.estimatedMinutes),
+          estimatedMinutes: String(task.estimatedMinutes ?? 25),
         },
       });
     } else {
@@ -152,21 +447,41 @@ export default function HomeScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={[styles.streakBadge, { backgroundColor: '#FFF3E0' }]}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
+            onPress={() => router.push('/(tabs)/profile')}>
             <Ionicons name="flame" size={17} color="#E65100" />
             <Text style={[styles.streakNum, { color: '#E65100' }]}>{state.streak}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.avatarBtn, { backgroundColor: c.accentSoft }]}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
+            onPress={() => router.push('/(tabs)/profile')}>
             <Ionicons name="person" size={20} color={c.accent} />
           </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* Active Task Banner — shown when there's a task happening right now */}
+      {/* Morning routine banner */}
+      {needsRoutine && (
+        <Animated.View entering={FadeInDown.delay(30).springify()}>
+          <TouchableOpacity
+            style={[styles.routineBanner, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }]}
+            onPress={() => setShowRoutine(true)}>
+            <View style={[styles.routineBannerIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="sunny" size={20} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.routineBannerTitle, { color: '#92400E' }]}>
+                Set today's study routine
+              </Text>
+              <Text style={[styles.routineBannerSub, { color: '#B45309' }]}>
+                {unscheduledTasks.length} task{unscheduledTasks.length > 1 ? 's' : ''} waiting · tap to schedule
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#F59E0B" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Active Task Banner */}
       {activeTask && (
         <Animated.View entering={FadeInDown.delay(40).springify()}>
           <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} />
@@ -197,12 +512,13 @@ export default function HomeScreen() {
         )}
       </Animated.View>
 
-      {/* Start button — if no active task show generic, else show task-specific */}
+      {/* Start button */}
       <Animated.View entering={FadeInDown.delay(160).springify()}>
         <StartButton
           onPress={() => goToTimer(activeTask ?? undefined)}
           color={activeTask ? activeTask.subjectColor : c.accent}
           darkColor={activeTask ? activeTask.subjectColor + 'CC' : c.accentDark}
+          label={activeTask ? `Study ${activeTask.topicName}` : 'Start Focus'}
         />
       </Animated.View>
 
@@ -213,17 +529,24 @@ export default function HomeScreen() {
           <View style={styles.tasksTitleRow}>
             <Ionicons name="calendar" size={15} color={c.accent} />
             <Text style={[styles.tasksTitle, { color: c.text }]}> Today's Plan</Text>
+            {needsRoutine && (
+              <TouchableOpacity
+                style={[styles.setTimesBtn, { backgroundColor: c.accentSoft }]}
+                onPress={() => setShowRoutine(true)}>
+                <Ionicons name="time-outline" size={12} color={c.accent} />
+                <Text style={[styles.setTimesTxt, { color: c.accent }]}>Set times</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {todayTasks.map((task, i) => {
-            const subject = state.subjects.find(s => s.id === task.subjectId);
-            const topic = subject?.chapters.flatMap(ch => ch.topics).find(t => t.id === task.topicId);
-            const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
-            const displayName = topic?.name ?? chapter?.name ?? 'Topic';
-            const isActive = activeTask?.taskId === task.id;
+            const subject     = state.subjects.find(s => s.id === task.subjectId);
+            const chapter     = subject?.chapters.find(ch => ch.id === task.chapterId);
+            const topic       = chapter?.topics.find(t => t.id === task.topicId);
+            const displayName = topic?.name ?? chapter?.name ?? 'Task';
+            const isActive    = activeTask?.taskId === task.id;
 
             return (
-              <TouchableOpacity
-                key={task.id}
+              <TouchableOpacity key={task.id}
                 style={[
                   styles.taskRow,
                   i < todayTasks.length - 1 && { borderBottomWidth: 1, borderColor: c.border },
@@ -234,20 +557,16 @@ export default function HomeScreen() {
                     router.push({
                       pathname: '/(tabs)/timer',
                       params: {
-                        taskId: task.id,
-                        topicId: task.topicId,
-                        chapterId: task.chapterId,
-                        subjectId: task.subjectId,
-                        topicName: displayName,
-                        subjectName: subject.name,
+                        taskId: task.id, topicId: task.topicId,
+                        chapterId: task.chapterId, subjectId: task.subjectId,
+                        topicName: displayName, subjectName: subject.name,
                         subjectColor: subject.color,
-                        estimatedMinutes: String(task.estimatedMinutes),
+                        estimatedMinutes: String(task.estimatedMinutes ?? 40),
                       },
                     });
                   }
                 }}
-                activeOpacity={task.completed ? 1 : 0.75}
-              >
+                activeOpacity={task.completed ? 1 : 0.75}>
                 <View style={[styles.taskDot, {
                   backgroundColor: task.completed ? c.success : isActive ? c.accent : c.border,
                 }]} />
@@ -257,7 +576,8 @@ export default function HomeScreen() {
                     {displayName}
                   </Text>
                   <Text style={[styles.taskSub, { color: c.textFaint }]}>
-                    {subject?.name}{task.startTime ? ` · ${task.startTime}` : ''}
+                    {subject?.name}
+                    {task.startTime ? ` · ${task.startTime}` : ''}
                     {isActive ? ' · Now' : ''}
                   </Text>
                 </View>
@@ -265,7 +585,7 @@ export default function HomeScreen() {
                   ? <Ionicons name="checkmark-circle" size={18} color={c.success} />
                   : isActive
                     ? <Ionicons name="play-circle" size={20} color={c.accent} />
-                    : <Text style={[styles.taskMins, { color: c.textFaint }]}>{task.estimatedMinutes}m</Text>
+                    : null
                 }
               </TouchableOpacity>
             );
@@ -290,6 +610,16 @@ export default function HomeScreen() {
       )}
 
       <View style={{ height: 40 }} />
+
+      {/* Morning Routine Modal */}
+      <MorningRoutineModal
+        visible={showRoutine}
+        tasks={unscheduledTasks}
+        subjects={state.subjects}
+        onSave={handleSaveRoutine}
+        onClose={() => setShowRoutine(false)}
+        colors={c}
+      />
     </ScrollView>
   );
 }
@@ -305,12 +635,13 @@ const styles = StyleSheet.create({
   streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
   streakNum: { fontSize: 16, fontFamily: FONTS.bold },
   avatarBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  // Morning routine banner
+  routineBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: RADIUS.xl, borderWidth: 1.5 },
+  routineBannerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  routineBannerTitle: { fontSize: 14, fontFamily: FONTS.bold },
+  routineBannerSub: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 1 },
   // Active task banner
-  activeBanner: {
-    borderRadius: RADIUS.xl, borderWidth: 1.5,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 14, paddingRight: 14, overflow: 'hidden',
-  },
+  activeBanner: { borderRadius: RADIUS.xl, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14, overflow: 'hidden' },
   bannerAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
   bannerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
   bannerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
@@ -333,21 +664,40 @@ const styles = StyleSheet.create({
   // Start button
   startOuter: { borderRadius: 20, paddingBottom: 5, shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 8 },
   startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 64, borderRadius: 16 },
-  startTxt: { color: '#fff', fontSize: 20, fontFamily: FONTS.bold, letterSpacing: 0.2 },
+  startTxt: { color: '#fff', fontSize: 18, fontFamily: FONTS.bold, letterSpacing: 0.2 },
   // Tasks card
   tasksCard: { borderRadius: RADIUS.xl, padding: 18 },
   tasksTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  tasksTitle: { fontSize: 16, fontFamily: FONTS.bold },
+  tasksTitle: { fontSize: 16, fontFamily: FONTS.bold, flex: 1 },
+  setTimesBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  setTimesTxt: { fontSize: 12, fontFamily: FONTS.bold },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
   taskDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   taskName: { fontSize: 14, fontFamily: FONTS.semibold },
   done: { textDecorationLine: 'line-through', opacity: 0.5 },
   taskSub: { fontSize: 11, marginTop: 2, fontFamily: FONTS.regular },
   taskMins: { fontSize: 12, fontFamily: FONTS.semibold },
-  // Empty state
+  // Empty plan
   emptyPlan: { borderRadius: RADIUS.xl, padding: 28, alignItems: 'center', gap: 12 },
   emptyIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTxt: { fontSize: 14, fontFamily: FONTS.medium },
   planBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
   planBtnTxt: { fontSize: 14, fontFamily: FONTS.bold },
+  // Morning routine modal
+  modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44, maxHeight: '88%' },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
+  routineIconCircle: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  sheetTitle: { fontSize: 18, fontFamily: FONTS.bold },
+  sheetSub: { fontSize: 13, fontFamily: FONTS.regular, marginTop: 2 },
+  routineTaskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
+  routineTaskName: { fontSize: 14, fontFamily: FONTS.semibold },
+  routineTaskSub: { fontSize: 12, fontFamily: FONTS.regular },
+  timeStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeStepBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  timeDisplay: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  timeText: { fontSize: 15, fontFamily: FONTS.bold },
+  saveBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  saveTxt: { fontSize: 16, fontFamily: FONTS.bold },
 });

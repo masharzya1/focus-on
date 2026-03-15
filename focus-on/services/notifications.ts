@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+
 import { Platform } from 'react-native';
 
 Notifications.setNotificationHandler({
@@ -10,6 +11,27 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+// Android requires a notification channel — create on startup
+export async function setupAndroidChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Focus On',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#6C63FF',
+    sound: 'default',
+    enableVibrate: true,
+    showBadge: true,
+  });
+  await Notifications.setNotificationChannelAsync('study', {
+    name: 'Study Reminders',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#6C63FF',
+    sound: 'default',
+  });
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
@@ -128,16 +150,17 @@ export async function scheduleTaskNotifications(tasks: {
     const taskDate = new Date(task.date);
     taskDate.setHours(h, m, 0, 0);
 
-    // Only schedule future notifications
-    if (taskDate <= new Date()) continue;
+    // Allow up to 2 minutes grace (user just set it)
+    if (taskDate <= new Date(Date.now() - 60 * 1000)) continue;
 
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `📖 Time to study: ${task.topicName}`,
-          body: `${task.subjectName} · ${task.estimatedMinutes} minutes scheduled. Open Focus On to start!`,
-          sound: true,
+          body: `${task.subjectName} · Open Focus On to start!`,
+          sound: 'default',
           data: { screen: 'timer', topicName: task.topicName },
+          ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -158,6 +181,7 @@ export async function setupAllNotifications(
     topicName: string; subjectName: string; estimatedMinutes: number;
   }[]
 ): Promise<void> {
+  await setupAndroidChannel();
   const granted = await requestNotificationPermission();
   if (!granted) return;
 
@@ -173,4 +197,4 @@ export async function setupAllNotifications(
   if (tasks && tasks.length > 0) {
     await scheduleTaskNotifications(tasks);
   }
-  }
+}

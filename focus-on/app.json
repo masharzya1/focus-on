@@ -14,6 +14,8 @@
     "android": {
       "package": "com.focuson",
       "googleServicesFile": "./google-services.json",
+      "jsEngine": "hermes",
+      "enableProguardInReleaseBuilds": true,
       "adaptiveIcon": {
         "backgroundColor": "#0D0E14",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

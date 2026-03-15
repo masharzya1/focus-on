@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, Modal, Pressable,
+  Platform, ScrollView,
+} from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, FadeInDown, FadeInUp,
 } from 'react-native-reanimated';
@@ -8,10 +11,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
-import type { StudySession } from '@/types/study';
-import {
-  scheduleTimerDoneNotification, cancelNotification,
-} from '@/services/notifications';
+import { isChapterOnly, isSubjectTopicBased, type StudySession, type Subject, type Chapter, type Topic } from '@/types/study';
+import { scheduleTimerDoneNotification, cancelNotification } from '@/services/notifications';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function fmt(s: number) { return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; }
@@ -37,22 +38,16 @@ function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text
   return (
     <Animated.View style={[{ width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' }, anim]}>
       <View style={{
-        position: 'absolute', width: SIZE - 4, height: SIZE - 4,
-        borderRadius: (SIZE - 4) / 2,
+        position: 'absolute', width: SIZE - 4, height: SIZE - 4, borderRadius: (SIZE - 4) / 2,
         shadowColor: accent, shadowOpacity: isRunning ? 0.25 : 0.1,
-        shadowOffset: { width: 0, height: 8 }, shadowRadius: 24, elevation: 12,
-        backgroundColor: bg,
+        shadowOffset: { width: 0, height: 8 }, shadowRadius: 24, elevation: 12, backgroundColor: bg,
       }} />
-      <View style={{
-        position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2,
-        borderWidth: STROKE, borderColor: accent + '18',
-      }} />
+      <View style={{ position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: STROKE, borderColor: accent + '18' }} />
       <View style={{ position: 'absolute', width: SIZE, height: SIZE }}>
         {[0, 1].map(half => (
           <View key={half} style={{
-            position: 'absolute', width: SIZE, height: SIZE,
-            borderRadius: SIZE / 2, overflow: 'hidden',
-            transform: [{ rotate: half === 0 ? '0deg' : '180deg' }],
+            position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2,
+            overflow: 'hidden', transform: [{ rotate: half === 0 ? '0deg' : '180deg' }],
           }}>
             <View style={{
               position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2,
@@ -76,31 +71,14 @@ function PlayButton({ running, onPress, accent, accentDark }: {
   running: boolean; onPress: () => void; accent: string; accentDark: string;
 }) {
   const pressed = useSharedValue(0);
-  const anim = useAnimatedStyle(() => ({
-    transform: [{ translateY: withTiming(pressed.value ? 4 : 0, { duration: 60 }) }],
-  }));
-
+  const anim = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(pressed.value ? 4 : 0, { duration: 60 }) }] }));
   return (
     <View style={{ alignItems: 'center' }}>
-      <View style={{
-        width: 84, height: 84, borderRadius: 42,
-        backgroundColor: accentDark, position: 'absolute', top: 6,
-        shadowColor: accentDark, shadowOpacity: 0.5,
-        shadowOffset: { width: 0, height: 6 }, shadowRadius: 16,
-      }} />
+      <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: accentDark, position: 'absolute', top: 6, shadowColor: accentDark, shadowOpacity: 0.5, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16 }} />
       <Animated.View style={anim}>
-        <TouchableOpacity
-          style={{
-            width: 84, height: 84, borderRadius: 42,
-            backgroundColor: accent,
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: accent, shadowOpacity: 0.35,
-            shadowOffset: { width: 0, height: 4 }, shadowRadius: 14, elevation: 10,
-          }}
+        <TouchableOpacity style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: accent, alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.35, shadowOffset: { width: 0, height: 4 }, shadowRadius: 14, elevation: 10 }}
           onPress={onPress} activeOpacity={1}
-          onPressIn={() => { pressed.value = 1; }}
-          onPressOut={() => { pressed.value = 0; }}
-        >
+          onPressIn={() => { pressed.value = 1; }} onPressOut={() => { pressed.value = 0; }}>
           <Ionicons name={running ? 'pause' : 'play'} size={34} color="#fff" />
         </TouchableOpacity>
       </Animated.View>
@@ -109,29 +87,16 @@ function PlayButton({ running, onPress, accent, accentDark }: {
 }
 
 // ── 3D Icon Button ────────────────────────────────────────────────────────────
-function IconButton({ icon, onPress, bg, color }: {
-  icon: string; onPress: () => void; bg: string; color: string;
-}) {
+function IconButton({ icon, onPress, bg, color }: { icon: string; onPress: () => void; bg: string; color: string }) {
   const pressed = useSharedValue(0);
-  const anim = useAnimatedStyle(() => ({
-    transform: [{ translateY: withTiming(pressed.value ? 3 : 0, { duration: 60 }) }],
-  }));
-
+  const anim = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(pressed.value ? 3 : 0, { duration: 60 }) }] }));
   return (
     <View style={{ alignItems: 'center' }}>
       <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: bg + 'CC', position: 'absolute', top: 4 }} />
       <Animated.View style={anim}>
-        <TouchableOpacity
-          style={{
-            width: 54, height: 54, borderRadius: 27,
-            backgroundColor: bg, alignItems: 'center', justifyContent: 'center',
-            shadowColor: '#000', shadowOpacity: 0.1,
-            shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 4,
-          }}
+        <TouchableOpacity style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 4 }}
           onPress={onPress} activeOpacity={1}
-          onPressIn={() => { pressed.value = 1; }}
-          onPressOut={() => { pressed.value = 0; }}
-        >
+          onPressIn={() => { pressed.value = 1; }} onPressOut={() => { pressed.value = 0; }}>
           <Ionicons name={icon as any} size={22} color={color} />
         </TouchableOpacity>
       </Animated.View>
@@ -140,29 +105,16 @@ function IconButton({ icon, onPress, bg, color }: {
 }
 
 // ── Time Badge Button ─────────────────────────────────────────────────────────
-function TimeBadgeButton({ label, onPress, accent }: {
-  label: string; onPress: () => void; accent: string;
-}) {
+function TimeBadgeButton({ label, onPress, accent }: { label: string; onPress: () => void; accent: string }) {
   const pressed = useSharedValue(0);
-  const anim = useAnimatedStyle(() => ({
-    transform: [{ translateY: withTiming(pressed.value ? 2 : 0, { duration: 60 }) }],
-  }));
+  const anim = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(pressed.value ? 2 : 0, { duration: 60 }) }] }));
   return (
     <View style={{ alignItems: 'center' }}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: accent + '33', position: 'absolute', top: 3 }} />
       <Animated.View style={anim}>
-        <TouchableOpacity
-          style={{
-            paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14,
-            backgroundColor: accent + '18', borderWidth: 1.5, borderColor: accent + '40',
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: accent, shadowOpacity: 0.12,
-            shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 3,
-          }}
+        <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: accent + '18', borderWidth: 1.5, borderColor: accent + '40', alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.12, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 3 }}
           onPress={onPress} activeOpacity={1}
-          onPressIn={() => { pressed.value = 1; }}
-          onPressOut={() => { pressed.value = 0; }}
-        >
+          onPressIn={() => { pressed.value = 1; }} onPressOut={() => { pressed.value = 0; }}>
           <Text style={{ fontSize: 15, fontFamily: FONTS.bold, color: accent }}>{label}</Text>
           <Text style={{ fontSize: 9, fontFamily: FONTS.medium, color: accent + 'AA', textTransform: 'uppercase', letterSpacing: 0.5 }}>tap to edit</Text>
         </TouchableOpacity>
@@ -171,44 +123,203 @@ function TimeBadgeButton({ label, onPress, accent }: {
   );
 }
 
+// ── Subject Picker Modal ──────────────────────────────────────────────────────
+function SubjectPicker({ visible, subjects, onSelect, onClose, colors: c }: {
+  visible: boolean;
+  subjects: Subject[];
+  onSelect: (s: Subject, ch: Chapter, t?: Topic) => void;
+  onClose: () => void;
+  colors: any;
+}) {
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+
+  const reset = () => { setSelectedSubject(null); setSelectedChapter(null); };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleSelectChapter = (ch: Chapter) => {
+    if (!selectedSubject) return;
+    if (isChapterOnly(ch)) {
+      // Chapter-only: select directly
+      onSelect(selectedSubject, ch, undefined);
+      reset();
+    } else {
+      setSelectedChapter(ch);
+    }
+  };
+
+  const handleSelectTopic = (t: Topic) => {
+    if (!selectedSubject || !selectedChapter) return;
+    onSelect(selectedSubject, selectedChapter, t);
+    reset();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Pressable style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }} onPress={handleClose}>
+        <Pressable style={[{ borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44, maxHeight: '80%' }, { backgroundColor: c.bgCard }]}
+          onPress={e => e.stopPropagation()}>
+
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center', marginBottom: 16 }} />
+
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            {selectedSubject && (
+              <TouchableOpacity onPress={() => { setSelectedSubject(null); setSelectedChapter(null); }} style={{ padding: 4 }}>
+                <Ionicons name="arrow-back" size={20} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+            {selectedChapter && (
+              <TouchableOpacity onPress={() => setSelectedChapter(null)} style={{ padding: 4 }}>
+                <Ionicons name="arrow-back" size={20} color={c.textMuted} />
+              </TouchableOpacity>
+            )}
+            <Text style={{ fontSize: 18, fontFamily: FONTS.bold, color: c.text, flex: 1 }}>
+              {selectedChapter
+                ? selectedChapter.name
+                : selectedSubject
+                  ? selectedSubject.name
+                  : 'What are you studying?'}
+            </Text>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Subject list */}
+            {!selectedSubject && subjects.map(subject => (
+              <TouchableOpacity key={subject.id}
+                style={[{
+                  flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14,
+                  borderRadius: 14, marginBottom: 8,
+                  backgroundColor: c.bgSecondary,
+                }]}
+                onPress={() => setSelectedSubject(subject)}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: subject.color + '22', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name={subject.icon as any} size={20} color={subject.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontFamily: FONTS.bold, color: c.text }}>{subject.name}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textFaint, marginTop: 2 }}>
+                    {subject.chapters.length} chapter{subject.chapters.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={c.textFaint} />
+              </TouchableOpacity>
+            ))}
+
+            {/* Chapter list */}
+            {selectedSubject && !selectedChapter && selectedSubject.chapters.map(ch => (
+              <TouchableOpacity key={ch.id}
+                style={[{
+                  flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+                  borderRadius: 14, marginBottom: 8,
+                  backgroundColor: ch.completed ? c.bgSecondary : c.bgSecondary,
+                  opacity: ch.completed ? 0.5 : 1,
+                }]}
+                onPress={() => !ch.completed && handleSelectChapter(ch)}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: selectedSubject.color, marginLeft: 4 }} />
+                <Text style={{ flex: 1, fontSize: 14, fontFamily: FONTS.semibold, color: c.text }}>{ch.name}</Text>
+                {isChapterOnly(ch)
+                  ? <Text style={{ fontSize: 11, fontFamily: FONTS.regular, color: c.textFaint }}>Chapter</Text>
+                  : <>
+                      <Text style={{ fontSize: 11, fontFamily: FONTS.regular, color: c.textFaint }}>
+                        {ch.topics.filter(t => t.completed).length}/{ch.topics.length} topics
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={c.textFaint} />
+                    </>
+                }
+              </TouchableOpacity>
+            ))}
+
+            {/* Topic list */}
+            {selectedChapter && selectedChapter.topics.map(t => (
+              <TouchableOpacity key={t.id}
+                style={[{
+                  flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+                  borderRadius: 14, marginBottom: 8, backgroundColor: c.bgSecondary,
+                  opacity: t.completed ? 0.5 : 1,
+                }]}
+                onPress={() => !t.completed && handleSelectTopic(t)}>
+                <View style={[{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' }, {
+                  borderColor: t.completed ? c.success : c.border,
+                  backgroundColor: t.completed ? c.success : 'transparent',
+                }]}>
+                  {t.completed && <Ionicons name="checkmark" size={13} color="#fff" />}
+                </View>
+                <Text style={[{ flex: 1, fontSize: 14, fontFamily: FONTS.semibold, color: c.text },
+                  t.completed && { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                  {t.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {subjects.length === 0 && (
+              <View style={{ alignItems: 'center', padding: 32 }}>
+                <Ionicons name="book-outline" size={40} color={c.textFaint} style={{ marginBottom: 12 }} />
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, textAlign: 'center' }}>
+                  No subjects yet. Go to the Subjects tab to add some.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TimerScreen() {
   const { state, addSession, gainXp, completeTaskAndTopic, getActiveNowTask } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
+
   const params = useLocalSearchParams<{
     taskId?: string; topicId?: string; chapterId?: string; subjectId?: string;
     topicName?: string; subjectName?: string; subjectColor?: string; estimatedMinutes?: string;
   }>();
 
-  // If params passed (from home banner or task tap), use them
-  // Otherwise, check if there's an active task right now
   const activeNow = getActiveNowTask();
-  const taskId      = params.taskId      ?? activeNow?.taskId;
-  const topicId     = params.topicId     ?? activeNow?.topicId;
-  const chapterId   = params.chapterId   ?? activeNow?.chapterId;
-  const subjectId   = params.subjectId   ?? activeNow?.subjectId;
-  const topicName   = params.topicName   ?? activeNow?.topicName;
-  const subjectName = params.subjectName ?? activeNow?.subjectName;
+
+  // Task context — from params OR active task
+  const taskId       = params.taskId      ?? activeNow?.taskId;
+  const topicId      = params.topicId     ?? activeNow?.topicId;
+  const chapterId    = params.chapterId   ?? activeNow?.chapterId;
+  const subjectId    = params.subjectId   ?? activeNow?.subjectId;
+  const topicName    = params.topicName   ?? activeNow?.topicName;
+  const subjectName  = params.subjectName ?? activeNow?.subjectName;
   const subjectColor = params.subjectColor ?? activeNow?.subjectColor;
   const estimatedMinutes = params.estimatedMinutes
     ? parseInt(params.estimatedMinutes)
     : (activeNow?.estimatedMinutes ?? state.settings.pomodoroFocus);
 
-  const [mode, setMode] = useState<'focus' | 'break'>('focus');
+  // Manual selection (when no plan task)
+  const [manualSubject, setManualSubject]     = useState<Subject | null>(null);
+  const [manualChapter, setManualChapter]     = useState<Chapter | null>(null);
+  const [manualTopic, setManualTopic]         = useState<Topic | null>(null);
+  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
+
+  // Effective context (plan task OR manual selection)
+  const effectiveTopicName   = topicName ?? manualTopic?.name ?? manualChapter?.name;
+  const effectiveSubjectName = subjectName ?? manualSubject?.name;
+  const effectiveColor       = subjectColor ?? manualSubject?.color;
+  const hasContext           = !!(effectiveTopicName);
+
+  const [mode, setMode]               = useState<'focus' | 'break'>('focus');
   const [customFocus, setCustomFocus] = useState(estimatedMinutes || state.settings.pomodoroFocus);
   const [customBreak, setCustomBreak] = useState(state.settings.pomodoroBreak);
-  const [secs, setSecs] = useState(customFocus * 60);
-  const [running, setRunning] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
+  const [secs, setSecs]               = useState(customFocus * 60);
+  const [running, setRunning]         = useState(false);
+  const [showPicker, setShowPicker]   = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt   = useRef<number | null>(null);
   const notifIdRef  = useRef<string | null>(null);
 
-  const total = mode === 'focus' ? customFocus * 60 : customBreak * 60;
+  const total   = mode === 'focus' ? customFocus * 60 : customBreak * 60;
   const progress = 1 - secs / total;
-  const accent     = subjectColor ?? (mode === 'focus' ? c.accent : c.success);
+  const accent    = effectiveColor ?? (mode === 'focus' ? c.accent : c.success);
   const accentDark = mode === 'focus' ? c.accentDark : (c.successDark ?? '#059669');
 
   const handleComplete = useCallback(() => {
@@ -218,25 +329,31 @@ export default function TimerScreen() {
         id: Date.now().toString(),
         startTime: new Date(startedAt.current).toISOString(),
         durationMinutes: Math.max(1, dur),
-        topicId: topicId || undefined,
-        subjectId: subjectId || undefined,
+        topicId: topicId ?? manualTopic?.id ?? manualChapter?.id,
+        subjectId: subjectId ?? manualSubject?.id,
         type: 'focus', completed: true,
       };
       addSession(session);
       gainXp(Math.max(1, dur));
 
-      // If this was a plan task → auto complete task + topic
+      // Auto-complete plan task if exists
       if (taskId && subjectId && chapterId && topicId) {
         completeTaskAndTopic(taskId, subjectId, chapterId, topicId);
         setShowComplete(true);
       }
+      // Mark manual selection complete
+      else if (manualSubject && manualChapter) {
+        if (manualTopic) {
+          completeTaskAndTopic('', manualSubject.id, manualChapter.id, manualTopic.id);
+        } else {
+          completeTaskAndTopic('', manualSubject.id, manualChapter.id, manualChapter.id);
+        }
+        setShowComplete(true);
+      }
     }
     startedAt.current = null;
-    if (notifIdRef.current) {
-      cancelNotification(notifIdRef.current).catch(() => {});
-      notifIdRef.current = null;
-    }
-  }, [mode, addSession, gainXp, completeTaskAndTopic, taskId, topicId, chapterId, subjectId]);
+    if (notifIdRef.current) { cancelNotification(notifIdRef.current).catch(() => {}); notifIdRef.current = null; }
+  }, [mode, addSession, gainXp, completeTaskAndTopic, taskId, topicId, chapterId, subjectId, manualSubject, manualChapter, manualTopic]);
 
   const tick = useCallback(() => {
     setSecs(s => {
@@ -252,19 +369,12 @@ export default function TimerScreen() {
     if (running) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       setRunning(false);
-      if (notifIdRef.current) {
-        await cancelNotification(notifIdRef.current).catch(() => {});
-        notifIdRef.current = null;
-      }
+      if (notifIdRef.current) { await cancelNotification(notifIdRef.current).catch(() => {}); notifIdRef.current = null; }
     } else {
       if (!startedAt.current) startedAt.current = Date.now();
       intervalRef.current = setInterval(tick, 1000);
       setRunning(true);
-      // Schedule end notification
-      try {
-        const id = await scheduleTimerDoneNotification(mode, secs);
-        notifIdRef.current = id;
-      } catch {}
+      try { notifIdRef.current = await scheduleTimerDoneNotification(mode, secs); } catch {}
     }
   };
 
@@ -272,10 +382,7 @@ export default function TimerScreen() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setRunning(false); startedAt.current = null;
     setSecs(mode === 'focus' ? customFocus * 60 : customBreak * 60);
-    if (notifIdRef.current) {
-      cancelNotification(notifIdRef.current).catch(() => {});
-      notifIdRef.current = null;
-    }
+    if (notifIdRef.current) { cancelNotification(notifIdRef.current).catch(() => {}); notifIdRef.current = null; }
   };
 
   const switchMode = (m: 'focus' | 'break') => {
@@ -294,22 +401,45 @@ export default function TimerScreen() {
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
 
-      {/* Task context bar — shown when studying a specific task */}
-      {topicName && (
+      {/* Task context bar */}
+      {hasContext ? (
         <Animated.View entering={FadeInDown.springify()}
-          style={[styles.taskBar, { backgroundColor: (subjectColor ?? c.accent) + '15', borderBottomColor: (subjectColor ?? c.accent) + '30' }]}>
-          <View style={[styles.taskBarDot, { backgroundColor: subjectColor ?? c.accent }]} />
+          style={[styles.taskBar, { backgroundColor: (effectiveColor ?? c.accent) + '15', borderBottomColor: (effectiveColor ?? c.accent) + '30' }]}>
+          <View style={[styles.taskBarDot, { backgroundColor: effectiveColor ?? c.accent }]} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.taskBarTopic, { color: subjectColor ?? c.accent }]} numberOfLines={1}>
-              {topicName}
+            <Text style={[styles.taskBarTopic, { color: effectiveColor ?? c.accent }]} numberOfLines={1}>
+              {effectiveTopicName}
             </Text>
-            {subjectName && (
-              <Text style={[styles.taskBarSubject, { color: c.textMuted }]}>{subjectName}</Text>
+            {effectiveSubjectName && (
+              <Text style={[styles.taskBarSubject, { color: c.textMuted }]}>{effectiveSubjectName}</Text>
             )}
           </View>
-          <Text style={[styles.taskBarMins, { color: (subjectColor ?? c.accent) + 'AA' }]}>
-            {estimatedMinutes}m
-          </Text>
+          {/* Change subject button (only for manual) */}
+          {!taskId && !activeNow && (
+            <TouchableOpacity
+              style={[styles.changeSubjectBtn, { backgroundColor: c.bgSecondary }]}
+              onPress={() => setShowSubjectPicker(true)}>
+              <Ionicons name="swap-horizontal" size={14} color={c.textMuted} />
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+      ) : (
+        /* No context — show subject picker prompt */
+        <Animated.View entering={FadeInDown.springify()}
+          style={[styles.taskBar, { backgroundColor: c.bgSecondary, borderBottomColor: c.border }]}>
+          <Ionicons name="book-outline" size={18} color={c.textFaint} />
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => setShowSubjectPicker(true)}>
+            <Text style={[styles.noContextTxt, { color: c.textFaint }]}>
+              Tap to select what you're studying
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.selectSubjectBtn, { backgroundColor: c.accentSoft }]}
+            onPress={() => setShowSubjectPicker(true)}>
+            <Text style={[styles.selectSubjectTxt, { color: c.accent }]}>Select</Text>
+          </TouchableOpacity>
         </Animated.View>
       )}
 
@@ -321,8 +451,7 @@ export default function TimerScreen() {
             style={[styles.modeBtn, mode === m && {
               backgroundColor: m === 'focus' ? accent : c.success,
               shadowColor: m === 'focus' ? accent : c.success,
-              shadowOpacity: 0.35, shadowOffset: { width: 0, height: 3 },
-              shadowRadius: 8, elevation: 5,
+              shadowOpacity: 0.35, shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 5,
             }]}
             onPress={() => switchMode(m)}>
             <Text style={[styles.modeTxt, { color: mode === m ? '#fff' : c.textMuted }]}>
@@ -335,8 +464,7 @@ export default function TimerScreen() {
       {/* Circle */}
       <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.circleWrap}>
         <CircularProgress
-          progress={progress} timeStr={fmt(secs)}
-          mode={mode} isRunning={running}
+          progress={progress} timeStr={fmt(secs)} mode={mode} isRunning={running}
           accent={mode === 'focus' ? accent : c.success}
           bg={c.bg} text={c.text} muted={c.textMuted}
         />
@@ -354,6 +482,20 @@ export default function TimerScreen() {
       </Animated.View>
 
       <View style={{ height: Platform.OS === 'ios' ? 40 : 24 }} />
+
+      {/* Subject Picker */}
+      <SubjectPicker
+        visible={showSubjectPicker}
+        subjects={state.subjects}
+        colors={c}
+        onClose={() => setShowSubjectPicker(false)}
+        onSelect={(subject, chapter, topic) => {
+          setManualSubject(subject);
+          setManualChapter(chapter);
+          setManualTopic(topic ?? null);
+          setShowSubjectPicker(false);
+        }}
+      />
 
       {/* Duration picker */}
       <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
@@ -401,19 +543,18 @@ export default function TimerScreen() {
             style={[styles.completeCard, { backgroundColor: c.bgCard }]}>
             <Text style={{ fontSize: 52 }}>🎉</Text>
             <Text style={[styles.completeTitle, { color: c.text }]}>Session Complete!</Text>
-            {topicName && (
-              <View style={[styles.completeBadge, { backgroundColor: (subjectColor ?? c.accent) + '18' }]}>
-                <Ionicons name="checkmark-circle" size={16} color={subjectColor ?? c.accent} />
-                <Text style={[styles.completeTopic, { color: subjectColor ?? c.accent }]}>
-                  {topicName} marked as done ✓
+            {effectiveTopicName && (
+              <View style={[styles.completeBadge, { backgroundColor: (effectiveColor ?? c.accent) + '18' }]}>
+                <Ionicons name="checkmark-circle" size={16} color={effectiveColor ?? c.accent} />
+                <Text style={[styles.completeTopic, { color: effectiveColor ?? c.accent }]}>
+                  {effectiveTopicName} marked as done ✓
                 </Text>
               </View>
             )}
             <Text style={[styles.completeXp, { color: c.textMuted }]}>
-              +{estimatedMinutes} XP earned
+              +{customFocus} XP earned
             </Text>
-            <TouchableOpacity
-              style={[styles.completeDoneBtn, { backgroundColor: accent }]}
+            <TouchableOpacity style={[styles.completeDoneBtn, { backgroundColor: accent }]}
               onPress={() => { setShowComplete(false); switchMode('break'); }}>
               <Text style={styles.completeDoneTxt}>Take a Break</Text>
             </TouchableOpacity>
@@ -438,12 +579,13 @@ const styles = StyleSheet.create({
   taskBarDot: { width: 10, height: 10, borderRadius: 5 },
   taskBarTopic: { fontSize: 14, fontFamily: FONTS.bold },
   taskBarSubject: { fontSize: 11, fontFamily: FONTS.regular, marginTop: 1 },
-  taskBarMins: { fontSize: 13, fontFamily: FONTS.semibold },
+  changeSubjectBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  noContextTxt: { fontSize: 14, fontFamily: FONTS.regular },
+  selectSubjectBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10 },
+  selectSubjectTxt: { fontSize: 13, fontFamily: FONTS.bold },
   modeRow: {
-    flexDirection: 'row', borderRadius: 16, padding: 4, gap: 4,
-    marginTop: 16,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8, elevation: 3,
+    flexDirection: 'row', borderRadius: 16, padding: 4, gap: 4, marginTop: 16,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 3,
   },
   modeBtn: { paddingHorizontal: 28, paddingVertical: 11, borderRadius: 12 },
   modeTxt: { fontSize: 15, fontFamily: FONTS.bold },
@@ -453,22 +595,15 @@ const styles = StyleSheet.create({
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 20, fontFamily: FONTS.bold, marginBottom: 16 },
-  pickerRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 10, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
-  },
+  pickerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
   pickerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pickerIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   pickerLabel: { fontSize: 15, fontFamily: FONTS.semibold },
   pickerCtrl: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   adjBtn: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   pickerVal: { fontSize: 20, fontFamily: FONTS.bold, minWidth: 46, textAlign: 'center' },
-  applyBtn: {
-    height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 8, marginTop: 8,
-  },
+  applyBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 8 },
   applyTxt: { color: '#fff', fontSize: 16, fontFamily: FONTS.bold },
-  // Complete modal
   completeBg: { flex: 1, backgroundColor: '#00000077', alignItems: 'center', justifyContent: 'center', padding: 32 },
   completeCard: { borderRadius: 28, padding: 32, alignItems: 'center', width: '100%', gap: 12 },
   completeTitle: { fontSize: 24, fontFamily: FONTS.bold },

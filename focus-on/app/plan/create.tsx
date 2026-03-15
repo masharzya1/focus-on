@@ -1,390 +1,308 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Platform, ActivityIndicator, Alert, FlatList, Modal,
+  TextInput, Switch, Platform, FlatList, Modal, Pressable,
+  KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInRight, FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
-import type { StudyPlan, PlannedTask } from '@/types/study';
+import { RADIUS, FONTS } from '@/constants/theme';
+import { isSubjectTopicBased, type StudyPlan } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
 import { setupAllNotifications } from '@/services/notifications';
+import { generateSmartSchedule, type ScheduleItem } from '@/utils/smartSchedule';
 
-const STEPS = ['Exam Info', 'Topics', 'Schedule', 'Block'];
-
+const STEPS = ['Setup', 'Topics', 'Blocking'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const ITEM_H = 48;
-const VISIBLE = 5; // odd number — center is selected
+
+// Weight labels — user-friendly
+const WEIGHT_LABELS: Record<number, { label: string; color: string; desc: string }> = {
+  1: { label: 'Light',     color: '#10B981', desc: 'Quick read' },
+  2: { label: 'Medium',    color: '#6C63FF', desc: 'Normal'     },
+  3: { label: 'Heavy',     color: '#F59E0B', desc: 'Needs focus' },
+  4: { label: 'Very Heavy',color: '#EF4444', desc: 'Tough one'  },
+};
+
+// Daily capacity labels
+const CAPACITY_LABELS: Record<number, { label: string; desc: string }> = {
+  3:  { label: 'Easy day',    desc: 'Light workload'   },
+  5:  { label: 'Normal day',  desc: 'Balanced'         },
+  8:  { label: 'Focus day',   desc: 'Push yourself'    },
+  12: { label: 'Grind day',   desc: 'Maximum effort'   },
+};
 
 function daysInMonth(m: number, y: number) { return new Date(y, m + 1, 0).getDate(); }
 
-// ── Single scroll column ───────────────────────────────────────────────────
-function ScrollColumn({
-  items, index, onIndexChange, width, colors: c,
-}: {
-  items: string[]; index: number; onIndexChange: (i: number) => void;
-  width: number; colors: any;
+// ── Wheel column ──────────────────────────────────────────────────────────────
+function WheelCol({ items, selectedIndex, onChange, width = 80, colors: c }: {
+  items: string[]; selectedIndex: number; onChange: (i: number) => void;
+  width?: number; colors: any;
 }) {
+  const ITEM_H = 44;
   const scrollRef = useRef<ScrollView>(null);
-  const initialScroll = useRef(false);
+  const isScrolling = useRef(false);
 
-  // Scroll to selected index
-  const scrollTo = (idx: number, animated = true) => {
-    scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated });
-  };
-
-  React.useEffect(() => {
-    // Initial position without animation
-    const timer = setTimeout(() => scrollTo(index, false), 10);
-    return () => clearTimeout(timer);
+  const scrollTo = useCallback((i: number, animated = true) => {
+    scrollRef.current?.scrollTo({ y: i * ITEM_H, animated });
   }, []);
 
-  // When external index changes (e.g. month changes -> day count changes)
-  React.useEffect(() => {
-    scrollTo(index, true);
-  }, [index]);
+  useEffect(() => {
+    if (!isScrolling.current) setTimeout(() => scrollTo(selectedIndex, false), 30);
+  }, [selectedIndex]);
 
-  const handleScroll = (e: any) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const snapped = Math.round(y / ITEM_H);
-    const clamped = Math.max(0, Math.min(items.length - 1, snapped));
-    if (clamped !== index) onIndexChange(clamped);
-  };
-
-  const handleMomentumEnd = (e: any) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const snapped = Math.round(y / ITEM_H);
-    const clamped = Math.max(0, Math.min(items.length - 1, snapped));
-    scrollTo(clamped, true);
-    onIndexChange(clamped);
-  };
-
-  const padding = Math.floor(VISIBLE / 2);
+  const goUp = () => { const n = Math.max(0, selectedIndex - 1); scrollTo(n); onChange(n); };
+  const goDown = () => { const n = Math.min(items.length - 1, selectedIndex + 1); scrollTo(n); onChange(n); };
 
   return (
     <View style={{ width, alignItems: 'center' }}>
-      {/* Selection highlight bar */}
-      <View style={{
-        position: 'absolute', top: padding * ITEM_H,
-        height: ITEM_H, width: '100%',
-        backgroundColor: c.accentSoft,
-        borderRadius: 14, zIndex: 0,
-      }} pointerEvents="none" />
-
-      {/* Fade top */}
-      <View style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        height: padding * ITEM_H, zIndex: 2,
-        backgroundColor: 'transparent',
-      }} pointerEvents="none">
-        {[...Array(padding)].map((_, i) => (
-          <View key={i} style={{
-            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
-            backgroundColor: c.bg,
-          }} />
-        ))}
+      <TouchableOpacity onPress={goUp} style={{ height: 28, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: selectedIndex === 0 ? 0.2 : 1 }}>
+        <Ionicons name="chevron-up" size={16} color={c.accent} />
+      </TouchableOpacity>
+      <View style={{ width, height: ITEM_H * 3, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', top: ITEM_H, height: ITEM_H, left: 0, right: 0, backgroundColor: c.accent + '18', borderRadius: 10, borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '40', pointerEvents: 'none' } as any} />
+        <ScrollView
+          ref={scrollRef} showsVerticalScrollIndicator={false}
+          snapToInterval={ITEM_H} decelerationRate="fast"
+          nestedScrollEnabled contentContainerStyle={{ paddingVertical: ITEM_H }}
+          onScrollBeginDrag={() => { isScrolling.current = true; }}
+          onMomentumScrollEnd={e => {
+            isScrolling.current = false;
+            const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+            const clamped = Math.max(0, Math.min(i, items.length - 1));
+            scrollTo(clamped); onChange(clamped);
+          }}
+          onLayout={() => setTimeout(() => scrollTo(selectedIndex, false), 50)}>
+          {items.map((item, i) => {
+            const active = i === selectedIndex;
+            return (
+              <TouchableOpacity key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => { scrollTo(i); onChange(i); }}>
+                <Text style={{ fontSize: active ? 18 : 14, fontFamily: active ? FONTS.bold : FONTS.regular, color: active ? c.accent : c.textMuted, opacity: Math.abs(i - selectedIndex) > 1 ? 0.3 : 1 }}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
-
-      <ScrollView
-        ref={scrollRef}
-        style={{ height: VISIBLE * ITEM_H, width }}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        onScroll={handleScroll}
-        onMomentumScrollEnd={handleMomentumEnd}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ paddingVertical: padding * ITEM_H }}
-      >
-        {items.map((item, i) => {
-          const dist = Math.abs(i - index);
-          const isSelected = dist === 0;
-          return (
-            <TouchableOpacity
-              key={i}
-              style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => { onIndexChange(i); scrollTo(i, true); }}
-              activeOpacity={0.7}
-            >
-              <Text style={{
-                fontSize: isSelected ? 20 : 16,
-                fontWeight: isSelected ? '800' : '400',
-                color: isSelected ? c.accent : dist === 1 ? c.textMuted : c.textFaint,
-                opacity: dist >= 2 ? 0.4 : 1,
-              }}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Fade bottom */}
-      <View style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: padding * ITEM_H, zIndex: 2,
-      }} pointerEvents="none">
-        {[...Array(padding)].reverse().map((_, i) => (
-          <View key={i} style={{
-            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
-            backgroundColor: c.bg,
-          }} />
-        ))}
-      </View>
+      <TouchableOpacity onPress={goDown} style={{ height: 28, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: selectedIndex === items.length - 1 ? 0.2 : 1 }}>
+        <Ionicons name="chevron-down" size={16} color={c.accent} />
+      </TouchableOpacity>
     </View>
   );
 }
 
-// ── Date Picker ───────────────────────────────────────────────────────────
+// ── Date Picker (wheel spinner) ────────────────────────────────────────────────
 function DatePicker({ value, onChange, colors: c }: {
   value: string; onChange: (v: string) => void; colors: any;
 }) {
-  const today = new Date();
-  const parsed = value ? new Date(value) : today;
-  const isValid = !isNaN(parsed.getTime());
-  const init = isValid ? parsed : today;
+  const todayD = new Date();
+  const parsed = value ? new Date(value) : todayD;
+  const [day, setDay] = useState(parsed.getDate() - 1);
+  const [mon, setMon] = useState(parsed.getMonth());
+  const [yr,  setYr]  = useState(parsed.getFullYear() - todayD.getFullYear());
 
-  const [dayIdx, setDayIdx] = useState(init.getDate() - 1);
-  const [monIdx, setMonIdx] = useState(init.getMonth());
-  const [yrIdx, setYrIdx] = useState(Math.max(0, init.getFullYear() - today.getFullYear()));
-
-  const YEARS = Array.from({ length: 8 }, (_, i) => String(today.getFullYear() + i));
-
-  const getDays = (m: number, y: number) => {
-    const count = daysInMonth(m, today.getFullYear() + y);
-    return Array.from({ length: count }, (_, i) => String(i + 1).padStart(2, '0'));
-  };
+  const YEARS = Array.from({ length: 5 }, (_, i) => String(todayD.getFullYear() + i));
+  const days  = Array.from({ length: daysInMonth(mon, todayD.getFullYear() + yr) }, (_, i) => String(i + 1).padStart(2, '0'));
 
   const emit = (d: number, m: number, y: number) => {
-    const yr = today.getFullYear() + y;
-    const days = getDays(m, y);
-    const safeD = Math.min(d, days.length - 1);
-    const dateStr = `${yr}-${String(m + 1).padStart(2,'0')}-${String(safeD + 1).padStart(2,'0')}`;
-    onChange(dateStr);
+    const year = todayD.getFullYear() + y;
+    const safeD = Math.min(d + 1, daysInMonth(m, year));
+    onChange(`${year}-${String(m + 1).padStart(2,'0')}-${String(safeD).padStart(2,'0')}`);
   };
 
-  const handleDay = (i: number) => { setDayIdx(i); emit(i, monIdx, yrIdx); };
-  const handleMon = (i: number) => {
-    const days = getDays(i, yrIdx);
-    const safeD = Math.min(dayIdx, days.length - 1);
-    setDayIdx(safeD); setMonIdx(i); emit(safeD, i, yrIdx);
-  };
-  const handleYr = (i: number) => {
-    const days = getDays(monIdx, i);
-    const safeD = Math.min(dayIdx, days.length - 1);
-    setDayIdx(safeD); setYrIdx(i); emit(safeD, monIdx, i);
-  };
-
-  const days = getDays(monIdx, yrIdx);
-
-  // Friendly display
-  const yr = today.getFullYear() + yrIdx;
-  const displayDate = `${MONTHS_FULL[monIdx]} ${dayIdx + 1}, ${yr}`;
-  const daysLeft = Math.ceil((new Date(yr, monIdx, dayIdx + 1).getTime() - Date.now()) / 86400000);
+  const daysLeft = Math.ceil((new Date(value).getTime() - Date.now()) / 86400000);
 
   return (
-    <View style={{ marginTop: 4, marginBottom: 8 }}>
-      {/* Picker */}
-      <View style={[styles.pickerCard, { backgroundColor: c.bgCard }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <ScrollColumn items={days}    index={dayIdx} onIndexChange={handleDay} width={64}  colors={c} />
-          <View style={{ width: 1, height: VISIBLE * ITEM_H * 0.6, backgroundColor: c.border }} />
-          <ScrollColumn items={MONTHS}  index={monIdx} onIndexChange={handleMon} width={72}  colors={c} />
-          <View style={{ width: 1, height: VISIBLE * ITEM_H * 0.6, backgroundColor: c.border }} />
-          <ScrollColumn items={YEARS}   index={yrIdx}  onIndexChange={handleYr}  width={76}  colors={c} />
-        </View>
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <WheelCol items={days}   selectedIndex={day} onChange={i => { setDay(i);  emit(i, mon, yr); }} width={64}  colors={c} />
+        <WheelCol items={MONTHS} selectedIndex={mon} onChange={i => { setMon(i);  emit(day, i, yr); }} width={80}  colors={c} />
+        <WheelCol items={YEARS}  selectedIndex={yr}  onChange={i => { setYr(i);   emit(day, mon, i); }} width={80} colors={c} />
       </View>
+      {daysLeft > 0 && (
+        <Text style={{ fontSize: 12, fontFamily: FONTS.medium, color: c.textMuted, textAlign: 'center', marginTop: 8 }}>
+          {daysLeft} days from today
+        </Text>
+      )}
+    </View>
+  );
+}
 
-      {/* Friendly label */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: c.text }}>{displayDate}</Text>
-        {daysLeft > 0 && (
-          <View style={[styles.daysLeftBadge, { backgroundColor: daysLeft <= 7 ? '#FEE2E2' : c.accentSoft }]}>
-            <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', color: daysLeft <= 7 ? '#DC2626' : c.accent }}>
-              {daysLeft}d to go
+// ── Weight picker for each item ───────────────────────────────────────────────
+function WeightPicker({ value, onChange, colors: c }: {
+  value: number; onChange: (v: number) => void; colors: any;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 4 }}>
+      {[1, 2, 3, 4].map(w => {
+        const info = WEIGHT_LABELS[w];
+        const active = value === w;
+        return (
+          <TouchableOpacity key={w}
+            style={{
+              paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1.5,
+              backgroundColor: active ? info.color + '20' : 'transparent',
+              borderColor: active ? info.color : c.border,
+            }}
+            onPress={() => onChange(w)}>
+            <Text style={{ fontSize: 11, fontFamily: FONTS.bold, color: active ? info.color : c.textFaint }}>
+              {info.label}
             </Text>
-          </View>
-        )}
-      </View>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
-// ── Scroll-wheel time picker (with AM/PM) ────────────────────────────────────
-function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const { colors: c } = useTheme();
-  const h24 = parseInt(value.split(':')[0]) || 9;
-  const m   = parseInt(value.split(':')[1]) || 0;
-  const isPM = h24 >= 12;
-  const h12  = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
-
-  const hours   = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
-  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-  const ampm    = ['AM', 'PM'];
-
-  const emit = (newH12: number, newM: number, newPM: boolean) => {
-    let h = newH12 % 12;
-    if (newPM) h += 12;
-    onChange(`${String(h).padStart(2, '0')}:${String(newM).padStart(2, '0')}`);
-  };
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-      <ScrollColumn items={hours}   index={h12 - 1}  onIndexChange={i => emit(i + 1, m, isPM)}  width={44} colors={c} />
-      <Text style={{ fontSize: 18, fontWeight: '800', color: c.textMuted, marginBottom: 2 }}>:</Text>
-      <ScrollColumn items={minutes} index={m}         onIndexChange={i => emit(h12, i, isPM)}    width={44} colors={c} />
-      <ScrollColumn items={ampm}    index={isPM ? 1 : 0} onIndexChange={i => emit(h12, m, i === 1)} width={46} colors={c} />
-    </View>
-  );
-}
-
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CreatePlanScreen() {
-  const { state, addStudyPlan } = useStudy();
+  const { state, addStudyPlan, getAcceptanceRate } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
 
   const [step, setStep] = useState(0);
 
   // Step 0
-  const [examName, setExamName] = useState('');
-  const [examDate, setExamDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 1); // default: 1 month from today
+  const [examName, setExamName]     = useState('');
+  const [examDate, setExamDate]     = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() + 1);
     return d.toISOString().split('T')[0];
   });
-  const [dailyHours, setDailyHours] = useState(2);
+  const [studyDays, setStudyDays]   = useState<number[]>([1,2,3,4,5]);
+  const [revisionDays, setRevisionDays] = useState(3);
+  const [dailyCapacity, setDailyCapacity] = useState(5);
 
-  // Step 1 — selected items (topic or chapter depending on subject type)
-  const [selectedItems, setSelectedItems] = useState<{
-    subjectId: string; chapterId: string; topicId: string; name: string; minutes: number;
-  }[]>([]);
+  // Step 1 — items with weights
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({}); // topicId → weight
 
-  // Step 2 — schedule
-  const [schedule, setSchedule] = useState<{[id:string]: {date:string;startTime:string;endTime:string}}>({});
-  const [generating, setGenerating] = useState(false);
-
-  // Step 3 — block
-  const [blockApps, setBlockApps] = useState(false);
-  const [hardBlock, setHardBlock] = useState(false);
+  // Step 2
+  const [blockApps, setBlockApps]     = useState(false);
+  const [hardBlock, setHardBlock]     = useState(false);
   const [deviceAdmin, setDeviceAdmin] = useState(false);
   const [blockedApps, setBlockedApps] = useState<string[]>([]);
-  const [installedApps, setInstalledApps] = useState<{name:string;packageName:string}[]>([]);
   const [showAppPicker, setShowAppPicker] = useState(false);
+  const [appSearch, setAppSearch]     = useState('');
+  const [installedApps, setInstalledApps] = useState<{name:string;packageName:string;icon:string}[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
-  const [appSearch, setAppSearch] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // ── Generate schedule ──────────────────────────────────────────────────────
-  const generateSchedule = () => {
-    if (selectedItems.length === 0) return;
-    setGenerating(true);
-    setTimeout(() => {
-      const startDate = new Date();
-      const endDate = examDate ? new Date(examDate) : new Date(Date.now() + 7 * 86400000);
-      const slotsPerDay = Math.max(1, Math.floor(dailyHours * 60 / 30));
-      let dayOffset = 0, slotInDay = 0;
-      const BASE_HOUR = 9;
-      const newSchedule: typeof schedule = {};
+  // Build schedule items from selections
+  const scheduleItems: ScheduleItem[] = useMemo(() => {
+    return Object.entries(selectedItems).map(([topicId, weight]) => {
+      for (const subject of state.subjects) {
+        const topicBased = isSubjectTopicBased(subject);
+        if (topicBased) {
+          for (const ch of subject.chapters) {
+            const topic = ch.topics.find(t => t.id === topicId);
+            if (topic) return {
+              subjectId: subject.id, chapterId: ch.id, topicId,
+              name: topic.name, subjectName: subject.name,
+              weight, isChapterOnly: false,
+            };
+          }
+        } else {
+          const ch = subject.chapters.find(c => c.id === topicId);
+          if (ch) return {
+            subjectId: subject.id, chapterId: ch.id, topicId: ch.id,
+            name: ch.name, subjectName: subject.name,
+            weight, isChapterOnly: true,
+          };
+        }
+      }
+      return null;
+    }).filter(Boolean) as ScheduleItem[];
+  }, [selectedItems, state.subjects]);
 
-      selectedItems.forEach(item => {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + dayOffset);
-        const startH = BASE_HOUR + slotInDay;
-        const endH = Math.min(startH + Math.ceil(item.minutes / 60), 23);
-        newSchedule[item.topicId] = {
-          date: d.toISOString().split('T')[0],
-          startTime: `${String(startH).padStart(2,'0')}:00`,
-          endTime: `${String(endH).padStart(2,'0')}:00`,
-        };
-        slotInDay++;
-        if (slotInDay >= slotsPerDay) { slotInDay = 0; dayOffset++; }
-      });
+  // Preview stats
+  const preview = useMemo(() => {
+    if (scheduleItems.length === 0) return null;
+    return generateSmartSchedule(
+      { items: scheduleItems, examDate, dailyCapacity, studyDays, revisionDays },
+    ).stats;
+  }, [scheduleItems, examDate, dailyCapacity, studyDays, revisionDays]);
 
-      setSchedule(newSchedule);
-      setGenerating(false);
-    }, 1200);
+  const diffToWeight = (difficulty: number): number => {
+    if (difficulty <= 1) return 1;
+    if (difficulty <= 3) return 2;
+    if (difficulty === 4) return 3;
+    return 4;
   };
 
-  // ── Load installed apps ────────────────────────────────────────────────────
-  const loadApps = async () => {
-    setLoadingApps(true);
-    try {
-      const apps = await AppBlocking.getInstalledApps();
-      setInstalledApps(apps.filter(a =>
-        !a.packageName.startsWith('com.android') &&
-        !a.packageName.startsWith('com.google.android.googlequicksearchbox')
-      ));
-    } catch {
-      Alert.alert('Error', 'Could not load installed apps.');
+  const getItemWeight = (topicId: string): number => {
+    for (const subject of state.subjects) {
+      for (const ch of subject.chapters) {
+        const t = ch.topics.find(x => x.id === topicId);
+        if (t) return diffToWeight(t.difficulty ?? 3);
+        if (ch.id === topicId) return 2; // chapter-only default medium
+      }
     }
-    setLoadingApps(false);
+    return 2;
+  };
+
+  const toggleItem = (topicId: string) => {
+    setSelectedItems(prev => {
+      if (prev[topicId] !== undefined) {
+        const next = { ...prev };
+        delete next[topicId];
+        return next;
+      }
+      return { ...prev, [topicId]: getItemWeight(topicId) };
+    });
+  };
+
+
+
+  const loadAppsAndOpen = async () => {
+    if (installedApps.length === 0) {
+      setLoadingApps(true);
+      try { setInstalledApps(await AppBlocking.getInstalledApps()); } catch {}
+      setLoadingApps(false);
+    }
     setShowAppPicker(true);
   };
 
-  // ── Save plan ──────────────────────────────────────────────────────────────
-  const savePlan = async () => {
-    const tasks: PlannedTask[] = selectedItems.map(tp => ({
-      id: `task_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      date: schedule[tp.topicId]?.date || new Date().toISOString().split('T')[0],
-      startTime: schedule[tp.topicId]?.startTime,
-      endTime: schedule[tp.topicId]?.endTime,
-      topicId: tp.topicId, subjectId: tp.subjectId, chapterId: tp.chapterId,
-      estimatedMinutes: tp.minutes, completed: false, type: 'study',
-    }));
+  const canNext = () => {
+    if (step === 0) return examName.trim().length > 0 && examDate > new Date().toISOString().split('T')[0];
+    if (step === 1) return scheduleItems.length > 0;
+    return true;
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const { tasks } = generateSmartSchedule(
+      { items: scheduleItems, examDate, dailyCapacity, studyDays, revisionDays },
+      (state as any).acceptanceRecords ?? [],
+    );
 
     const plan: StudyPlan = {
-      id: Date.now().toString(), examName, examDate,
-      subjects: [...new Set(selectedItems.map(t => t.subjectId))],
-      dailyHours, createdAt: new Date().toISOString(), tasks,
+      id: Date.now().toString(),
+      examName: examName.trim(), examDate,
+      subjects: [...new Set(scheduleItems.map(i => i.subjectId))],
+      dailyCount: dailyCapacity,
+      studyDays, revisionDays,
+      createdAt: new Date().toISOString(),
+      tasks: tasks as any,
       blockApps, hardBlock, deviceAdmin,
       blockedApps: blockApps ? blockedApps : [],
     };
 
     addStudyPlan(plan);
-
-    // Schedule notifications for this plan + per-task notifications
     try {
-      const allPlans = [...state.studyPlans, plan];
-      const taskNotifs = plan.tasks
-        .filter(t => t.startTime)
-        .map(t => {
-          const item = selectedItems.find(s => s.topicId === t.topicId);
-          return {
-            date: t.date,
-            startTime: t.startTime,
-            topicName: item?.name ?? 'Study task',
-            subjectName: state.subjects.find(s => s.id === t.subjectId)?.name ?? '',
-            estimatedMinutes: t.estimatedMinutes,
-          };
-        });
       await setupAllNotifications(
-        allPlans.map(p => ({ examName: p.examName, examDate: p.examDate })),
-        taskNotifs
+        [...state.studyPlans, plan].map(p => ({ examName: p.examName, examDate: p.examDate }))
       );
-    } catch { /* silently fail — don't block save */ }
-
+    } catch {}
+    setSaving(false);
     router.replace('/(tabs)/plan');
   };
 
-  const canNext = () => {
-    if (step === 0) return examName.trim().length > 0 && examDate.length > 0;
-    if (step === 1) return selectedItems.length > 0;
-    if (step === 2) return Object.keys(schedule).length > 0;
-    return true;
-  };
-
-  const toggleItem = (
-    subjectId: string, chapterId: string, topicId: string, name: string, minutes: number
-  ) => {
-    const exists = selectedItems.find(t => t.topicId === topicId);
-    if (exists) setSelectedItems(s => s.filter(t => t.topicId !== topicId));
-    else setSelectedItems(s => [...s, { subjectId, chapterId, topicId, name, minutes }]);
-  };
-
-  // ── Step indicator ─────────────────────────────────────────────────────────
+  // ── Step bar ──────────────────────────────────────────────────────────────
   const StepBar = () => (
     <View style={styles.stepBar}>
       {STEPS.map((s, i) => (
@@ -393,29 +311,25 @@ export default function CreatePlanScreen() {
             <View style={[styles.stepDot, { backgroundColor: i <= step ? c.accent : c.border }]}>
               {i < step
                 ? <Ionicons name="checkmark" size={12} color="#fff" />
-                : <Text style={{ color: i === step ? '#fff' : c.textFaint, fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' }}>{i+1}</Text>}
+                : <Text style={{ color: i === step ? '#fff' : c.textFaint, fontSize: 11, fontFamily: FONTS.bold }}>{i+1}</Text>}
             </View>
-            <Text style={[styles.stepLabel, { color: i === step ? c.accent : c.textFaint }]}>{s}</Text>
+            <Text style={{ fontSize: 9, fontFamily: FONTS.bold, textTransform: 'uppercase', marginTop: 4, color: i === step ? c.accent : c.textFaint }}>{s}</Text>
           </View>
-          {i < STEPS.length - 1 && (
-            <View style={[styles.stepLine, { backgroundColor: i < step ? c.accent : c.border }]} />
-          )}
+          {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < step ? c.accent : c.border, marginBottom: 14 }} />}
         </React.Fragment>
       ))}
     </View>
   );
 
   const filteredApps = installedApps.filter(a =>
-    !appSearch ||
-    a.name.toLowerCase().includes(appSearch.toLowerCase()) ||
-    a.packageName.toLowerCase().includes(appSearch.toLowerCase())
+    !appSearch || a.name.toLowerCase().includes(appSearch.toLowerCase())
   );
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => step > 0 ? setStep(s => s-1) : router.back()}>
+        <TouchableOpacity onPress={() => step > 0 ? setStep(s => s - 1) : router.back()}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: c.text }]}>New Study Plan</Text>
@@ -426,274 +340,281 @@ export default function CreatePlanScreen() {
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Step 0: Exam Info ── */}
+        {/* ── Step 0: Setup ── */}
         {step === 0 && (
           <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>Exam details</Text>
+            <Text style={[styles.stepTitle, { color: c.text }]}>Set up your plan</Text>
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Exam / Plan name</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>Exam name</Text>
             <TextInput
               style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-              placeholder="e.g. Physics Final Exam" placeholderTextColor={c.textFaint}
+              placeholder="e.g. Physics Final" placeholderTextColor={c.textFaint}
               value={examName} onChangeText={setExamName}
             />
 
             <Text style={[styles.label, { color: c.textMuted }]}>Exam date</Text>
-            <DatePicker value={examDate} onChange={setExamDate} colors={c} />
+            <View style={[styles.card, { backgroundColor: c.bgCard }]}>
+              <DatePicker value={examDate} onChange={setExamDate} colors={c} />
+            </View>
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Daily study hours</Text>
-            <View style={styles.hoursRow}>
-              {[1,2,3,4,5,6].map(h => (
-                <TouchableOpacity key={h} style={[styles.hourBtn,
-                  { backgroundColor: dailyHours === h ? c.accent : c.inputBg,
-                    borderColor: dailyHours === h ? c.accent : c.border }]}
-                  onPress={() => setDailyHours(h)}>
-                  <Text style={[styles.hourTxt, { color: dailyHours === h ? '#fff' : c.textMuted }]}>{h}h</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>How much can you study per day?</Text>
+            <View style={styles.capacityRow}>
+              {Object.entries(CAPACITY_LABELS).map(([val, info]) => {
+                const v = Number(val);
+                const active = dailyCapacity === v;
+                return (
+                  <TouchableOpacity key={v}
+                    style={[styles.capacityBtn, {
+                      backgroundColor: active ? c.accent : c.inputBg,
+                      borderColor: active ? c.accent : c.border,
+                    }]}
+                    onPress={() => setDailyCapacity(v)}>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: active ? '#fff' : c.text }}>{info.label}</Text>
+                    <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: active ? '#ffffffAA' : c.textFaint }}>{info.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.label, { color: c.textMuted }]}>Study days</Text>
+            <View style={styles.dayRow}>
+              {DAY_NAMES.map((d, i) => (
+                <TouchableOpacity key={i}
+                  style={[styles.dayBtn, {
+                    backgroundColor: studyDays.includes(i) ? c.accent : c.inputBg,
+                    borderColor: studyDays.includes(i) ? c.accent : c.border,
+                  }]}
+                  onPress={() => setStudyDays(ds => ds.includes(i) ? ds.filter(x => x !== i) : [...ds, i])}>
+                  <Text style={{ fontSize: 12, fontFamily: FONTS.bold, color: studyDays.includes(i) ? '#fff' : c.textMuted }}>{d}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {studyDays.length === 0 && (
+              <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textFaint, marginTop: 4 }}>Every day</Text>
+            )}
+
+            <Text style={[styles.label, { color: c.textMuted }]}>Revision days before exam</Text>
+            <View style={styles.dayRow}>
+              {[0,1,2,3,5,7].map(n => (
+                <TouchableOpacity key={n}
+                  style={[styles.dayBtn, {
+                    backgroundColor: revisionDays === n ? c.accent : c.inputBg,
+                    borderColor: revisionDays === n ? c.accent : c.border,
+                  }]}
+                  onPress={() => setRevisionDays(n)}>
+                  <Text style={{ fontSize: 12, fontFamily: FONTS.bold, color: revisionDays === n ? '#fff' : c.textMuted }}>{n === 0 ? 'None' : `${n}d`}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </Animated.View>
         )}
 
-        {/* ── Step 1: Select Topics / Chapters ── */}
+        {/* ── Step 1: Topics with weights ── */}
         {step === 1 && (
           <Animated.View entering={FadeInRight.springify()}>
             <Text style={[styles.stepTitle, { color: c.text }]}>What will you study?</Text>
-            <Text style={[styles.stepDesc, { color: c.textMuted }]}>
-              Select the topics or chapters to include in this plan
+            <Text style={{ fontSize: 14, fontFamily: FONTS.regular, color: c.textMuted, marginBottom: 16, lineHeight: 20 }}>
+              Select chapters or topics. Set how heavy each one feels — the plan will schedule harder things first.
             </Text>
 
+            {/* Preview banner */}
+            {preview && (
+              <Animated.View entering={FadeInDown.springify()}
+                style={[styles.previewBanner, {
+                  backgroundColor: preview.willFinish ? c.accentSoft : '#FEF3C7',
+                  borderColor: preview.willFinish ? c.accent + '40' : '#FCD34D',
+                }]}>
+                <Ionicons
+                  name={preview.willFinish ? 'checkmark-circle' : 'warning'}
+                  size={16}
+                  color={preview.willFinish ? c.accent : '#D97706'}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: preview.willFinish ? c.accent : '#92400E' }}>
+                    {preview.willFinish ? 'Looks good!' : 'Tight schedule'}
+                  </Text>
+                  <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: preview.willFinish ? c.accent : '#92400E' }}>
+                    {scheduleItems.length} items · {preview.daysNeeded} days needed · {preview.daysAvailable} available
+                    {preview.reviewCount > 0 ? ` · ${preview.reviewCount} auto-reviews` : ''}
+                  </Text>
+                </View>
+              </Animated.View>
+            )}
+
             {state.subjects.length === 0 && (
-              <View style={[styles.noSubCard, { backgroundColor: c.bgCard }]}>
-                <Text style={[styles.noSubTxt, { color: c.textMuted }]}>
-                  No subjects yet. Go to Subjects and add some first.
+              <View style={[styles.card, { backgroundColor: c.bgCard, padding: 24, alignItems: 'center' }]}>
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, textAlign: 'center' }}>
+                  No subjects yet. Go to the Subjects tab and add some first.
                 </Text>
               </View>
             )}
 
             {state.subjects.map(subject => {
-              const isChapterOnly = subject.topicBased;
-              const hasContent = subject.chapters.length > 0 &&
-                (isChapterOnly || subject.chapters.some(ch => ch.topics.length > 0));
+              const topicBased = isSubjectTopicBased(subject);
+              const color = subject.color;
 
               return (
                 <View key={subject.id} style={[styles.subjectBlock, { backgroundColor: c.bgCard }]}>
-                  <View style={styles.subjectBlockHeader}>
-                    <View style={[styles.subIconSm, { backgroundColor: subject.color + '22' }]}>
-                      <Ionicons name={subject.icon as any} size={18} color={subject.color} />
+                  {/* Subject header */}
+                  <View style={styles.subjectHeader}>
+                    <View style={[styles.subIcon, { backgroundColor: color + '22' }]}>
+                      <Ionicons name={subject.icon as any} size={18} color={color} />
                     </View>
-                    <Text style={[styles.subjectBlockName, { color: c.text }]}>{subject.name}</Text>
-                    <Text style={[styles.subjectType, { color: subject.color }]}>
-                      {isChapterOnly ? 'Chapter-based' : 'Topic-based'}
+                    <Text style={[styles.subjectName, { color: c.text }]}>{subject.name}</Text>
+                    <Text style={[styles.subjectType, { color: color }]}>
+                      {topicBased ? 'Topics' : 'Chapters'}
                     </Text>
                   </View>
 
-                  {!hasContent ? (
-                    <Text style={[styles.noTopics, { color: c.textFaint }]}>
-                      No {isChapterOnly ? 'chapters' : 'topics'} yet — add some in Subjects
-                    </Text>
-                  ) : isChapterOnly ? (
-                    subject.chapters.map(ch => {
-                      const sel = !!selectedItems.find(x => x.topicId === ch.id);
-                      return (
-                        <TouchableOpacity key={ch.id} style={[styles.topicItem,
-                          { backgroundColor: sel ? c.accentSoft : 'transparent', borderColor: sel ? c.accent : c.border }]}
-                          onPress={() => toggleItem(subject.id, ch.id, ch.id, ch.name, 45)}>
-                          <View style={[styles.checkBox,
-                            { borderColor: sel ? c.accent : c.border, backgroundColor: sel ? c.accent : 'transparent' }]}>
+                  {subject.chapters.length === 0 && (
+                    <Text style={{ color: c.textFaint, fontFamily: FONTS.regular, fontSize: 13, paddingBottom: 8 }}>No content yet</Text>
+                  )}
+
+                  {/* Chapter-only subject */}
+                  {!topicBased && subject.chapters.map(ch => {
+                    const sel = selectedItems[ch.id] !== undefined;
+                    return (
+                      <View key={ch.id}>
+                        <TouchableOpacity
+                          style={[styles.selectItem, {
+                            backgroundColor: sel ? color + '10' : 'transparent',
+                            borderColor: sel ? color : c.border,
+                          }]}
+                          onPress={() => toggleItem(ch.id)}>
+                          <View style={[styles.selCheck, {
+                            borderColor: sel ? color : c.border,
+                            backgroundColor: sel ? color : 'transparent',
+                          }]}>
                             {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
                           </View>
-                          <Text style={[styles.topicItemName, { color: sel ? c.accent : c.text }]}>{ch.name}</Text>
-                          <Text style={[styles.topicMins, { color: c.textFaint }]}>~45m</Text>
+                          <Text style={[styles.selectItemName, { color: sel ? color : c.text }]}>{ch.name}</Text>
                         </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    subject.chapters.map(ch => (
-                      <View key={ch.id}>
-                        {ch.topics.length > 0 && (
-                          <Text style={[styles.chLabel, { color: c.textFaint }]}>{ch.name}</Text>
+                        {sel && (
+                          <View style={{ paddingLeft: 34, paddingBottom: 6 }}>
+                            <WeightPicker value={selectedItems[ch.id]} onChange={w => setSelectedItems(p => ({ ...p, [ch.id]: w }))} colors={c} />
+                          </View>
                         )}
-                        {ch.topics.map(t => {
-                          const sel = !!selectedItems.find(x => x.topicId === t.id);
-                          return (
-                            <TouchableOpacity key={t.id} style={[styles.topicItem,
-                              { backgroundColor: sel ? c.accentSoft : 'transparent', borderColor: sel ? c.accent : c.border }]}
-                              onPress={() => toggleItem(subject.id, ch.id, t.id, t.name, t.estimatedMinutes)}>
-                              <View style={[styles.checkBox,
-                                { borderColor: sel ? c.accent : c.border, backgroundColor: sel ? c.accent : 'transparent' }]}>
+                      </View>
+                    );
+                  })}
+
+                  {/* Topic-based subject */}
+                  {topicBased && subject.chapters.map(ch => (
+                    <View key={ch.id}>
+                      {ch.topics.length > 0 && (
+                        <Text style={[styles.chLabel, { color: c.textFaint }]}>{ch.name}</Text>
+                      )}
+                      {ch.topics.map(t => {
+                        const sel = selectedItems[t.id] !== undefined;
+                        return (
+                          <View key={t.id}>
+                            <TouchableOpacity
+                              style={[styles.selectItem, {
+                                backgroundColor: sel ? color + '10' : 'transparent',
+                                borderColor: sel ? color : c.border,
+                              }]}
+                              onPress={() => toggleItem(t.id)}>
+                              <View style={[styles.selCheck, {
+                                borderColor: sel ? color : c.border,
+                                backgroundColor: sel ? color : 'transparent',
+                              }]}>
                                 {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
                               </View>
-                              <Text style={[styles.topicItemName, { color: sel ? c.accent : c.text }]}>{t.name}</Text>
-                              <Text style={[styles.topicMins, { color: c.textFaint }]}>~{t.estimatedMinutes}m</Text>
+                              <Text style={[styles.selectItemName, { color: sel ? color : c.text }]}>{t.name}</Text>
                             </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    ))
-                  )}
+                            {sel && (
+                              <View style={{ paddingLeft: 34, paddingBottom: 6 }}>
+                                <WeightPicker value={selectedItems[t.id]} onChange={w => setSelectedItems(p => ({ ...p, [t.id]: w }))} colors={c} />
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
                 </View>
               );
             })}
 
-            <Text style={[styles.selCount, { color: c.textMuted }]}>
-              {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
+            <Text style={{ textAlign: 'center', fontSize: 13, fontFamily: FONTS.medium, color: c.textMuted, marginTop: 8 }}>
+              {scheduleItems.length} item{scheduleItems.length !== 1 ? 's' : ''} selected
             </Text>
           </Animated.View>
         )}
 
-        {/* ── Step 2: Schedule ── */}
+        {/* ── Step 2: Blocking ── */}
         {step === 2 && (
           <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>Build your schedule</Text>
-
-            {Object.keys(schedule).length === 0 ? (
-              <View style={styles.genBox}>
-                <Ionicons name="calendar" size={52} color={c.accent} style={{ marginBottom: 16 }} />
-                <Text style={[styles.genDesc, { color: c.textMuted }]}>
-                  We'll spread your {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} across the days before your exam.
-                </Text>
-                <TouchableOpacity style={[styles.genBtn, { backgroundColor: c.accent }]}
-                  onPress={generateSchedule} disabled={generating}>
-                  {generating
-                    ? <ActivityIndicator color="#fff" />
-                    : <><Ionicons name="sparkles" size={18} color="#fff" /><Text style={styles.genBtnTxt}>Generate Schedule</Text></>}
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <View style={[styles.successBanner, { backgroundColor: c.accentSoft }]}>
-                  <Ionicons name="checkmark-circle" size={20} color={c.accent} />
-                  <Text style={[styles.successTxt, { color: c.accent }]}>
-                    Schedule ready! Adjust times if needed.
-                  </Text>
-                </View>
-
-                {selectedItems.map(tp => {
-                  const slot = schedule[tp.topicId];
-                  const subject = state.subjects.find(s => s.id === tp.subjectId);
-                  return (
-                    <View key={tp.topicId} style={[styles.scheduleCard, { backgroundColor: c.bgCard }]}>
-                      <Text style={[styles.scheduleName, { color: c.text }]} numberOfLines={1}>{tp.name}</Text>
-                      <Text style={[styles.scheduleSub, { color: c.textMuted }]}>{subject?.name}</Text>
-                      <Text style={[styles.scheduleDate, { color: c.accent }]}>{slot?.date}</Text>
-                      <View style={styles.timeRow}>
-                        <TimePicker value={slot?.startTime || '09:00'} onChange={v =>
-                          setSchedule(s => ({ ...s, [tp.topicId]: { ...s[tp.topicId], startTime: v } }))} />
-                        <Text style={{ color: c.textMuted, marginHorizontal: 8 }}>→</Text>
-                        <TimePicker value={slot?.endTime || '10:00'} onChange={v =>
-                          setSchedule(s => ({ ...s, [tp.topicId]: { ...s[tp.topicId], endTime: v } }))} />
-                      </View>
-                    </View>
-                  );
-                })}
-
-                <TouchableOpacity style={[styles.regenBtn, { borderColor: c.accent }]} onPress={generateSchedule}>
-                  <Ionicons name="refresh" size={16} color={c.accent} />
-                  <Text style={[styles.regenTxt, { color: c.accent }]}>Regenerate</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </Animated.View>
-        )}
-
-        {/* ── Step 3: Block ── */}
-        {step === 3 && (
-          <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>App Blocking (optional)</Text>
-            <Text style={[styles.stepDesc, { color: c.textMuted }]}>
-              Block distracting apps during your scheduled study times.
+            <Text style={[styles.stepTitle, { color: c.text }]}>App Blocking</Text>
+            <Text style={{ fontSize: 14, fontFamily: FONTS.regular, color: c.textMuted, marginBottom: 16 }}>
+              Optional — block distracting apps when you study.
             </Text>
 
-            {/* Master toggle */}
-            <View style={[styles.blockCard, { backgroundColor: c.bgCard }]}>
-              <View style={styles.blockRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.blockTitle, { color: c.text }]}>Block apps during study time</Text>
-                  <Text style={[styles.blockDesc, { color: c.textMuted }]}>
-                    Selected apps will be blocked during your scheduled sessions
-                  </Text>
-                </View>
-                <Switch value={blockApps} onValueChange={v => {
-                  setBlockApps(v);
-                  if (!v) { setHardBlock(false); setDeviceAdmin(false); }
-                }} trackColor={{ true: c.accent }} />
+            <View style={[styles.optRow, { backgroundColor: c.bgCard }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.optLabel, { color: c.text }]}>Block apps during study</Text>
+                <Text style={[styles.optSub, { color: c.textMuted }]}>Activates when your daily routine starts</Text>
               </View>
+              <Switch value={blockApps}
+                onValueChange={v => { setBlockApps(v); if (!v) setHardBlock(false); }}
+                trackColor={{ true: c.accent }} />
             </View>
 
             {blockApps && (
               <>
-                {/* Hard block */}
-                <View style={[styles.blockCard, { backgroundColor: c.bgCard }]}>
-                  <View style={styles.blockRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.blockTitle, { color: c.text }]}><Ionicons name="lock-closed" size={15} color={c.destructive} /> Hard Block</Text>
-                      <Text style={[styles.blockDesc, { color: c.textMuted }]}>
-                        Cannot unblock from inside the app — only uninstalling Focus On removes the block
-                      </Text>
-                    </View>
-                    <Switch value={hardBlock} onValueChange={setHardBlock} trackColor={{ true: c.destructive }} />
+                <View style={[styles.optRow, { backgroundColor: c.bgCard }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.optLabel, { color: c.text }]}>Hard Block</Text>
+                    <Text style={[styles.optSub, { color: c.textMuted }]}>Cannot dismiss — forces you to stay focused</Text>
                   </View>
+                  <Switch value={hardBlock} onValueChange={setHardBlock} trackColor={{ true: c.destructive }} />
                 </View>
 
-                {/* Device admin */}
-                <View style={[styles.blockCard, { backgroundColor: c.bgCard }]}>
-                  <View style={styles.blockRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.blockTitle, { color: c.text }]}><Ionicons name="shield-checkmark" size={15} color="#DC2626" /> Device Admin</Text>
-                      <Text style={[styles.blockDesc, { color: c.textMuted }]}>
-                        Cannot unblock AND cannot uninstall Focus On. Requires Device Admin permission. Strongest block.
-                      </Text>
-                    </View>
-                    <Switch value={deviceAdmin} onValueChange={async (v) => {
-                      if (v) {
-                        try {
-                          await AppBlocking.requestDeviceAdmin();
-                          Alert.alert(
-                            'Grant Permission',
-                            'Please grant Device Admin permission in the screen that opened. Then come back and enable this again.',
-                            [{ text: 'OK' }]
-                          );
-                          return; // don't set true yet — user must grant then re-enable
-                        } catch {
-                          Alert.alert('Error', 'Could not request Device Admin.');
-                          return;
-                        }
-                      }
-                      setDeviceAdmin(v);
-                      if (v) setHardBlock(true);
-                    }} trackColor={{ true: '#DC2626' }} />
-                  </View>
-                </View>
-
-                {/* App picker button */}
                 <TouchableOpacity
                   style={[styles.appPickBtn, { backgroundColor: c.accentSoft, borderColor: c.accent }]}
-                  onPress={loadApps}
-                  disabled={loadingApps}>
+                  onPress={loadAppsAndOpen}>
                   {loadingApps
-                    ? <ActivityIndicator color={c.accent} size="small" />
+                    ? <ActivityIndicator size="small" color={c.accent} />
                     : <Ionicons name="apps" size={18} color={c.accent} />}
-                  <Text style={[styles.appPickTxt, { color: c.accent }]}>
-                    {blockedApps.length > 0 ? `${blockedApps.length} app${blockedApps.length > 1 ? 's' : ''} selected` : 'Select apps to block'}
+                  <Text style={{ fontFamily: FONTS.bold, color: c.accent, fontSize: 15 }}>
+                    {blockedApps.length > 0
+                      ? `${blockedApps.length} app${blockedApps.length > 1 ? 's' : ''} selected`
+                      : 'Select apps to block'}
                   </Text>
                 </TouchableOpacity>
-
-                {blockedApps.length === 0 && (
-                  <Text style={[styles.appPickHint, { color: c.textFaint }]}>
-                    You must select at least one app for blocking to work.
-                  </Text>
-                )}
               </>
             )}
 
-            <View style={[styles.finalCard, { backgroundColor: c.accentSoft }]}>
-              <Ionicons name="information-circle" size={18} color={c.accent} />
-              <Text style={[styles.finalTxt, { color: c.accent }]}>
-                After saving, you'll receive notifications at your scheduled study times.
-                {blockApps ? ' Apps will be blocked automatically during those times.' : ''}
-              </Text>
-            </View>
+            {/* Final summary */}
+            {preview && (
+              <View style={[styles.summaryCard, { backgroundColor: c.bgCard }]}>
+                <Text style={{ fontFamily: FONTS.bold, color: c.text, fontSize: 15, marginBottom: 12 }}>Plan Summary</Text>
+
+                {[
+                  { icon: 'layers-outline', label: 'Items', value: `${scheduleItems.length}` },
+                  { icon: 'speedometer-outline', label: 'Daily capacity', value: CAPACITY_LABELS[dailyCapacity]?.label ?? `${dailyCapacity}` },
+                  { icon: 'calendar-outline', label: 'Study days', value: studyDays.length > 0 ? studyDays.map(d => DAY_NAMES[d]).join(', ') : 'Every day' },
+                  { icon: 'time-outline', label: 'Days needed', value: `~${preview.daysNeeded} days` },
+                  { icon: 'refresh-outline', label: 'Auto-reviews', value: preview.reviewCount > 0 ? `${preview.reviewCount} sessions` : 'None' },
+                  { icon: 'flag-outline', label: 'Exam', value: examDate },
+                ].map((row, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderTopWidth: i > 0 ? 1 : 0, borderColor: c.border }}>
+                    <Ionicons name={row.icon as any} size={16} color={c.textMuted} />
+                    <Text style={{ flex: 1, fontFamily: FONTS.regular, fontSize: 14, color: c.textMuted }}>{row.label}</Text>
+                    <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: c.text }}>{row.value}</Text>
+                  </View>
+                ))}
+
+                {!preview.willFinish && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: '#FEF3C7', borderRadius: 10 }}>
+                    <Ionicons name="warning" size={16} color="#D97706" />
+                    <Text style={{ flex: 1, fontFamily: FONTS.regular, fontSize: 12, color: '#92400E' }}>
+                      Schedule is tight. Try increasing daily capacity or reducing revision days.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </Animated.View>
         )}
 
@@ -704,147 +625,102 @@ export default function CreatePlanScreen() {
       <View style={[styles.bottomNav, { backgroundColor: c.bgCard, borderTopColor: c.border }]}>
         <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: canNext() ? c.accent : c.border }]}
-          onPress={async () => {
-            if (step === 1 && Object.keys(schedule).length === 0) generateSchedule();
-            if (step < STEPS.length - 1) {
-              setStep(s => s + 1);
-            } else {
-              await savePlan();
-            }
-          }}
-          disabled={!canNext()}>
-          <Text style={[styles.nextTxt, { color: canNext() ? '#fff' : c.textFaint }]}>
-            {step === STEPS.length - 1 ? 'Save Plan' : 'Next →'}
-          </Text>
+          onPress={() => step < STEPS.length - 1 ? setStep(s => s + 1) : save()}
+          disabled={!canNext() || saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={[styles.nextTxt, { color: canNext() ? '#fff' : c.textFaint }]}>
+                {step === STEPS.length - 1 ? 'Create Plan 🚀' : 'Next →'}
+              </Text>}
         </TouchableOpacity>
       </View>
 
       {/* App Picker Modal */}
       <Modal visible={showAppPicker} transparent animationType="slide" onRequestClose={() => setShowAppPicker(false)}>
-        <View style={styles.modalBg}>
-          <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
-            <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps to Block</Text>
-
-            <TextInput
-              style={[styles.searchInput, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-              placeholder="Search apps..." placeholderTextColor={c.textFaint}
-              value={appSearch} onChangeText={setAppSearch}
-            />
-
-            <FlatList
-              data={filteredApps}
-              keyExtractor={i => i.packageName}
-              style={{ maxHeight: 360 }}
-              renderItem={({ item }) => {
-                const sel = blockedApps.includes(item.packageName);
-                return (
-                  <TouchableOpacity
-                    style={[styles.appItem, { borderColor: c.border }]}
-                    onPress={() => setBlockedApps(a =>
-                      sel ? a.filter(x => x !== item.packageName) : [...a, item.packageName]
-                    )}>
-                    <View style={[styles.appCheckBox, {
-                      borderColor: sel ? c.accent : c.border,
-                      backgroundColor: sel ? c.accent : 'transparent',
-                    }]}>
-                      {sel && <Ionicons name="checkmark" size={14} color="#fff" />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.appName, { color: c.text }]}>{item.name}</Text>
-                      <Text style={[styles.appPkg, { color: c.textFaint }]} numberOfLines={1}>
-                        {item.packageName}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-
-            <TouchableOpacity
-              style={[styles.doneBtn, { backgroundColor: c.accent }]}
-              onPress={() => setShowAppPicker(false)}>
-              <Text style={styles.doneTxt}>
-                Done ({blockedApps.length} selected)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Pressable style={styles.modalBg} onPress={() => setShowAppPicker(false)}>
+            <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
+              <View style={[styles.handle, { backgroundColor: c.border }]} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps</Text>
+                <TouchableOpacity onPress={() => setShowAppPicker(false)}>
+                  <Text style={{ color: c.accent, fontFamily: FONTS.bold, fontSize: 15 }}>Done ({blockedApps.length})</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
+                <Ionicons name="search-outline" size={16} color={c.textMuted} />
+                <TextInput style={{ color: c.text, flex: 1, marginLeft: 8, fontFamily: FONTS.regular }}
+                  placeholder="Search..." placeholderTextColor={c.textFaint}
+                  value={appSearch} onChangeText={setAppSearch} />
+              </View>
+              <FlatList
+                data={filteredApps} keyExtractor={i => i.packageName}
+                style={{ maxHeight: 380 }}
+                renderItem={({ item }) => {
+                  const sel = blockedApps.includes(item.packageName);
+                  return (
+                    <TouchableOpacity
+                      style={[styles.appItem, { backgroundColor: sel ? c.accentSoft : 'transparent', borderColor: c.border }]}
+                      onPress={() => setBlockedApps(a => sel ? a.filter(x => x !== item.packageName) : [...a, item.packageName])}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: c.text }}>{item.name}</Text>
+                        <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: c.textFaint }} numberOfLines={1}>{item.packageName}</Text>
+                      </View>
+                      <View style={[{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' }, {
+                        borderColor: sel ? c.accent : c.border,
+                        backgroundColor: sel ? c.accent : 'transparent',
+                      }]}>
+                        {sel && <Ionicons name="checkmark" size={14} color="#fff" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  pickerCard: { borderRadius: RADIUS.xl, padding: 16, alignItems: 'center', overflow: 'hidden' },
-  daysLeftBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   root: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 12,
-  },
-  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 12 },
+  headerTitle: { fontSize: 18, fontFamily: FONTS.bold },
   stepBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 },
   stepDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepLabel: { fontSize: 9, fontWeight: '700', fontFamily: 'Inter_700Bold', marginTop: 4, textTransform: 'uppercase' },
-  stepLine: { flex: 1, height: 2, marginBottom: 14 },
   content: { paddingHorizontal: 20, paddingTop: 8 },
-  stepTitle: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 6, letterSpacing: -0.5 },
-  stepDesc: { fontSize: 14, marginBottom: 16, lineHeight: 22 },
-  label: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 16 },
-  input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, borderWidth: 1.5, marginBottom: 4 },
-  hoursRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
-  hourBtn: { width: 56, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  hourTxt: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  stepTitle: { fontSize: 22, fontFamily: FONTS.bold, marginBottom: 6, letterSpacing: -0.5 },
+  label: { fontSize: 12, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 18 },
+  input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, borderWidth: 1.5, marginBottom: 4, fontFamily: FONTS.regular },
+  card: { borderRadius: RADIUS.xl, padding: 16, marginBottom: 4 },
+  capacityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  capacityBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 2, minWidth: 110 },
+  dayRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
+  dayBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, borderWidth: 1.5 },
+  previewBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 14, marginBottom: 16, borderWidth: 1 },
   subjectBlock: { borderRadius: RADIUS.xl, padding: 14, marginBottom: 12 },
-  subjectBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  subIconSm: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  subjectBlockName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', flex: 1 },
-  subjectType: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  noTopics: { fontSize: 13, paddingVertical: 8 },
-  noSubCard: { borderRadius: RADIUS.xl, padding: 20, alignItems: 'center' },
-  noSubTxt: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  chLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
-  topicItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, marginBottom: 6, borderWidth: 1.5 },
-  checkBox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  topicItemName: { flex: 1, fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  topicMins: { fontSize: 12 },
-  selCount: { textAlign: 'center', fontSize: 13, marginVertical: 8 },
-  genBox: { alignItems: 'center', paddingVertical: 40 },
-  genDesc: { fontSize: 15, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
-  genBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 28, paddingVertical: 16, borderRadius: 16 },
-  genBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
-  successBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 16 },
-  successTxt: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', flex: 1 },
-  scheduleCard: { borderRadius: RADIUS.xl, padding: 14, marginBottom: 10 },
-  scheduleName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 2 },
-  scheduleSub: { fontSize: 12, marginBottom: 6 },
-  scheduleDate: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 8 },
-  timeRow: { flexDirection: 'row', alignItems: 'center' },
-  regenBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderRadius: 14, paddingVertical: 12, marginTop: 8 },
-  regenTxt: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  blockCard: { borderRadius: RADIUS.xl, padding: 16, marginBottom: 12 },
-  blockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  blockTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 4 },
-  blockDesc: { fontSize: 13, lineHeight: 20 },
-  appPickBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderRadius: 14, paddingVertical: 14, marginBottom: 6 },
-  appPickTxt: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  appPickHint: { fontSize: 12, textAlign: 'center', marginBottom: 12 },
-  finalCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 14, marginTop: 4 },
-  finalTxt: { fontSize: 13, lineHeight: 20, flex: 1 },
+  subjectHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  subIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  subjectName: { fontSize: 15, fontFamily: FONTS.bold, flex: 1 },
+  subjectType: { fontSize: 11, fontFamily: FONTS.bold },
+  chLabel: { fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
+  selectItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, marginBottom: 4, borderWidth: 1.5 },
+  selCheck: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  selectItemName: { flex: 1, fontSize: 14, fontFamily: FONTS.semibold },
+  optRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: RADIUS.xl, marginBottom: 10 },
+  optLabel: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 2 },
+  optSub: { fontSize: 12, fontFamily: FONTS.regular },
+  appPickBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderRadius: 14, paddingVertical: 14, marginBottom: 12 },
+  summaryCard: { borderRadius: RADIUS.xl, padding: 18, marginTop: 8 },
   bottomNav: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 32 : 16, borderTopWidth: 1 },
   nextBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  nextTxt: { fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
-  // App picker modal
+  nextTxt: { fontSize: 17, fontFamily: FONTS.bold },
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, maxHeight: '88%' },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 16 },
-  searchInput: { height: 46, borderRadius: 12, paddingHorizontal: 14, fontSize: 15, borderWidth: 1.5, marginBottom: 12 },
-  appItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: 1 },
-  appCheckBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  appName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  appPkg: { fontSize: 11, marginTop: 1 },
-  doneBtn: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  doneTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 20, fontFamily: FONTS.bold },
+  searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12 },
+  appItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 8, borderBottomWidth: 1, borderRadius: 8 },
 });

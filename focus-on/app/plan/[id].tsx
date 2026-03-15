@@ -1,33 +1,169 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Platform, Modal, Pressable,
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
+import { isChapterOnly, type PlannedTask } from '@/types/study';
 
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_NAMES    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function formatDate(dateStr: string): string {
+  const todayStr    = new Date().toISOString().split('T')[0];
+  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  if (dateStr === todayStr)    return 'Today';
+  if (dateStr === tomorrowStr) return 'Tomorrow';
+  const d = new Date(dateStr);
+  return `${DAY_NAMES[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
+
+// ── Date Picker Modal ─────────────────────────────────────────────────────────
+function DatePickerModal({ visible, current, onClose, onSelect, colors: c }: {
+  visible: boolean; current: string; onClose: () => void;
+  onSelect: (d: string) => void; colors: any;
+}) {
+  const [offset, setOffset] = useState(0);
+  const base = new Date();
+
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(base.getTime() + (offset * 14 + i) * 86400000);
+    return {
+      dateStr: d.toISOString().split('T')[0],
+      label: String(d.getDate()),
+      dayName: ['S','M','T','W','T','F','S'][d.getDay()],
+    };
+  });
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }} onPress={onClose}>
+        <Pressable style={[{ borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44 }, { backgroundColor: c.bgCard }]}
+          onPress={e => e.stopPropagation()}>
+          <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center', marginBottom: 20 }} />
+          <Text style={{ fontSize: 18, fontFamily: FONTS.bold, color: c.text, marginBottom: 16 }}>Move to date</Text>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <TouchableOpacity onPress={() => setOffset(o => Math.max(0, o - 1))} style={{ opacity: offset === 0 ? 0.3 : 1, padding: 8 }}>
+              <Ionicons name="chevron-back" size={22} color={c.accent} />
+            </TouchableOpacity>
+            <Text style={{ fontFamily: FONTS.semibold, color: c.textMuted, fontSize: 13 }}>
+              {MONTHS_SHORT[new Date(days[0].dateStr).getMonth()]} – {MONTHS_SHORT[new Date(days[13].dateStr).getMonth()]}
+            </Text>
+            <TouchableOpacity onPress={() => setOffset(o => o + 1)} style={{ padding: 8 }}>
+              <Ionicons name="chevron-forward" size={22} color={c.accent} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {days.map(day => {
+              const isSel  = day.dateStr === current;
+              const isPast = day.dateStr < new Date().toISOString().split('T')[0];
+              return (
+                <TouchableOpacity key={day.dateStr}
+                  style={{
+                    width: 44, height: 56, borderRadius: 12, alignItems: 'center',
+                    justifyContent: 'center', borderWidth: 1.5,
+                    backgroundColor: isSel ? c.accent : isPast ? c.bgSecondary : c.inputBg,
+                    borderColor: isSel ? c.accent : c.border,
+                    opacity: isPast ? 0.35 : 1,
+                  }}
+                  onPress={() => { if (!isPast) { onSelect(day.dateStr); onClose(); } }}>
+                  <Text style={{ fontSize: 9, fontFamily: FONTS.semibold, color: isSel ? '#ffffffAA' : c.textFaint }}>{day.dayName}</Text>
+                  <Text style={{ fontSize: 16, fontFamily: FONTS.bold, color: isSel ? '#fff' : c.text }}>{day.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function PlanDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, completePlanTask } = useStudy();
+  const {
+    state, updateStudyPlan,
+    rescheduleMissedTasks, getAdaptiveSuggestion, getAcceptanceRate,
+  } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
 
   const plan = state.studyPlans.find(p => p.id === id);
   if (!plan) return null;
 
-  const today = new Date().toISOString().split('T')[0];
-  const doneTasks = plan.tasks.filter(t => t.completed).length;
-  const prog = plan.tasks.length > 0 ? Math.round((doneTasks / plan.tasks.length) * 100) : 0;
-  const daysLeft = Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / 86400000);
+  const todayStr   = new Date().toISOString().split('T')[0];
+  const doneTasks  = plan.tasks.filter(t => t.completed).length;
+  const totalTasks = plan.tasks.length;
+  const prog       = totalTasks > 0 ? Math.round(doneTasks / totalTasks * 100) : 0;
+  const daysLeft   = Math.ceil((new Date(plan.examDate).getTime() - Date.now()) / 86400000);
+
+  // Missed tasks count
+  const missedCount = plan.tasks.filter(t => !t.completed && t.date < todayStr).length;
+
+  // Adaptive suggestion
+  const suggestion    = getAdaptiveSuggestion(plan.id);
+  const acceptanceRate = getAcceptanceRate();
+
+  // Date picker
+  const [movingTask, setMovingTask] = useState<PlannedTask | null>(null);
+  const [showRescheduleConfirm, setShowRescheduleConfirm] = useState(false);
+  const [rescheduledCount, setRescheduledCount] = useState(0);
+
+  // Auto-check for missed tasks on mount
+  useEffect(() => {
+    if (missedCount > 0) setShowRescheduleConfirm(true);
+  }, []);
 
   // Group tasks by date
-  const byDate: { [date: string]: typeof plan.tasks } = {};
+  const byDate: Record<string, PlannedTask[]> = {};
   plan.tasks.forEach(t => {
     if (!byDate[t.date]) byDate[t.date] = [];
     byDate[t.date].push(t);
   });
   const dates = Object.keys(byDate).sort();
+
+  const moveTask = (taskId: string, newDate: string) => {
+    updateStudyPlan({
+      ...plan,
+      tasks: plan.tasks.map(t => t.id === taskId ? { ...t, date: newDate } : t),
+    });
+  };
+
+  const deleteTask = (taskId: string) => {
+    updateStudyPlan({ ...plan, tasks: plan.tasks.filter(t => t.id !== taskId) });
+  };
+
+  const toggleTask = (task: PlannedTask) => {
+    updateStudyPlan({
+      ...plan,
+      tasks: plan.tasks.map(t =>
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      ),
+    });
+  };
+
+  const handleReschedule = () => {
+    const count = rescheduleMissedTasks();
+    setRescheduledCount(count);
+    setShowRescheduleConfirm(false);
+  };
+
+  const getDisplayName = (task: PlannedTask): string => {
+    const subject = state.subjects.find(s => s.id === task.subjectId);
+    if (!subject) return 'Task';
+    const chapter = subject.chapters.find(ch => ch.id === task.chapterId);
+    if (!chapter || isChapterOnly(chapter)) return chapter?.name ?? 'Chapter';
+    const topic = chapter.topics.find(t => t.id === task.topicId);
+    return topic?.name ?? chapter.name;
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
@@ -45,94 +181,256 @@ export default function PlanDetailScreen() {
         {plan.blockApps && <Ionicons name="shield-checkmark" size={20} color={c.destructive} />}
       </View>
 
-      {/* Progress bar */}
+      {/* Progress */}
       <View style={[styles.progBg, { backgroundColor: c.border }]}>
-        <View style={[styles.progFill, { backgroundColor: c.accent, width: `${prog}%` }]} />
+        <View style={[styles.progFill, { backgroundColor: prog >= 100 ? c.success : c.accent, width: `${prog}%` }]} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Acceptance rate card ── */}
+        {(state as any).acceptanceRecords?.length >= 3 && (
+          <Animated.View entering={FadeInDown.springify()}
+            style={[styles.acceptanceCard, {
+              backgroundColor: acceptanceRate >= 0.7 ? c.accentSoft : '#FEF3C7',
+              borderColor: acceptanceRate >= 0.7 ? c.accent + '40' : '#FCD34D',
+            }]}>
+            <View style={styles.acceptanceLeft}>
+              <Text style={[styles.acceptanceRate, { color: acceptanceRate >= 0.7 ? c.accent : '#D97706' }]}>
+                {Math.round(acceptanceRate * 100)}%
+              </Text>
+              <Text style={[styles.acceptanceLabel, { color: acceptanceRate >= 0.7 ? c.accent : '#92400E' }]}>
+                completion rate
+              </Text>
+            </View>
+            {suggestion && (
+              <Text style={[styles.acceptanceSug, { color: acceptanceRate >= 0.7 ? c.accent : '#92400E' }]}>
+                {suggestion}
+              </Text>
+            )}
+          </Animated.View>
+        )}
+
+        {/* ── Rescheduled confirmation ── */}
+        {rescheduledCount > 0 && (
+          <Animated.View entering={FadeInDown.springify()}
+            style={[styles.rescheduledBanner, { backgroundColor: c.accentSoft, borderColor: c.accent + '40' }]}>
+            <Ionicons name="checkmark-circle" size={18} color={c.accent} />
+            <Text style={[styles.rescheduledTxt, { color: c.accent }]}>
+              {rescheduledCount} missed task{rescheduledCount > 1 ? 's' : ''} moved to upcoming days
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* Hint */}
+        <View style={[styles.hintBar, { backgroundColor: c.bgSecondary }]}>
+          <Ionicons name="information-circle-outline" size={12} color={c.textFaint} />
+          <Text style={[styles.hintTxt, { color: c.textFaint }]}>
+            Tap to complete · Calendar icon to reschedule · Long press to delete
+          </Text>
+        </View>
+
         {dates.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={[styles.emptyTxt, { color: c.textMuted }]}>No tasks scheduled yet.</Text>
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Text style={{ color: c.textMuted, fontFamily: FONTS.regular }}>No tasks scheduled.</Text>
           </View>
         )}
 
         {dates.map((date, di) => {
-          const isToday = date === today;
-          const tasks = byDate[date];
+          const isToday = date === todayStr;
+          const isPast  = date < todayStr;
+          const tasks   = byDate[date];
+          const allDone = tasks.every(t => t.completed);
+
           return (
-            <Animated.View key={date} entering={FadeInDown.delay(di * 50).springify()}>
+            <Animated.View key={date} entering={FadeInDown.delay(di * 35).springify()}>
+              {/* Date header */}
               <View style={styles.dateHeader}>
-                <Text style={[styles.dateLabel, { color: isToday ? c.accent : c.textMuted },
-                  isToday && styles.todayLabel]}>
-                  {isToday ? 'Today' : date}
-                </Text>
+                <View style={styles.dateLabelRow}>
+                  {isPast && !allDone && (
+                    <Ionicons name="alert-circle" size={14} color={c.destructive} />
+                  )}
+                  <Text style={[styles.dateLabel, {
+                    color: isToday ? c.accent : isPast ? (allDone ? c.textFaint : c.destructive) : c.textMuted,
+                    fontSize: isToday ? 15 : 13,
+                  }]}>
+                    {formatDate(date)}
+                  </Text>
+                </View>
+                <View style={[styles.taskCountBadge, {
+                  backgroundColor: isToday ? c.accentSoft : allDone ? c.success + '18' : c.bgSecondary,
+                }]}>
+                  <Text style={{
+                    fontSize: 11, fontFamily: FONTS.bold,
+                    color: isToday ? c.accent : allDone ? c.success : c.textFaint,
+                  }}>
+                    {tasks.filter(t => t.completed).length}/{tasks.length}
+                  </Text>
+                </View>
               </View>
 
               {tasks.map(task => {
-                const subject = state.subjects.find(s => s.id === task.subjectId);
-                const topic = subject?.chapters.flatMap(ch => ch.topics).find(t => t.id === task.topicId);
-                // For chapter-only subjects, topicId = chapterId
-                const chapterName = subject?.chapters.find(ch => ch.id === task.chapterId)?.name;
-                const displayName = topic?.name || chapterName || 'Task';
+                const subject     = state.subjects.find(s => s.id === task.subjectId);
+                const displayName = getDisplayName(task);
+                const isReview    = task.type === 'revision';
 
                 return (
-                  <TouchableOpacity key={task.id}
+                  <TouchableOpacity
+                    key={task.id}
                     style={[styles.taskCard, {
                       backgroundColor: isToday ? c.bgCard : c.bgSecondary,
-                      borderLeftColor: task.completed ? c.success : isToday ? c.accent : c.border,
+                      borderLeftColor: task.completed ? c.success
+                        : isReview ? '#8B5CF6'
+                        : isToday ? c.accent
+                        : isPast ? c.destructive
+                        : c.border,
+                      opacity: isPast && !task.completed ? 0.8 : 1,
                     }]}
-                    onPress={() => !task.completed && completePlanTask(task.id)}
-                    activeOpacity={task.completed ? 1 : 0.75}>
+                    onPress={() => toggleTask(task)}
+                    onLongPress={() => deleteTask(task.id)}
+                    activeOpacity={0.8}
+                  >
+                    {/* Checkbox */}
                     <View style={[styles.checkBox, {
                       borderColor: task.completed ? c.success : c.border,
                       backgroundColor: task.completed ? c.success : 'transparent',
                     }]}>
                       {task.completed && <Ionicons name="checkmark" size={14} color="#fff" />}
                     </View>
+
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.taskName, { color: task.completed ? c.textMuted : c.text },
                         task.completed && styles.taskDone]} numberOfLines={1}>
                         {displayName}
                       </Text>
-                      <Text style={[styles.taskSub, { color: c.textFaint }]}>
-                        {subject?.name}
-                        {task.startTime ? ` · ${task.startTime}–${task.endTime}` : ''}
-                      </Text>
+                      <View style={styles.taskMeta}>
+                        {subject && (
+                          <>
+                            <View style={[styles.subjectDot, { backgroundColor: subject.color }]} />
+                            <Text style={[styles.taskSub, { color: c.textFaint }]}>{subject.name}</Text>
+                          </>
+                        )}
+                        {isReview && (
+                          <View style={[styles.reviewBadge, { backgroundColor: '#8B5CF6' + '20' }]}>
+                            <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: '#8B5CF6' }}>REVIEW</Text>
+                          </View>
+                        )}
+                        {task.startTime && (
+                          <Text style={[styles.taskSub, { color: c.textFaint }]}> · {task.startTime}–{task.endTime}</Text>
+                        )}
+                      </View>
                     </View>
-                    <Text style={[styles.taskMins, { color: c.textFaint }]}>{task.estimatedMinutes}m</Text>
+
+                    {/* Reschedule button */}
+                    {!task.completed && (
+                      <TouchableOpacity
+                        style={[styles.moveBtn, { backgroundColor: c.accentSoft }]}
+                        onPress={() => setMovingTask(task)}>
+                        <Ionicons name="calendar-outline" size={15} color={c.accent} />
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
                 );
               })}
             </Animated.View>
           );
         })}
+
+        {/* Revision days footer */}
+        {(plan.revisionDays ?? 0) > 0 && (
+          <View style={[styles.revisionBanner, { backgroundColor: c.accentSoft }]}>
+            <Ionicons name="refresh-circle-outline" size={18} color={c.accent} />
+            <Text style={{ fontFamily: FONTS.medium, color: c.accent, fontSize: 13 }}>
+              {plan.revisionDays} revision day{plan.revisionDays > 1 ? 's' : ''} reserved before exam
+            </Text>
+          </View>
+        )}
+
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* ── Missed tasks modal ── */}
+      <Modal visible={showRescheduleConfirm} transparent animationType="fade"
+        onRequestClose={() => setShowRescheduleConfirm(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: '#00000077', alignItems: 'center', justifyContent: 'center', padding: 32 }}
+          onPress={() => setShowRescheduleConfirm(false)}>
+          <Animated.View entering={FadeInUp.springify()}
+            style={[styles.rescheduleCard, { backgroundColor: c.bgCard }]}
+            onStartShouldSetResponder={() => true}>
+            <View style={[styles.rescheduleIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="calendar" size={30} color="#D97706" />
+            </View>
+            <Text style={[styles.rescheduleTitle, { color: c.text }]}>
+              {missedCount} missed task{missedCount > 1 ? 's' : ''}
+            </Text>
+            <Text style={[styles.rescheduleDesc, { color: c.textMuted }]}>
+              You have incomplete tasks from previous days. Move them to upcoming study days?
+            </Text>
+            <TouchableOpacity
+              style={[styles.rescheduleBtn, { backgroundColor: c.accent }]}
+              onPress={handleReschedule}>
+              <Ionicons name="calendar-outline" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>Reschedule Automatically</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.rescheduleBtn, { backgroundColor: c.bgSecondary }]}
+              onPress={() => setShowRescheduleConfirm(false)}>
+              <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>Keep as is</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Date picker */}
+      {movingTask && (
+        <DatePickerModal
+          visible={!!movingTask}
+          current={movingTask.date}
+          colors={c}
+          onClose={() => setMovingTask(null)}
+          onSelect={newDate => { moveTask(movingTask.id, newDate); setMovingTask(null); }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingBottom: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingBottom: 14 },
   backBtn: { padding: 4 },
-  planName: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
-  planSub: { fontSize: 12, marginTop: 2 },
+  planName: { fontSize: 18, fontFamily: FONTS.bold },
+  planSub: { fontSize: 12, marginTop: 2, fontFamily: FONTS.regular },
   progBg: { height: 3 },
   progFill: { height: '100%' },
   content: { padding: 16 },
-  dateHeader: { marginTop: 8, marginBottom: 8 },
-  dateLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  todayLabel: { fontSize: 15 },
-  taskCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
-    borderRadius: RADIUS.xl, marginBottom: 8, borderLeftWidth: 4 },
-  checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  taskName: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  acceptanceCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, marginBottom: 12, borderWidth: 1 },
+  acceptanceLeft: { alignItems: 'center' },
+  acceptanceRate: { fontSize: 22, fontFamily: FONTS.bold },
+  acceptanceLabel: { fontSize: 10, fontFamily: FONTS.medium },
+  acceptanceSug: { flex: 1, fontSize: 13, fontFamily: FONTS.regular, lineHeight: 18 },
+  rescheduledBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1 },
+  rescheduledTxt: { fontSize: 13, fontFamily: FONTS.semibold },
+  hintBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6, borderRadius: 10, marginBottom: 12 },
+  hintTxt: { fontSize: 11, fontFamily: FONTS.regular },
+  dateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },
+  dateLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dateLabel: { fontFamily: FONTS.bold },
+  taskCountBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  taskCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: RADIUS.xl, marginBottom: 8, borderLeftWidth: 3 },
+  checkBox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  taskName: { fontSize: 14, fontFamily: FONTS.semibold, marginBottom: 3 },
   taskDone: { textDecorationLine: 'line-through', opacity: 0.5 },
-  taskSub: { fontSize: 11, marginTop: 2 },
-  taskMins: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyTxt: { fontSize: 15 },
+  taskMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  subjectDot: { width: 7, height: 7, borderRadius: 4 },
+  taskSub: { fontSize: 11, fontFamily: FONTS.regular },
+  reviewBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  moveBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  revisionBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderRadius: RADIUS.xl, marginTop: 16 },
+  // Reschedule modal
+  rescheduleCard: { borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', gap: 12 },
+  rescheduleIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  rescheduleTitle: { fontSize: 20, fontFamily: FONTS.bold },
+  rescheduleDesc: { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
+  rescheduleBtn: { width: '100%', height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
 });

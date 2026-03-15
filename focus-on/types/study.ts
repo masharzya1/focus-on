@@ -3,25 +3,43 @@ export interface Subject {
   name: string;
   color: string;
   icon: string;
-  topicBased: boolean;
   chapters: Chapter[];
   createdAt: string;
-}
-
-export interface ChapterTodo {
-  id: string;
-  text: string;
-  completed: boolean;
 }
 
 export interface Chapter {
   id: string;
   subjectId: string;
   name: string;
-  topics: Topic[];
+  topics: Topic[];       // empty = chapter itself is the completable unit
+  completed?: boolean;   // used when no topics
+  completedAt?: string;
   priority: 'low' | 'medium' | 'high';
-  estimatedMinutes?: number;
-  todos?: ChapterTodo[];
+}
+
+// Chapter has no sub-topics → chapter itself is the todo
+export function isChapterOnly(chapter: Chapter): boolean {
+  return chapter.topics.length === 0;
+}
+
+// Subject is topic-based if ANY chapter has topics
+export function isSubjectTopicBased(subject: Subject): boolean {
+  return subject.chapters.some(ch => ch.topics.length > 0);
+}
+
+// Subject progress:
+// topic-based → % of topics completed
+// chapter-only → % of chapters completed
+export function getSubjectProgressValue(subject: Subject): number {
+  const topicBased = isSubjectTopicBased(subject);
+  if (topicBased) {
+    const all  = subject.chapters.flatMap(c => c.topics);
+    if (all.length === 0) return 0;
+    return Math.round(all.filter(t => t.completed).length / all.length * 100);
+  } else {
+    if (subject.chapters.length === 0) return 0;
+    return Math.round(subject.chapters.filter(c => c.completed).length / subject.chapters.length * 100);
+  }
 }
 
 export interface Topic {
@@ -30,7 +48,6 @@ export interface Topic {
   subjectId: string;
   name: string;
   difficulty: number;
-  estimatedMinutes: number;
   completed: boolean;
   completedAt?: string;
   notes: string;
@@ -55,7 +72,9 @@ export interface StudyPlan {
   examDate: string;
   examName: string;
   subjects: string[];
-  dailyHours: number;
+  dailyCount: number;      // how many topics/chapters per day
+  studyDays: number[];     // 0=Sun ... 6=Sat
+  revisionDays: number;    // days before exam kept for revision
   createdAt: string;
   tasks: PlannedTask[];
   blockApps: boolean;
@@ -66,32 +85,32 @@ export interface StudyPlan {
 
 export interface PlannedTask {
   id: string;
-  date: string;
-  startTime?: string;
+  date: string;            // YYYY-MM-DD
+  startTime?: string;      // set by user in daily routine
   endTime?: string;
-  topicId: string;
+  topicId: string;         // topicId OR chapterId for chapter-only
   subjectId: string;
   chapterId: string;
-  estimatedMinutes: number;
   completed: boolean;
   type: 'study' | 'revision';
+  estimatedMinutes?: number; // optional - used by timer
 }
 
-// Active task — returned by getActiveNowTask()
+// Active task — what should be studied right now
 export interface ActiveTask {
   planId: string;
   taskId: string;
   topicId: string;
   subjectId: string;
   chapterId: string;
-  estimatedMinutes: number;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
   subjectName: string;
   subjectColor: string;
   subjectIcon: string;
-  topicName: string;       // topic name OR chapter name for chapter-only subjects
+  topicName: string;
   isChapterOnly: boolean;
+  estimatedMinutes: number;
   blockApps: boolean;
   hardBlock: boolean;
   deviceAdmin: boolean;
@@ -117,11 +136,10 @@ export interface AppBlockRoutine {
   hardBlock?: boolean;
   deviceAdmin?: boolean;
   fromPlanId?: string;
-  // Emergency override settings
-  emergencyUnlockCount?: number;   // how many times unlocked today
-  maxEmergencyUnlocks?: number;    // default 3
-  emergencyPassword?: string;      // optional PIN/password
-  lastUnlockDate?: string;         // YYYY-MM-DD, to reset daily count
+  emergencyUnlockCount?: number;
+  maxEmergencyUnlocks?: number;
+  emergencyPassword?: string;
+  lastUnlockDate?: string;
 }
 
 export interface AppSettings {
@@ -148,6 +166,7 @@ export interface AppState {
   todaySessionsCompleted: number;
   todaySessionsDate?: string;
   onboardingCompleted: boolean;
+  acceptanceRecords: { date: string; scheduled: number; completed: number }[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

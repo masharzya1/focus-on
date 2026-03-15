@@ -257,12 +257,13 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
             if (dpm == null) { promise.resolve(false); return }
             val comp = ComponentName(ctx, DeviceAdminReceiver::class.java)
             if (dpm.isAdminActive(comp)) { promise.resolve(true); return }
-            ctx.startActivity(Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, comp)
                 putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
                     "Grant Device Admin so Focus On cannot be uninstalled during active blocks.")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            }
+            ctx.startActivity(intent)
             promise.resolve(false)
         } catch (e: Exception) { promise.resolve(false) }
     }

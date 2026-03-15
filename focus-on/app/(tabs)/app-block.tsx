@@ -7,11 +7,36 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import { InteractionManager } from 'react-native';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
 import type { AppBlockRoutine, AppTimeLimit } from '@/types/study';
+
+
+// ── Known distraction app packages ───────────────────────────────────────────
+const DISTRACTION_PACKAGES = new Set([
+  // Social media
+  'com.facebook.katana','com.instagram.android','com.twitter.android',
+  'com.snapchat.android','com.tiktok','com.zhiliaoapp.musically',
+  'com.pinterest','com.reddit.frontpage','com.tumblr',
+  'com.linkedin.android','com.vk.android','com.telegram.messenger',
+  'org.telegram.messenger','com.whatsapp','com.discord',
+  // Video
+  'com.google.android.youtube','com.netflix.mediaclient',
+  'com.amazon.avod.thirdpartyclient','com.hotstar',
+  'tv.twitch.android.app','com.facebook.orca',
+  // Games (popular time wasters)
+  'com.supercell.clashofclans','com.supercell.clashroyale',
+  'com.king.candycrushsaga','com.garena.free.fire',
+  'com.activision.callofduty.shooter','com.mobile.legends',
+  // Browsers (optional block)
+  'com.android.chrome','org.mozilla.firefox',
+  'com.sec.android.app.sbrowser','com.opera.browser',
+  // Shopping / other
+  'com.amazon.mShop.android.shopping','com.ebay.mobile',
+]);
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 type Tab = 'apps' | 'websites' | 'limits';
@@ -253,12 +278,22 @@ export default function AppBlockScreen() {
     AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
     AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
     AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
-    // Preload apps in background so picker opens instantly
+    // Preload apps after tab transition completes (avoids freeze)
     if (installedApps.length === 0) {
-      setLoadingApps(true);
-      AppBlocking.getInstalledApps()
-        .then(apps => { setInstalledApps(apps); setLoadingApps(false); })
-        .catch(() => setLoadingApps(false));
+      const task = InteractionManager.runAfterInteractions(() => {
+        setLoadingApps(true);
+        AppBlocking.getInstalledApps()
+          .then(all => {
+            const sorted = [
+              ...all.filter((a: any) => DISTRACTION_PACKAGES.has(a.packageName)),
+              ...all.filter((a: any) => !DISTRACTION_PACKAGES.has(a.packageName)),
+            ];
+            setInstalledApps(sorted);
+            setLoadingApps(false);
+          })
+          .catch(() => setLoadingApps(false));
+      });
+      return () => task.cancel();
     }
   }, []));
 
@@ -283,7 +318,7 @@ export default function AppBlockScreen() {
 
   const openEdit = (r: AppBlockRoutine) => {
     setEditingId(r.id);
-    setRName(r.name); setRStart(r.startTime); setREnd(r.endTime);
+    setRName(r.name); setRStart(r.startTime ?? '09:00'); setREnd(r.endTime ?? '11:00');
     setRDays(r.days); setRApps(r.blockedApps); setRShorts(r.blockShorts);
     setRHard(r.hardBlock ?? false); setRAdmin(r.deviceAdmin ?? false);
     setRMaxUnlocks(r.maxEmergencyUnlocks ?? 3);
@@ -397,7 +432,7 @@ export default function AppBlockScreen() {
   const isActive = (r: AppBlockRoutine) => {
     const now = getCurrentTime();
     const today = new Date().getDay();
-    return r.enabled && now >= r.startTime && now <= r.endTime &&
+    return r.enabled && !!r.startTime && !!r.endTime && now >= r.startTime && now <= r.endTime &&
       (r.days.length === 0 || r.days.includes(today));
   };
 
@@ -501,7 +536,30 @@ export default function AppBlockScreen() {
                 <Text style={[styles.emptySub, { color: c.textMuted }]}>Block distracting apps during study time</Text>
               </View>
             ) : (
-              state.blockRoutines.map((r, i) => {
+              <>
+                {/* System plan routines - read only */}
+                {state.blockRoutines.filter(r => !!r.fromPlanId).map(r => (
+                  <View key={r.id} style={[styles.routineCard, { backgroundColor: c.bgCard, borderLeftColor: c.accent }]}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <Text style={[styles.routineName, { color: c.text }]}>{r.name}</Text>
+                        <View style={{ backgroundColor: c.accentSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                          <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: c.accent }}>AUTO</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.routineTime, { color: c.textMuted }]}>{r.startTime} – {r.endTime}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textFaint }}>{r.blockedApps.length} apps · Manage from Plans</Text>
+                    </View>
+                    <Switch value={r.enabled}
+                      onValueChange={v => updateBlockRoutine({ ...r, enabled: v })}
+                      trackColor={{ false: c.border, true: c.accent + '60' }}
+                      thumbColor={r.enabled ? c.accent : c.textFaint}
+                    />
+                  </View>
+                ))}
+                {/* Manual routines */}
+                {state.blockRoutines.filter(r => !r.fromPlanId).map((r, i) => {
+                const isSystem = !!r.fromPlanId;
                 const active = isActive(r);
                 return (
                   <Animated.View key={r.id} entering={FadeInDown.delay(i * 60).springify()}>
@@ -587,25 +645,35 @@ export default function AppBlockScreen() {
                           trackColor={{ true: c.accent }}
                           style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }} />
                       </View>
-                      <View style={[styles.actionRow, { borderTopColor: c.border }]}>
-                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.accentSoft }]}
-                          onPress={() => openEdit(r)}>
-                          <Ionicons name="pencil-outline" size={14} color={c.accent} />
-                          <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Edit</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.destructive + '12' }]}
-                          onPress={() => Alert.alert('Delete?', `Delete "${r.name}"?`, [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => deleteBlockRoutine(r.id) },
-                          ])}>
-                          <Ionicons name="trash-outline" size={14} color={c.destructive} />
-                          <Text style={[styles.actionBtnTxt, { color: c.destructive }]}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
+                      {isSystem ? (
+                        <View style={[styles.actionRow, { borderTopColor: c.border, justifyContent: 'center' }]}>
+                          <View style={[styles.actionBtn, { backgroundColor: c.accentSoft, opacity: 0.8 }]}>
+                            <Ionicons name="shield-checkmark-outline" size={14} color={c.accent} />
+                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Auto — managed by plan</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={[styles.actionRow, { borderTopColor: c.border }]}>
+                          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.accentSoft }]}
+                            onPress={() => openEdit(r)}>
+                            <Ionicons name="pencil-outline" size={14} color={c.accent} />
+                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.destructive + '12' }]}
+                            onPress={() => Alert.alert('Delete?', `Delete "${r.name}"?`, [
+                              { text: 'Cancel', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => deleteBlockRoutine(r.id) },
+                            ])}>
+                            <Ionicons name="trash-outline" size={14} color={c.destructive} />
+                            <Text style={[styles.actionBtnTxt, { color: c.destructive }]}>Delete</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   </Animated.View>
                 );
-              })
+              })}
+              </>
             )}
           </>
         )}

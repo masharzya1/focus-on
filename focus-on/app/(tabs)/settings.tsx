@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, TextInput, Alert } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS, SPACING, HEADER_TOP, TYPE } from '@/constants/theme';
+import * as Notifications from 'expo-notifications';
 
 // ── Stepper component ─────────────────────────────────────────────────────────
 function Stepper({ value, min, max, step = 1, onChange, suffix = '' }:
@@ -109,6 +110,25 @@ export default function SettingsScreen() {
   const { colors: c, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const { settings } = state;
+  const [testTitle, setTestTitle] = useState('📖 Study Time!');
+  const [testBody,  setTestBody]  = useState('Time to focus on your studies.');
+
+  const sendTestNotification = async () => {
+    try {
+      const perm = await Notifications.getPermissionsAsync();
+      if (perm.status !== 'granted') {
+        const req = await Notifications.requestPermissionsAsync();
+        if (req.status !== 'granted') {
+          Alert.alert('Permission denied', 'Enable notifications in device settings.'); return;
+        }
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: { title: testTitle || '📖 Study Time!', body: testBody || 'Time to focus.', sound: true },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3 },
+      });
+      Alert.alert('✅ Sent!', 'Notification will arrive in 3 seconds.');
+    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed'); }
+  };
 
   return (
     <View style={[st.root, { backgroundColor: c.bg }]}>
@@ -193,6 +213,48 @@ export default function SettingsScreen() {
             </View>
             <Text style={[TYPE.body, st.rowLabel, { color: c.text }]}>Version</Text>
             <Text style={[TYPE.callout, { color: c.textMuted }]}>2.0.0</Text>
+          </View>
+        </Card>
+
+        {/* ── 🧪 TEST NOTIFICATION — remove before release ── */}
+        <Card>
+          <View style={{ padding: 16, gap: 12 }}>
+            <Text style={{ fontFamily: FONTS.bold, fontSize: 14, color: c.textMuted }}>
+              🧪 Test Notification (remove before release)
+            </Text>
+            <TextInput
+              value={testTitle}
+              onChangeText={setTestTitle}
+              placeholder="Title"
+              placeholderTextColor={c.textFaint}
+              style={{
+                backgroundColor: c.bgSecondary, borderRadius: 10,
+                paddingHorizontal: 14, paddingVertical: 10,
+                color: c.text, fontFamily: FONTS.regular, fontSize: 14,
+              }}
+            />
+            <TextInput
+              value={testBody}
+              onChangeText={setTestBody}
+              placeholder="Body"
+              placeholderTextColor={c.textFaint}
+              style={{
+                backgroundColor: c.bgSecondary, borderRadius: 10,
+                paddingHorizontal: 14, paddingVertical: 10,
+                color: c.text, fontFamily: FONTS.regular, fontSize: 14,
+              }}
+            />
+            <TouchableOpacity
+              style={{
+                backgroundColor: c.accent, borderRadius: 12,
+                paddingVertical: 14, alignItems: 'center',
+              }}
+              onPress={sendTestNotification}
+            >
+              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>
+                Send Test Notification (3s delay)
+              </Text>
+            </TouchableOpacity>
           </View>
         </Card>
 
