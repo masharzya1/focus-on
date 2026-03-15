@@ -12,9 +12,15 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { ActiveTask, PlannedTask } from '@/types/study';
-import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
+import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel, scheduleRoutineReminder, scheduleNewDayRoutineReminder } from '@/services/notifications';
+import {
+  scheduleStudyCheckIns, schedulePostTaskUsageCheck,
+  confirmStudyingForTask, cancelCheckInsForTask, setupStudyMonitorChannel,
+  setupStudyMonitorNotificationHandler,
+} from '@/services/studyMonitor';
 
 
 const styles = StyleSheet.create({
@@ -22,7 +28,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 32, gap: 14 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 52, paddingBottom: 12,
+    paddingHorizontal: 20, paddingBottom: 12,
   },
   greetingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   greeting: { fontSize: 14, fontFamily: FONTS.medium },
@@ -219,11 +225,11 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
         init[task.id] = { sh, sm, eh, em };
         curH = eh; curM = em;
       } else {
-        const endMins = curH * 60 + curM + 60; // default 1hr per task
-        const eh = Math.min(23, Math.floor(endMins / 60));
+        const endMins = curH * 60 + curM + 60; // allow overflow, stored as cross-midnight
+        const eh = Math.floor(endMins / 60); // no clamp — 24:00 = midnight
         const em = endMins % 60;
         init[task.id] = { sh: curH, sm: curM, eh, em };
-        curH = eh; curM = em;
+        curH = eh % 24; curM = em; // cascade uses mod24
       }
     }
     setTimes(init);
@@ -298,6 +304,10 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
   // Detect tasks that overflowed past midnight
   const overflowTasks = tasks.filter(task => {
     const t = times[task.id];
+    return t && (t.sh >= 24 || t.eh >= 24);
+  });
+  const movedTasks = tasks.filter(task => {
+    const t = times[task.id];
     return t && t.sh >= 24;
   });
 
@@ -307,11 +317,13 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
       // Clamp to midnight for storage — overflow tasks will be moved to tomorrow
       const clampedSh = Math.min(23, t.sh);
       const clampedEh = Math.min(23, t.eh);
+      // Store actual mod-24 times; cross-midnight tasks (end < start) stay on today
+      const startOver = t.sh >= 24;
       return {
         id: task.id,
-        startTime: `${pad(clampedSh)}:${pad(t.sm)}`,
-        endTime: `${pad(clampedEh)}:${pad(t.em)}`,
-        movedToTomorrow: t.sh >= 24,
+        startTime: `${pad(t.sh % 24)}:${pad(t.sm)}`,
+        endTime: `${pad(t.eh % 24)}:${pad(t.em)}`, // 24:15 → 00:15
+        movedToTomorrow: startOver, // only if START crosses midnight
       };
     });
     onSave(updated);
@@ -413,7 +425,7 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
                 backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 8 }}>
                 <Ionicons name="information-circle" size={16} color="#D97706" />
                 <Text style={{ flex: 1, fontSize: 12, fontFamily: 'System', color: '#92400E' }}>
-                  {overflowTasks.length} task{overflowTasks.length > 1 ? 's' : ''} will move to tomorrow's plan
+                  {movedTasks.length > 0 ? `${movedTasks.length} task${movedTasks.length > 1 ? 's' : ''} will move to tomorrow` : `${overflowTasks.length - movedTasks.length} task end time clamped to 11:59 PM`}
                 </Text>
               </View>
             )}
@@ -436,12 +448,56 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
   );
 }
 
+
+// ── Study Check-In Card ───────────────────────────────────────────────────────
+function StudyCheckInCard({ task, onConfirm, onDismiss, colors: c }: {
+  task: ActiveTask;
+  onConfirm: () => void;
+  onDismiss: () => void;
+  colors: any;
+}) {
+  return (
+    <Animated.View entering={FadeInDown.springify()}
+      style={{
+        borderRadius: 16, padding: 14,
+        backgroundColor: task.subjectColor + '12',
+        borderWidth: 1.5, borderColor: task.subjectColor + '30',
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+      }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: c.text, marginBottom: 2 }}>
+          📚 এখন কি পড়ছো?
+        </Text>
+        <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textMuted }}>
+          {task.topicName} · {task.startTime}–{task.endTime}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={{
+          paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+          backgroundColor: task.subjectColor, gap: 4,
+          flexDirection: 'row', alignItems: 'center',
+        }}
+        onPress={onConfirm}>
+        <Ionicons name="checkmark" size={14} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 12, fontFamily: FONTS.bold }}>হ্যাঁ, পড়ছি</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={{ padding: 6 }}
+        onPress={onDismiss}>
+        <Ionicons name="close" size={16} color={c.textFaint} />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
-  const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
+  const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine, confirmStudying, isStudyingConfirmed } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
   const greeting = getGreeting();
+  const { top: topInset } = useSafeAreaInsets();
 
   const todayMin = getTodayMinutes();
   const goalMin  = state.settings.dailyGoalMinutes;
@@ -454,20 +510,22 @@ export default function HomeScreen() {
     [state.studyPlans, today]
   );
 
-  // Tasks without a time set yet (for banner count)
+  // Tasks that have NO time set yet — these need routine scheduling
   const unscheduledTasks = useMemo(() =>
     state.studyPlans.flatMap(p => p.tasks.filter(t => t.date === today && !t.completed && !t.startTime)),
     [state.studyPlans, today]
   );
+  // Show banner only when there are tasks without a time set
   const needsRoutine = unscheduledTasks.length > 0;
 
-  // ALL today's incomplete tasks → passed to modal so all 4 appear (not just unscheduled 3)
+  // Today's incomplete tasks for modal — only today's date, exclude tasks user manually moved to tomorrow
   const todayIncompleteTasks = useMemo(() =>
     state.studyPlans.flatMap(p => p.tasks.filter(t => t.date === today && !t.completed)),
     [state.studyPlans, today]
   );
 
   const [showRoutine, setShowRoutine] = useState(false);
+  const [checkInTaskId, setCheckInTaskId] = useState<string | null>(null);
 
   // Active task — refreshes every 30s
   const [activeTask, setActiveTask] = useState<ActiveTask | null>(null);
@@ -482,8 +540,15 @@ export default function HomeScreen() {
   // Setup Android notification channel on mount
   useEffect(() => {
     setupAndroidChannel().catch(() => {});
+    setupStudyMonitorChannel().catch(() => {});
     const t = setTimeout(() => rescheduleMissedTasks(), 2000);
-    return () => clearTimeout(t);
+    // New-day reminder scheduled after routine save — not on mount
+    // Wire up notification tap → show check-in card
+    const unsub = setupStudyMonitorNotificationHandler((taskId) => {
+      // Notification tapped — bring home screen into view with check-in
+      setCheckInTaskId(taskId);
+    });
+    return () => { clearTimeout(t); unsub(); };
   }, []);
 
   // Show routine modal automatically in the morning (once per day)
@@ -508,9 +573,10 @@ export default function HomeScreen() {
       const updatedTasks = plan.tasks.map(task => {
         const u = updates.find(x => x.id === task.id);
         if (!u) return task;
-        // If task overflowed past midnight, move it to tomorrow's date
+        // If task overflowed past midnight → move to tomorrow but CLEAR time
+        // Tomorrow's routine will let user set time fresh for that day
         if (u.movedToTomorrow) {
-          return { ...task, date: tomorrow, startTime: u.startTime, endTime: u.endTime };
+          return { ...task, date: tomorrow, startTime: undefined, endTime: undefined };
         }
         return { ...task, startTime: u.startTime, endTime: u.endTime };
       });
@@ -579,6 +645,45 @@ export default function HomeScreen() {
 
     const moved = updates.filter(u => u.movedToTomorrow).length;
     if (moved > 0) setMovedCount(moved);
+    // Schedule smart study check-ins for each task
+    for (const plan of state.studyPlans) {
+      for (const task of plan.tasks) {
+        const u = updates.find(x => x.id === task.id);
+        if (!u || !task.startTime) continue;
+        const subject = state.subjects.find(s => s.id === task.subjectId);
+        const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
+        const topic = chapter?.topics.find(t => t.id === task.topicId);
+        const name = topic?.name ?? chapter?.name ?? 'Study task';
+        scheduleStudyCheckIns({
+          id: task.id,
+          topicName: name,
+          subjectName: subject?.name ?? '',
+          startTime: u.startTime,
+          endTime: u.endTime,
+          date: today,
+          estimatedMinutes: task.estimatedMinutes ?? 40,
+        }).catch(() => {});
+        schedulePostTaskUsageCheck({
+          id: task.id,
+          topicName: name,
+          endTime: u.endTime,
+          date: today,
+          estimatedMinutes: task.estimatedMinutes ?? 40,
+        }).catch(() => {});
+      }
+    }
+    // Schedule midnight notification for tomorrow's unscheduled tasks
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const tomorrowUnscheduled = state.studyPlans.flatMap(p =>
+      p.tasks.filter(t => t.date === tomorrow && !t.completed && !t.startTime)
+    ).map(t => {
+      const subj = state.subjects.find(s => s.id === t.subjectId);
+      const ch = subj?.chapters.find(c => c.id === t.chapterId);
+      const tp = ch?.topics.find(x => x.id === t.topicId);
+      return { topicName: tp?.name ?? ch?.name ?? 'Task' };
+    });
+    scheduleNewDayRoutineReminder(tomorrowUnscheduled).catch(() => {});
+
     setShowRoutine(false);
   };
 
@@ -602,7 +707,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
       {/* Sticky Header - outside ScrollView so it stays fixed while scrolling */}
-      <Animated.View entering={FadeInDown.delay(0).springify()} style={[styles.header, { backgroundColor: c.bg }]}>
+      <Animated.View entering={FadeInDown.delay(0).springify()} style={[styles.header, { backgroundColor: c.bg, paddingTop: topInset + 12 }]}>
         <View>
           <View style={styles.greetingRow}>
             <Ionicons name={greeting.icon} size={16} color={greeting.color} />
@@ -657,6 +762,22 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(40).springify()}>
           <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} />
         </Animated.View>
+      )}
+
+      {/* Study Check-In Card — shown when task is active and not yet confirmed */}
+      {activeTask && !isStudyingConfirmed(activeTask.taskId) && (
+        <StudyCheckInCard
+          task={activeTask}
+          colors={c}
+          onConfirm={() => {
+            confirmStudying(activeTask.taskId);
+            confirmStudyingForTask(activeTask.taskId).catch(() => {});
+          }}
+          onDismiss={() => {
+            // Just dismiss the card locally — notifications will still fire
+            confirmStudying(activeTask.taskId);
+          }}
+        />
       )}
 
       {/* Daily goal */}
@@ -794,10 +915,10 @@ export default function HomeScreen() {
           <Ionicons name="calendar" size={20} color="#D97706" />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: '#92400E' }}>
-              {movedCount} task{movedCount > 1 ? 's' : ''} moved to tomorrow
+              {movedCount} task{movedCount > 1 ? 's' : ''} moved to tomorrow — time cleared
             </Text>
             <Text style={{ fontSize: 11, fontFamily: FONTS.regular, color: '#B45309', marginTop: 2 }}>
-              Time was past midnight — auto-rescheduled
+              Time set হয়নি — কাল routine set করার সময় দেখাবে
             </Text>
           </View>
           <TouchableOpacity onPress={() => setMovedCount(0)}>
@@ -818,4 +939,4 @@ export default function HomeScreen() {
     </ScrollView>
     </View>
   );
-}
+                           }
