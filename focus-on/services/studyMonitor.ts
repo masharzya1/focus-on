@@ -1,604 +1,235 @@
-import React, {
-  createContext, useContext, useEffect, useReducer, useRef, useCallback,
-} from 'react';
-import { Platform } from 'react-native';
+/**
+ * studyMonitor.ts — Duolingo-style smart study monitoring
+ */
+
+import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {
-  AppState, Subject, StudySession,
-  StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit, ActiveTask,
-} from '@/types/study';
-import {
-  rescheduleMissedTasks, calculateAdaptiveCapacity,
-  type AcceptanceRecord,
-} from '@/utils/smartSchedule';
-import { DEFAULT_SETTINGS } from '@/types/study';
+import { Platform } from 'react-native';
 import AppBlocking from '@/modules/AppBlocking';
 
-const STORAGE_KEY = 'focuson_data_v3';
+const CONFIRMED_KEY   = (id: string) => `study_confirmed_${id}`;
+const CHECKIN_IDS_KEY = (id: string) => `study_checkin_ids_${id}`;
 
-// ── Default state ─────────────────────────────────────────────────────────────
-const defaultState: AppState & {
-  lastStudyDate?: string;
-  todaySessionsDate?: string;
-  acceptanceRecords: AcceptanceRecord[];
-} = {
-  subjects: [],
-  sessions: [],
-  studyPlans: [],
-  blockRoutines: [],
-  timeLimits: [],
-  settings: DEFAULT_SETTINGS,
-  streak: 0,
-  xp: 0,
-  level: 1,
-  totalTopicsCompleted: 0,
-  todaySessionsCompleted: 0,
-  onboardingCompleted: false,
-  lastStudyDate: undefined,
-  todaySessionsDate: undefined,
-  acceptanceRecords: [] as AcceptanceRecord[],
-  confirmedStudyingTasks: [] as string[],
-};
+const DISTRACTION_APPS = new Set([
+  'com.instagram.android','com.google.android.youtube','com.facebook.katana',
+  'com.facebook.orca','com.snapchat.android','com.zhiliaoapp.musically',
+  'com.ss.android.ugc.trill','com.twitter.android','com.reddit.frontpage',
+  'com.pinterest','com.netflix.mediaclient','org.telegram.messenger','com.whatsapp',
+]);
 
-type State = typeof defaultState;
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-type Action =
-  | { type: 'HYDRATE'; payload: Partial<State> }
-  | { type: 'ADD_SUBJECT'; payload: Subject }
-  | { type: 'UPDATE_SUBJECT'; payload: Subject }
-  | { type: 'DELETE_SUBJECT'; payload: string }
-  | { type: 'TOGGLE_TOPIC'; payload: { subjectId: string; chapterId: string; topicId: string } }
-  | { type: 'ADD_SESSION'; payload: StudySession }
-  | { type: 'ADD_PLAN'; payload: StudyPlan }
-  | { type: 'UPDATE_PLAN'; payload: StudyPlan }
-  | { type: 'DELETE_PLAN'; payload: string }
-  | { type: 'COMPLETE_TASK'; payload: string }
-  | { type: 'COMPLETE_TASK_AND_TOPIC'; payload: { taskId: string; subjectId: string; chapterId: string; topicId: string } }
-  | { type: 'ADD_ROUTINE'; payload: AppBlockRoutine }
-  | { type: 'UPDATE_ROUTINE'; payload: AppBlockRoutine }
-  | { type: 'DELETE_ROUTINE'; payload: string }
-  | { type: 'ADD_TIME_LIMIT'; payload: AppTimeLimit }
-  | { type: 'UPDATE_TIME_LIMIT'; payload: AppTimeLimit }
-  | { type: 'DELETE_TIME_LIMIT'; payload: string }
-  | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
-  | { type: 'GAIN_XP'; payload: number }
-  | { type: 'COMPLETE_ONBOARDING' }
-  | { type: 'RESCHEDULE_MISSED'; payload: { planId: string; updatedTasks: any[] } }
-  | { type: 'RECORD_ACCEPTANCE'; payload: AcceptanceRecord }
-  | { type: 'CONFIRM_STUDYING'; payload: string };
+// ── Message pools ─────────────────────────────────────────────────────────────
 
-// ── Reducer ───────────────────────────────────────────────────────────────────
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
+const MSG_5MIN = (topic: string) => pick([
+  { title: `ওই! পড়া শুরু করো 👀`, body: `${topic} নিজে নিজে পড়া হবে না। তুমি ছাড়া কে পড়বে?` },
+  { title: `পরীক্ষা কিন্তু কাছে আসছে 😬`, body: `${topic} এখনো বাকি। Phone রেখে বই তোলো!` },
+  { title: `Focus On তোমার জন্য ready 🕐`, body: `${topic} এর session শুরু হওয়ার কথা। চলো?` },
+  { title: `তোমার future self ধন্যবাদ দেবে 🙏`, body: `এখন ${topic} পড়লে পরে অনেক চাপ কমবে।` },
+  { title: `Duolingo owl রাগ করে, আমি কষ্ট পাই 😢`, body: `${topic} পড়ে আমাকে খুশি করো!` },
+]);
 
-    case 'HYDRATE':
-      return { ...state, ...action.payload };
+const MSG_10MIN = (topic: string) => pick([
+  { title: `১০ মিনিট হয়ে গেলো 😮`, body: `${topic} এখনো শুরু হয়নি। কী হচ্ছে ভাই?` },
+  { title: `তোমার streak কাঁদছে 😭`, body: `এত কষ্টে বানানো streak নষ্ট হতে দিও না। ${topic} শুরু করো!` },
+  { title: `ঠিক আছে, একটু rest নিচ্ছিলে 😅`, body: `কিন্তু এবার সত্যিই ${topic} পড়তে হবে। চলো!` },
+  { title: `এখনো phone এ? 😑`, body: `${topic} এর notes তোমার দিকে তাকিয়ে আছে। হতাশ করো না।` },
+  { title: `পরীক্ষার আগের রাতের কথা মনে আছে? 😬`, body: `সেই panic এড়াতে এখনই ${topic} পড়ো।` },
+]);
 
-    case 'ADD_SUBJECT':
-      return { ...state, subjects: [...state.subjects, action.payload] };
+const MSG_15MIN_PLAIN = (topic: string) => pick([
+  { title: `১৫ মিনিট... 😶`, body: `${topic} এখনো শুরু হয়নি। কোনো সমস্যা? (পড়ো আসলে 😄)` },
+  { title: `তোমার study plan কষ্ট পাচ্ছে 😔`, body: `${topic} এর জায়গা ফাঁকা পড়ে আছে। ভরো!` },
+]);
 
-    case 'UPDATE_SUBJECT':
-      return { ...state, subjects: state.subjects.map(s => s.id === action.payload.id ? action.payload : s) };
+const MSG_15MIN_APP = (appName: string, topic: string) => pick([
+  { title: `${appName} কি এখন class দিচ্ছে? 🤔`, body: `সত্যিই class হলে ঠিক আছে! নাহলে ${topic} এ ফিরে এসো।` },
+  { title: `${appName} তোমার marks বাড়াবে না 😅`, body: `${topic} পারবে। Switch করো!` },
+  { title: `${appName} এ কী এত interesting? 👀`, body: `পরে বলো। আগে ${topic} শেষ করো!` },
+]);
 
-    case 'DELETE_SUBJECT':
-      return { ...state, subjects: state.subjects.filter(s => s.id !== action.payload) };
+const MSG_APP_2ND = (appName: string, topic: string) => pick([
+  { title: `আরো ${appName}? 😂`, body: `সত্যি বলো — class হচ্ছে? নাকি scroll? ${topic} মিস করছো কিন্তু।` },
+  { title: `${appName} এর CEO তোমাকে thanks দিচ্ছে 😭`, body: `তুমি দাও তো সময়! একটু ${topic} কেও দাও।` },
+  { title: `ঠিক আছে, last warning 🚨`, body: `${topic} এর জন্য এটুকুই বলার ছিল। তুমি বুদ্ধিমান মানুষ।` },
+]);
 
-    case 'TOGGLE_TOPIC': {
-      const { subjectId, chapterId, topicId } = action.payload;
-      let didComplete = false;
-      const subjects = state.subjects.map(s => {
-        if (s.id !== subjectId) return s;
-        return {
-          ...s, chapters: s.chapters.map(c => {
-            if (c.id !== chapterId) return c;
-            return {
-              ...c, topics: c.topics.map(t => {
-                if (t.id !== topicId) return t;
-                const nowCompleted = !t.completed;
-                if (nowCompleted) didComplete = true;
-                return { ...t, completed: nowCompleted, completedAt: nowCompleted ? new Date().toISOString() : undefined };
-              }),
-            };
-          }),
-        };
+const MSG_POST_GOOD = (topic: string) => pick([
+  { title: `${topic} শেষ! তুমি awesome 🎉`, body: `Session count হয়ে গেলো। Streak চলছে!` },
+  { title: `Well done! 🔥`, body: `${topic} হলো। এই momentum ধরে রাখো!` },
+  { title: `Respect! 👏`, body: `${topic} শেষ। Future self সত্যিই ধন্যবাদ দেবে।` },
+]);
+
+const MSG_POST_BAD = (topic: string, mins: number) => pick([
+  { title: `${topic}: সৎ feedback 😐`, body: `Session এ ~${mins} মিনিট অন্য app এ ছিলে। Phone রেখে পড়লেও হতো!` },
+  { title: `হুম... ভালো হয়নি 🤔`, body: `${topic} এ distraction একটু বেশি হলো। পরেরবার?` },
+  { title: `Data মিথ্যা বলে না 📊`, body: `${topic} এ ${mins}+ মিনিট অন্য জায়গায়। তুমি পারবে ভালো করতে!` },
+]);
+
+// ── Channel setup ─────────────────────────────────────────────────────────────
+export async function setupStudyMonitorChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('study_monitor', {
+    name: 'Study Monitor',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 300, 200, 300],
+    lightColor: '#6C63FF',
+    sound: 'default',
+    enableVibrate: true,
+    showBadge: false,
+  });
+}
+
+// ── Cancel check-ins ──────────────────────────────────────────────────────────
+export async function cancelCheckInsForTask(taskId: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(CHECKIN_IDS_KEY(taskId));
+    if (raw) {
+      const ids: string[] = JSON.parse(raw);
+      await Promise.all(ids.map(id => Notifications.cancelScheduledNotificationAsync(id).catch(() => {})));
+      await AsyncStorage.removeItem(CHECKIN_IDS_KEY(taskId));
+    }
+  } catch {}
+}
+
+// ── Confirm studying ──────────────────────────────────────────────────────────
+export async function confirmStudyingForTask(taskId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(CONFIRMED_KEY(taskId), 'true');
+    await cancelCheckInsForTask(taskId);
+  } catch {}
+}
+
+export async function isStudyingConfirmedForTask(taskId: string): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(CONFIRMED_KEY(taskId))) === 'true'; }
+  catch { return false; }
+}
+
+function secondsUntil(timeStr: string, date: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  const t = new Date(date);
+  t.setHours(h, m, 0, 0);
+  return (t.getTime() - Date.now()) / 1000;
+}
+
+// ── Schedule check-ins ────────────────────────────────────────────────────────
+export async function scheduleStudyCheckIns(task: {
+  id: string; topicName: string; subjectName: string;
+  startTime: string; endTime: string; date: string; estimatedMinutes: number;
+}): Promise<void> {
+  if (Platform.OS === 'web') return;
+  if (await isStudyingConfirmedForTask(task.id)) return;
+
+  const secsToStart = secondsUntil(task.startTime, task.date);
+  if (secsToStart < -5 * 60) return;
+
+  const ids: string[] = [];
+  const ch = Platform.OS === 'android' ? { android: { channelId: 'study_monitor' } } : {};
+
+  const sched = async (delay: number, msg: { title: string; body: string }, type: string) => {
+    if (delay < 10) return;
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: { ...msg, sound: 'default', data: { type, taskId: task.id, screen: 'home' }, ...ch },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.round(delay), repeats: false },
       });
-      return {
-        ...state,
-        subjects,
-        totalTopicsCompleted: didComplete ? state.totalTopicsCompleted + 1 : state.totalTopicsCompleted,
-      };
-    }
+      ids.push(id);
+    } catch {}
+  };
 
-    case 'ADD_SESSION': {
-      const session = action.payload;
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      const newStreak = state.lastStudyDate === today ? state.streak
-        : state.lastStudyDate === yesterday ? state.streak + 1 : 1;
+  await sched(secsToStart + 5 * 60,  MSG_5MIN(task.topicName),  'study_checkin');
+  await sched(secsToStart + 10 * 60, MSG_10MIN(task.topicName), 'study_nudge');
+  await sched(secsToStart + 15 * 60, MSG_15MIN_PLAIN(task.topicName), 'study_warn');
 
-      let studyPlans = state.studyPlans;
-      if (session.topicId) {
-        studyPlans = studyPlans.map(plan => ({
-          ...plan,
-          tasks: plan.tasks.map(t =>
-            t.topicId === session.topicId && !t.completed ? { ...t, completed: true } : t,
-          ),
-        }));
-      }
-      return {
-        ...state,
-        sessions: [...state.sessions, session],
-        studyPlans,
-        todaySessionsCompleted: state.todaySessionsDate === today ? state.todaySessionsCompleted + 1 : 1,
-        todaySessionsDate: today,
-        streak: newStreak,
-        lastStudyDate: today,
-      };
-    }
-
-    case 'ADD_PLAN':
-      return { ...state, studyPlans: [...state.studyPlans, action.payload] };
-
-    case 'UPDATE_PLAN':
-      return { ...state, studyPlans: state.studyPlans.map(p => p.id === action.payload.id ? action.payload : p) };
-
-    case 'DELETE_PLAN':
-      return {
-        ...state,
-        studyPlans: state.studyPlans.filter(p => p.id !== action.payload),
-        // Also remove any auto-created block routines that belonged to this plan
-        blockRoutines: state.blockRoutines.filter(r => (r as any).fromPlanId !== action.payload),
-      };
-
-    case 'COMPLETE_TASK':
-      return {
-        ...state,
-        studyPlans: state.studyPlans.map(plan => ({
-          ...plan,
-          tasks: plan.tasks.map(t => t.id === action.payload ? { ...t, completed: true } : t),
-        })),
-      };
-
-    // Complete both the plan task AND the topic/chapter in the subject
-    case 'COMPLETE_TASK_AND_TOPIC': {
-      const { taskId, subjectId, chapterId, topicId } = action.payload;
-
-      // Mark plan task done
-      const studyPlans = state.studyPlans.map(plan => ({
-        ...plan,
-        tasks: plan.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t),
-      }));
-
-      // Mark topic or chapter done based on structure
-      let totalTopicsCompleted = state.totalTopicsCompleted;
-      const subjects = state.subjects.map(subj => {
-        if (subj.id !== subjectId) return subj;
-        return {
-          ...subj,
-          chapters: subj.chapters.map(ch => {
-            if (ch.id !== chapterId) return ch;
-            // Chapter-only (no topics) → mark chapter completed
-            if (ch.topics.length === 0) {
-              if (!ch.completed) totalTopicsCompleted += 1;
-              return { ...ch, completed: true, completedAt: new Date().toISOString() };
-            }
-            // Topic-based → mark specific topic done
-            return {
-              ...ch,
-              topics: ch.topics.map(t => {
-                if (t.id !== topicId) return t;
-                if (!t.completed) totalTopicsCompleted += 1;
-                return { ...t, completed: true, completedAt: new Date().toISOString() };
-              }),
-            };
-          }),
-        };
-      });
-
-      return { ...state, studyPlans, subjects, totalTopicsCompleted };
-    }
-
-    case 'ADD_ROUTINE':
-      return { ...state, blockRoutines: [...state.blockRoutines, action.payload] };
-
-    case 'UPDATE_ROUTINE':
-      return { ...state, blockRoutines: state.blockRoutines.map(r => r.id === action.payload.id ? action.payload : r) };
-
-    case 'DELETE_ROUTINE':
-      return { ...state, blockRoutines: state.blockRoutines.filter(r => r.id !== action.payload) };
-
-    case 'ADD_TIME_LIMIT':
-      return { ...state, timeLimits: [...(state.timeLimits || []), action.payload] };
-    case 'UPDATE_TIME_LIMIT':
-      return { ...state, timeLimits: (state.timeLimits || []).map(t => t.id === action.payload.id ? action.payload : t) };
-    case 'DELETE_TIME_LIMIT':
-      return { ...state, timeLimits: (state.timeLimits || []).filter(t => t.id !== action.payload) };
-
-    case 'UPDATE_SETTINGS':
-      return { ...state, settings: { ...state.settings, ...action.payload } };
-
-    case 'GAIN_XP': {
-      const newXp = state.xp + action.payload;
-      let remaining = newXp, lvl = 1;
-      while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
-      return { ...state, xp: newXp, level: lvl };
-    }
-
-    case 'COMPLETE_ONBOARDING':
-      return { ...state, onboardingCompleted: true };
-
-    case 'RESCHEDULE_MISSED':
-      return {
-        ...state,
-        studyPlans: state.studyPlans.map(p =>
-          p.id === action.payload.planId
-            ? { ...p, tasks: action.payload.updatedTasks }
-            : p
-        ),
-      };
-
-    case 'CONFIRM_STUDYING':
-      return {
-        ...state,
-        confirmedStudyingTasks: state.confirmedStudyingTasks
-          ? [...state.confirmedStudyingTasks, action.payload]
-          : [action.payload],
-      };
-
-    case 'RECORD_ACCEPTANCE': {
-      const records = [...(state.acceptanceRecords || []), action.payload];
-      // Keep only last 14 days
-      const cutoff = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
-      return { ...state, acceptanceRecords: records.filter(r => r.date >= cutoff) };
-    }
-
-    default:
-      return state;
+  if (ids.length > 0) {
+    try { await AsyncStorage.setItem(CHECKIN_IDS_KEY(task.id), JSON.stringify(ids)); } catch {}
   }
 }
 
-// ── Context type ──────────────────────────────────────────────────────────────
-interface StudyContextValue {
-  state: AppState;
-  ready: boolean;
-  addSubject: (s: Subject) => void;
-  updateSubject: (s: Subject) => void;
-  deleteSubject: (id: string) => void;
-  toggleTopicComplete: (subjectId: string, chapterId: string, topicId: string) => boolean;
-  addSession: (s: StudySession) => void;
-  addStudyPlan: (p: StudyPlan) => void;
-  updateStudyPlan: (p: StudyPlan) => void;
-  deleteStudyPlan: (id: string) => void;
-  completePlanTask: (taskId: string) => void;
-  completeTaskAndTopic: (taskId: string, subjectId: string, chapterId: string, topicId: string) => void;
-  addBlockRoutine: (r: AppBlockRoutine) => void;
-  updateBlockRoutine: (r: AppBlockRoutine) => void;
-  deleteBlockRoutine: (id: string) => void;
-  addTimeLimit: (t: AppTimeLimit) => void;
-  updateTimeLimit: (t: AppTimeLimit) => void;
-  deleteTimeLimit: (id: string) => void;
-  updateSettings: (s: Partial<AppSettings>) => void;
-  gainXp: (amount: number) => { newLevel: number; isLevelUp: boolean };
-  completeOnboarding: () => void;
-  getTodayMinutes: () => number;
-  getStreak: () => number;
-  getSubjectProgress: (subjectId: string) => number;
-  getTodayPlanTasks: () => {
-    planId: string; taskId: string; topicId: string;
-    subjectId: string; chapterId: string;
-    estimatedMinutes: number; type: 'study' | 'revision';
-    completed: boolean; startTime?: string; endTime?: string;
-  }[];
-  getActiveNowTask: () => ActiveTask | null;
-  rescheduleMissedTasks: () => number;
-  confirmStudying: (taskId: string) => void;
-  isStudyingConfirmed: (taskId: string) => boolean;
-  getAcceptanceRate: () => number;
-  getAdaptiveSuggestion: (planId: string) => string | null;
+// ── App-aware nudge ───────────────────────────────────────────────────────────
+export async function sendContextualNudge(taskId: string, topicName: string): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  if (await isStudyingConfirmedForTask(taskId)) return;
+
+  try {
+    const hasPermission = await AppBlocking.hasUsagePermission();
+    if (!hasPermission) return;
+
+    const stats = await AppBlocking.getAppUsageStats();
+    const top = stats
+      .filter(s => DISTRACTION_APPS.has(s.packageName) && s.minutes >= 3)
+      .sort((a, b) => b.minutes - a.minutes)[0];
+
+    if (!top) return;
+
+    const ch = { android: { channelId: 'study_monitor' } };
+    await Notifications.scheduleNotificationAsync({
+      content: { ...MSG_15MIN_APP(top.name, topicName), sound: 'default', data: { type: 'app_aware_nudge', taskId }, ...ch },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, repeats: false },
+    });
+    await Notifications.scheduleNotificationAsync({
+      content: { ...MSG_APP_2ND(top.name, topicName), sound: 'default', data: { type: 'app_soft_nudge', taskId }, ...ch },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5 * 60 + 5, repeats: false },
+    });
+  } catch {}
 }
 
-const StudyContext = createContext<StudyContextValue | null>(null);
+// ── Post-task check ───────────────────────────────────────────────────────────
+export async function schedulePostTaskUsageCheck(task: {
+  id: string; topicName: string; endTime: string; date: string; estimatedMinutes: number;
+}): Promise<void> {
+  if (Platform.OS !== 'android') return;
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
-const store = Platform.OS === 'web'
-  ? {
-      getItem: async (key: string) => {
-        if (typeof window === 'undefined') return null;
-        return window.localStorage.getItem(key);
+  const delay = secondsUntil(task.endTime, task.date) + 5 * 60;
+  if (delay < 0) return;
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        ...MSG_POST_GOOD(task.topicName),
+        sound: 'default',
+        data: { type: 'post_task_check', taskId: task.id, estimatedMinutes: task.estimatedMinutes, topicName: task.topicName },
+        android: { channelId: 'study_monitor' },
       },
-      setItem: async (key: string, value: string) => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(key, value);
-      },
-    }
-  : {
-      getItem: (key: string) => AsyncStorage.getItem(key),
-      setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
-    };
-
-// ── Provider ──────────────────────────────────────────────────────────────────
-export function StudyProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, defaultState);
-  const [ready, setReady] = React.useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    store.getItem(STORAGE_KEY)
-      .then(raw => {
-        if (raw) {
-          try {
-            const saved = JSON.parse(raw);
-            dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved?.settings } } });
-          } catch {}
-        }
-      })
-      .catch(() => {})
-      .finally(() => setReady(true));
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      store.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-      if (state.timeLimits && state.timeLimits.length >= 0) {
-        AppBlocking.saveTimeLimits(
-          state.timeLimits.map(t => ({
-            packageName: t.packageName,
-            limitMinutes: t.limitMinutes,
-            enabled: t.enabled,
-          }))
-        );
-      }
-    }, 300);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [state, ready]);
-
-  // ── Action wrappers ─────────────────────────────────────────────────────────
-  const addSubject = useCallback((s: Subject) => dispatch({ type: 'ADD_SUBJECT', payload: s }), []);
-  const updateSubject = useCallback((s: Subject) => dispatch({ type: 'UPDATE_SUBJECT', payload: s }), []);
-  const deleteSubject = useCallback((id: string) => dispatch({ type: 'DELETE_SUBJECT', payload: id }), []);
-
-  const toggleTopicComplete = useCallback((subjectId: string, chapterId: string, topicId: string): boolean => {
-    const subject = state.subjects.find(s => s.id === subjectId);
-    const chapter = subject?.chapters.find(c => c.id === chapterId);
-    const topic = chapter?.topics.find(t => t.id === topicId);
-    const willComplete = topic ? !topic.completed : false;
-    dispatch({ type: 'TOGGLE_TOPIC', payload: { subjectId, chapterId, topicId } });
-    return willComplete;
-  }, [state.subjects]);
-
-  const addSession = useCallback((s: StudySession) => dispatch({ type: 'ADD_SESSION', payload: s }), []);
-  const addStudyPlan = useCallback((p: StudyPlan) => dispatch({ type: 'ADD_PLAN', payload: p }), []);
-  const updateStudyPlan = useCallback((p: StudyPlan) => dispatch({ type: 'UPDATE_PLAN', payload: p }), []);
-  const deleteStudyPlan = useCallback((id: string) => dispatch({ type: 'DELETE_PLAN', payload: id }), []);
-  const completePlanTask = useCallback((taskId: string) => dispatch({ type: 'COMPLETE_TASK', payload: taskId }), []);
-
-  const completeTaskAndTopic = useCallback((
-    taskId: string, subjectId: string, chapterId: string, topicId: string
-  ) => {
-    dispatch({ type: 'COMPLETE_TASK_AND_TOPIC', payload: { taskId, subjectId, chapterId, topicId } });
-  }, []);
-
-  const rescheduleMissed = useCallback((): number => {
-    let totalRescheduled = 0;
-    state.studyPlans.forEach(plan => {
-      if (plan.tasks.some(t => !t.completed && t.date < new Date().toISOString().split('T')[0])) {
-        const { updatedTasks, rescheduledCount } = rescheduleMissedTasks(
-          plan.tasks,
-          plan.studyDays ?? [],
-          plan.examDate,
-          plan.revisionDays ?? 3,
-        );
-        if (rescheduledCount > 0) {
-          dispatch({ type: 'RESCHEDULE_MISSED', payload: { planId: plan.id, updatedTasks } });
-          totalRescheduled += rescheduledCount;
-        }
-      }
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(10, Math.round(delay)), repeats: false },
     });
-    return totalRescheduled;
-  }, [state.studyPlans]);
-
-  const recordAcceptance = useCallback((date: string) => {
-    const todayTasks = state.studyPlans
-      .flatMap(p => p.tasks)
-      .filter(t => t.date === date);
-    if (todayTasks.length === 0) return;
-    dispatch({
-      type: 'RECORD_ACCEPTANCE',
-      payload: {
-        date,
-        scheduled: todayTasks.length,
-        completed: todayTasks.filter(t => t.completed).length,
-      },
-    });
-  }, [state.studyPlans]);
-
-  const getAcceptanceRate = useCallback((): number => {
-    const records = state.acceptanceRecords || [];
-    if (records.length < 3) return 1;
-    const total = records.reduce((s: number, r: AcceptanceRecord) => s + r.scheduled, 0);
-    const done  = records.reduce((s: number, r: AcceptanceRecord) => s + r.completed, 0);
-    return total === 0 ? 1 : done / total;
-  }, [state.acceptanceRecords]);
-
-  const getAdaptiveSuggestion = useCallback((planId: string): string | null => {
-    const plan = state.studyPlans.find(p => p.id === planId);
-    if (!plan) return null;
-    const records = state.acceptanceRecords || [];
-    const { message } = calculateAdaptiveCapacity(plan.dailyCount, records);
-    return message ?? null;
-  }, [state.studyPlans, state.acceptanceRecords]);
-
-  const confirmStudying = useCallback((taskId: string) => {
-    dispatch({ type: 'CONFIRM_STUDYING', payload: taskId });
-  }, []);
-
-  const isStudyingConfirmed = useCallback((taskId: string): boolean => {
-    return (state as any).confirmedStudyingTasks?.includes(taskId) ?? false;
-  }, [(state as any).confirmedStudyingTasks]);
-
-  const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
-  const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
-  const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
-  const addTimeLimit = useCallback((t: AppTimeLimit) => dispatch({ type: 'ADD_TIME_LIMIT', payload: t }), []);
-  const updateTimeLimit = useCallback((t: AppTimeLimit) => dispatch({ type: 'UPDATE_TIME_LIMIT', payload: t }), []);
-  const deleteTimeLimit = useCallback((id: string) => dispatch({ type: 'DELETE_TIME_LIMIT', payload: id }), []);
-  const updateSettings = useCallback((s: Partial<AppSettings>) => dispatch({ type: 'UPDATE_SETTINGS', payload: s }), []);
-
-  const gainXp = useCallback((amount: number): { newLevel: number; isLevelUp: boolean } => {
-    const newXp = state.xp + amount;
-    let remaining = newXp, lvl = 1;
-    while (remaining >= lvl * 100) { remaining -= lvl * 100; lvl++; }
-    dispatch({ type: 'GAIN_XP', payload: amount });
-    return { newLevel: lvl, isLevelUp: lvl > state.level };
-  }, [state.xp, state.level]);
-
-  const completeOnboarding = useCallback(() => dispatch({ type: 'COMPLETE_ONBOARDING' }), []);
-
-  // ── Computed helpers ────────────────────────────────────────────────────────
-  const getTodayMinutes = useCallback((): number => {
-    const today = new Date().toISOString().split('T')[0];
-    return state.sessions
-      .filter(s => s.completed && s.startTime.startsWith(today))
-      .reduce((sum, s) => sum + s.durationMinutes, 0);
-  }, [state.sessions]);
-
-  const getStreak = useCallback((): number => state.streak, [state.streak]);
-
-  const getSubjectProgress = useCallback((subjectId: string): number => {
-    const s = state.subjects.find(x => x.id === subjectId);
-    if (!s) return 0;
-    const topics = s.chapters.flatMap(c => c.topics);
-    if (topics.length === 0) return 0;
-    return Math.round((topics.filter(t => t.completed).length / topics.length) * 100);
-  }, [state.subjects]);
-
-  const getTodayPlanTasks = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const result: any[] = [];
-    state.studyPlans.forEach(plan => {
-      plan.tasks.filter(t => t.date === today).forEach(task => {
-        result.push({
-          planId: plan.id, taskId: task.id, topicId: task.topicId,
-          subjectId: task.subjectId, chapterId: task.chapterId,
-          estimatedMinutes: task.estimatedMinutes ?? 40, type: task.type,
-          completed: task.completed, startTime: task.startTime, endTime: task.endTime,
-        });
-      });
-    });
-    return result;
-  }, [state.studyPlans]);
-
-  // ── Active now task — finds the task that should be happening RIGHT NOW ─────
-  const getActiveNowTask = useCallback((): ActiveTask | null => {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-    for (const plan of state.studyPlans) {
-      for (const task of plan.tasks) {
-        if (task.completed) continue;
-
-        const isToday = task.date === today;
-        const isYesterday = task.date === yesterday;
-        if (!isToday && !isYesterday) continue;
-
-        if (task.startTime && task.endTime) {
-          const crossesMidnight = task.endTime < task.startTime; // e.g. start=23:45 end=00:15
-
-          if (isYesterday) {
-            // Only show yesterday's task if it crosses midnight AND we're still before its endTime
-            if (!crossesMidnight) continue;
-            if (nowStr > task.endTime) continue; // e.g. now=00:20 > end=00:15 → done
-          } else {
-            // Today's task
-            if (crossesMidnight) {
-              // Active from startTime until midnight (00:00+)
-              // nowStr is HH:MM — if we're before startTime today, not started yet
-              if (nowStr < task.startTime) continue;
-              // If nowStr > endTime and not crossing midnight zone, it's done
-              // But crossing midnight means: active if nowStr >= startTime (already checked above)
-            } else {
-              if (nowStr < task.startTime || nowStr > task.endTime) continue;
-            }
-          }
-        } else if (isYesterday) {
-          continue; // no time set on yesterday's task, skip
-        }
-
-        // Found an active task — build the full info
-        const subject = state.subjects.find(s => s.id === task.subjectId);
-        if (!subject) continue;
-
-        const isChapterOnly = !subject.chapters.some(ch => ch.topics.length > 0);
-        let topicName = '';
-
-        if (isChapterOnly) {
-          const chapter = subject.chapters.find(ch => ch.id === task.chapterId);
-          topicName = chapter?.name ?? 'Chapter';
-        } else {
-          const topic = subject.chapters
-            .flatMap(ch => ch.topics)
-            .find(t => t.id === task.topicId);
-          topicName = topic?.name ?? 'Topic';
-        }
-
-        return {
-          planId: plan.id,
-          taskId: task.id,
-          topicId: task.topicId,
-          subjectId: task.subjectId,
-          chapterId: task.chapterId,
-          estimatedMinutes: task.estimatedMinutes ?? 40,
-          startTime: task.startTime,
-          endTime: task.endTime,
-          subjectName: subject.name,
-          subjectColor: subject.color,
-          subjectIcon: subject.icon,
-          topicName,
-          isChapterOnly,
-          blockApps: plan.blockApps,
-          hardBlock: plan.hardBlock,
-          deviceAdmin: plan.deviceAdmin,
-        };
-      }
-    }
-    return null;
-  }, [state.studyPlans, state.subjects]);
-
-  return (
-    <StudyContext.Provider value={{
-      state: state as AppState,
-      ready,
-      addSubject, updateSubject, deleteSubject,
-      toggleTopicComplete,
-      addSession,
-      addStudyPlan, updateStudyPlan, deleteStudyPlan, completePlanTask,
-      completeTaskAndTopic,
-      addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
-      addTimeLimit, updateTimeLimit, deleteTimeLimit,
-      updateSettings,
-      gainXp,
-      completeOnboarding,
-      getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
-      getActiveNowTask,
-      rescheduleMissedTasks: rescheduleMissed,
-      confirmStudying,
-      isStudyingConfirmed,
-      getAcceptanceRate,
-      getAdaptiveSuggestion,
-    }}>
-      {children}
-    </StudyContext.Provider>
-  );
+  } catch {}
 }
 
-export function useStudy(): StudyContextValue {
-  const ctx = useContext(StudyContext);
-  if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
-  return ctx;
-  }
+export async function checkAndNotifyPostTask(taskId: string, topicName: string, estimatedMinutes: number): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    const hasPermission = await AppBlocking.hasUsagePermission();
+    if (!hasPermission) return;
+
+    const stats = await AppBlocking.getAppUsageStats();
+    const distractionMins = stats
+      .filter(s => DISTRACTION_APPS.has(s.packageName))
+      .reduce((sum, s) => sum + s.minutes, 0);
+
+    const msg = distractionMins >= estimatedMinutes * 0.5
+      ? MSG_POST_BAD(topicName, Math.round(distractionMins))
+      : MSG_POST_GOOD(topicName);
+
+    await Notifications.scheduleNotificationAsync({
+      content: { ...msg, sound: 'default', data: { type: 'post_task_result', taskId }, android: { channelId: 'study_monitor' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 5, repeats: false },
+    });
+  } catch {}
+}
+
+// ── Notification tap handler ──────────────────────────────────────────────────
+export function setupStudyMonitorNotificationHandler(
+  onCheckIn: (taskId: string) => void,
+): () => void {
+  const sub = Notifications.addNotificationResponseReceivedListener(response => {
+    const data = response.notification.request.content.data as any;
+    if (!data?.taskId) return;
+    const interactive = ['study_checkin', 'study_nudge', 'study_warn', 'app_aware_nudge', 'app_soft_nudge'];
+    if (interactive.includes(data.type)) onCheckIn(data.taskId);
+    if (data.type === 'post_task_check') {
+      checkAndNotifyPostTask(data.taskId, data.topicName ?? '', data.estimatedMinutes ?? 40).catch(() => {});
+    }
+  });
+  return () => sub.remove();
+    }
