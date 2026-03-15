@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Platform, ActivityIndicator, Alert, FlatList, Modal, KeyboardAvoidingView,
+  TextInput, Switch, Platform, ActivityIndicator, Alert, FlatList, Modal,
 } from 'react-native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,30 +30,19 @@ function ScrollColumn({
   width: number; colors: any;
 }) {
   const scrollRef = useRef<ScrollView>(null);
-  const initialScroll = useRef(false);
 
-  // Scroll to selected index
   const scrollTo = (idx: number, animated = true) => {
     scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated });
   };
 
   React.useEffect(() => {
-    // Initial position without animation
     const timer = setTimeout(() => scrollTo(index, false), 10);
     return () => clearTimeout(timer);
   }, []);
 
-  // When external index changes (e.g. month changes -> day count changes)
   React.useEffect(() => {
     scrollTo(index, true);
   }, [index]);
-
-  const handleScroll = (e: any) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const snapped = Math.round(y / ITEM_H);
-    const clamped = Math.max(0, Math.min(items.length - 1, snapped));
-    if (clamped !== index) onIndexChange(clamped);
-  };
 
   const handleMomentumEnd = (e: any) => {
     const y = e.nativeEvent.contentOffset.y;
@@ -63,79 +52,69 @@ function ScrollColumn({
     onIndexChange(clamped);
   };
 
-  const padding = Math.floor(VISIBLE / 2);
+  const goUp = () => {
+    const next = Math.max(0, index - 1);
+    scrollTo(next, true); onIndexChange(next);
+  };
+  const goDown = () => {
+    const next = Math.min(items.length - 1, index + 1);
+    scrollTo(next, true); onIndexChange(next);
+  };
 
   return (
     <View style={{ width, alignItems: 'center' }}>
-      {/* Selection highlight bar */}
-      <View style={{
-        position: 'absolute', top: padding * ITEM_H,
-        height: ITEM_H, width: '100%',
-        backgroundColor: c.accentSoft,
-        borderRadius: 14, zIndex: 0,
-      }} pointerEvents="none" />
+      {/* Up arrow */}
+      <TouchableOpacity onPress={goUp}
+        style={{ height: 30, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: index === 0 ? 0.2 : 1 }}
+        activeOpacity={0.6}>
+        <Ionicons name="chevron-up" size={16} color={c.accent} />
+      </TouchableOpacity>
 
-      {/* Fade top */}
-      <View style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        height: padding * ITEM_H, zIndex: 2,
-        backgroundColor: 'transparent',
-      }} style={{ pointerEvents: 'none' } as any}>
-        {[...Array(padding)].map((_, i) => (
-          <View key={i} style={{
-            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
-            backgroundColor: c.bgCard,
-          }} />
-        ))}
+      {/* Scroll */}
+      <View style={{ height: ITEM_H * 3, width, overflow: 'hidden', position: 'relative' }}>
+        <View style={{
+          position: 'absolute', top: ITEM_H, height: ITEM_H, left: 0, right: 0,
+          backgroundColor: c.accentSoft, borderRadius: 12, zIndex: 0,
+        }} style={{ pointerEvents: 'none' } as any} />
+        <ScrollView
+          ref={scrollRef}
+          style={{ height: ITEM_H * 3, width }}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={ITEM_H}
+          decelerationRate="fast"
+          nestedScrollEnabled={true}
+          onMomentumScrollEnd={handleMomentumEnd}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ paddingVertical: ITEM_H }}
+        >
+          {items.map((item, i) => {
+            const dist = Math.abs(i - index);
+            const isSelected = dist === 0;
+            return (
+              <TouchableOpacity key={i}
+                style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => { onIndexChange(i); scrollTo(i, true); }}
+                activeOpacity={0.7}>
+                <Text style={{
+                  fontSize: isSelected ? 19 : 15,
+                  fontFamily: isSelected ? FONTS.bold : FONTS.regular,
+                  color: isSelected ? c.accent : dist === 1 ? c.textMuted : c.textFaint,
+                  opacity: dist >= 2 ? 0.3 : 1,
+                }}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={{ height: VISIBLE * ITEM_H, width }}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        nestedScrollEnabled={true}
-        onScroll={handleScroll}
-        onMomentumScrollEnd={handleMomentumEnd}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ paddingVertical: padding * ITEM_H }}
-      >
-        {items.map((item, i) => {
-          const dist = Math.abs(i - index);
-          const isSelected = dist === 0;
-          return (
-            <TouchableOpacity
-              key={i}
-              style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => { onIndexChange(i); scrollTo(i, true); }}
-              activeOpacity={0.7}
-            >
-              <Text style={{
-                fontSize: isSelected ? 20 : 16,
-                fontWeight: isSelected ? '800' : '400',
-                color: isSelected ? c.accent : dist === 1 ? c.textMuted : c.textFaint,
-                opacity: dist >= 2 ? 0.4 : 1,
-              }}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Fade bottom */}
-      <View style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: padding * ITEM_H, zIndex: 2,
-      }} style={{ pointerEvents: 'none' } as any}>
-        {[...Array(padding)].reverse().map((_, i) => (
-          <View key={i} style={{
-            height: ITEM_H, opacity: 1 - i * (1 / (padding + 1)),
-            backgroundColor: c.bgCard,
-          }} />
-        ))}
-      </View>
+      {/* Down arrow */}
+      <TouchableOpacity onPress={goDown}
+        style={{ height: 30, width: '100%', alignItems: 'center', justifyContent: 'center', opacity: index === items.length - 1 ? 0.2 : 1 }}
+        activeOpacity={0.6}>
+        <Ionicons name="chevron-down" size={16} color={c.accent} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -202,10 +181,10 @@ function DatePicker({ value, onChange, colors: c }: {
 
       {/* Friendly label */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 2 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', fontFamily: FONTS.bold, color: c.text }}>{displayDate}</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold', color: c.text }}>{displayDate}</Text>
         {daysLeft > 0 && (
           <View style={[styles.daysLeftBadge, { backgroundColor: daysLeft <= 7 ? '#FEE2E2' : c.accentSoft }]}>
-            <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: FONTS.bold, color: daysLeft <= 7 ? '#DC2626' : c.accent }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', color: daysLeft <= 7 ? '#DC2626' : c.accent }}>
               {daysLeft}d to go
             </Text>
           </View>
@@ -380,7 +359,7 @@ export default function CreatePlanScreen() {
             <View style={[styles.stepDot, { backgroundColor: i <= step ? c.accent : c.border }]}>
               {i < step
                 ? <Ionicons name="checkmark" size={12} color="#fff" />
-                : <Text style={{ color: i === step ? '#fff' : c.textFaint, fontSize: 11, fontWeight: '700', fontFamily: FONTS.bold }}>{i+1}</Text>}
+                : <Text style={{ color: i === step ? '#fff' : c.textFaint, fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' }}>{i+1}</Text>}
             </View>
             <Text style={[styles.stepLabel, { color: i === step ? c.accent : c.textFaint }]}>{s}</Text>
           </View>
@@ -708,9 +687,8 @@ export default function CreatePlanScreen() {
 
       {/* App Picker Modal */}
       <Modal visible={showAppPicker} transparent animationType="slide" onRequestClose={() => setShowAppPicker(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={styles.modalBg}>
-            <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
+        <View style={styles.modalBg}>
+          <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
             <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
             <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps to Block</Text>
 
@@ -749,16 +727,15 @@ export default function CreatePlanScreen() {
               }}
             />
 
-              <TouchableOpacity
-                style={[styles.doneBtn, { backgroundColor: c.accent }]}
-                onPress={() => setShowAppPicker(false)}>
-                <Text style={styles.doneTxt}>
-                  Done ({blockedApps.length} selected)
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.doneBtn, { backgroundColor: c.accent }]}
+              onPress={() => setShowAppPicker(false)}>
+              <Text style={styles.doneTxt}>
+                Done ({blockedApps.length} selected)
+              </Text>
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -772,68 +749,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: FONTS.bold },
+  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   stepBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12 },
   stepDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  stepLabel: { fontSize: 9, fontWeight: '700', fontFamily: FONTS.bold, marginTop: 4, textTransform: 'uppercase' },
+  stepLabel: { fontSize: 9, fontWeight: '700', fontFamily: 'Inter_700Bold', marginTop: 4, textTransform: 'uppercase' },
   stepLine: { flex: 1, height: 2, marginBottom: 14 },
   content: { paddingHorizontal: 20, paddingTop: 8 },
-  stepTitle: { fontSize: 22, fontWeight: '800', fontFamily: FONTS.bold, marginBottom: 6, letterSpacing: -0.5 },
+  stepTitle: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 6, letterSpacing: -0.5 },
   stepDesc: { fontSize: 14, marginBottom: 16, lineHeight: 22 },
-  label: { fontSize: 12, fontWeight: '700', fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 16 },
+  label: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 16 },
   input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, borderWidth: 1.5, marginBottom: 4 },
   hoursRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 },
   hourBtn: { width: 56, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  hourTxt: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold },
+  hourTxt: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   subjectBlock: { borderRadius: RADIUS.xl, padding: 14, marginBottom: 12 },
   subjectBlockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   subIconSm: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  subjectBlockName: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold, flex: 1 },
-  subjectType: { fontSize: 11, fontWeight: '700', fontFamily: FONTS.bold },
+  subjectBlockName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', flex: 1 },
+  subjectType: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   noTopics: { fontSize: 13, paddingVertical: 8 },
   noSubCard: { borderRadius: RADIUS.xl, padding: 20, alignItems: 'center' },
   noSubTxt: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
-  chLabel: { fontSize: 11, fontWeight: '700', fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
+  chLabel: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, marginTop: 4 },
   topicItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, marginBottom: 6, borderWidth: 1.5 },
   checkBox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  topicItemName: { flex: 1, fontSize: 14, fontWeight: '600', fontFamily: FONTS.semibold },
+  topicItemName: { flex: 1, fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   topicMins: { fontSize: 12 },
   selCount: { textAlign: 'center', fontSize: 13, marginVertical: 8 },
   genBox: { alignItems: 'center', paddingVertical: 40 },
   genDesc: { fontSize: 15, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
   genBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 28, paddingVertical: 16, borderRadius: 16 },
-  genBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: FONTS.bold },
+  genBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   successBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginBottom: 16 },
-  successTxt: { fontSize: 14, fontWeight: '600', fontFamily: FONTS.semibold, flex: 1 },
+  successTxt: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', flex: 1 },
   scheduleCard: { borderRadius: RADIUS.xl, padding: 14, marginBottom: 10 },
-  scheduleName: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold, marginBottom: 2 },
+  scheduleName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 2 },
   scheduleSub: { fontSize: 12, marginBottom: 6 },
-  scheduleDate: { fontSize: 13, fontWeight: '700', fontFamily: FONTS.bold, marginBottom: 8 },
+  scheduleDate: { fontSize: 13, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 8 },
   timeRow: { flexDirection: 'row', alignItems: 'center' },
   regenBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderRadius: 14, paddingVertical: 12, marginTop: 8 },
-  regenTxt: { fontSize: 14, fontWeight: '700', fontFamily: FONTS.bold },
+  regenTxt: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   blockCard: { borderRadius: RADIUS.xl, padding: 16, marginBottom: 12 },
   blockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  blockTitle: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold, marginBottom: 4 },
+  blockTitle: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', marginBottom: 4 },
   blockDesc: { fontSize: 13, lineHeight: 20 },
   appPickBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderRadius: 14, paddingVertical: 14, marginBottom: 6 },
-  appPickTxt: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold },
+  appPickTxt: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold' },
   appPickHint: { fontSize: 12, textAlign: 'center', marginBottom: 12 },
   finalCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 14, marginTop: 4 },
   finalTxt: { fontSize: 13, lineHeight: 20, flex: 1 },
   bottomNav: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 32 : 16, borderTopWidth: 1 },
   nextBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  nextTxt: { fontSize: 17, fontWeight: '800', fontFamily: FONTS.bold },
+  nextTxt: { fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
   // App picker modal
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, maxHeight: '88%' },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', fontFamily: FONTS.bold, marginBottom: 16 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 16 },
   searchInput: { height: 46, borderRadius: 12, paddingHorizontal: 14, fontSize: 15, borderWidth: 1.5, marginBottom: 12 },
   appItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: 1 },
   appCheckBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  appName: { fontSize: 14, fontWeight: '600', fontFamily: FONTS.semibold },
+  appName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   appPkg: { fontSize: 11, marginTop: 1 },
   doneBtn: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  doneTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: FONTS.bold },
+  doneTxt: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
 });
