@@ -37,6 +37,7 @@ const defaultState: AppState & {
   lastStudyDate: undefined,
   todaySessionsDate: undefined,
   acceptanceRecords: [] as AcceptanceRecord[],
+  confirmedStudyingTasks: [] as string[],
 };
 
 type State = typeof defaultState;
@@ -64,7 +65,8 @@ type Action =
   | { type: 'GAIN_XP'; payload: number }
   | { type: 'COMPLETE_ONBOARDING' }
   | { type: 'RESCHEDULE_MISSED'; payload: { planId: string; updatedTasks: any[] } }
-  | { type: 'RECORD_ACCEPTANCE'; payload: AcceptanceRecord };
+  | { type: 'RECORD_ACCEPTANCE'; payload: AcceptanceRecord }
+  | { type: 'CONFIRM_STUDYING'; payload: string };
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 function reducer(state: State, action: Action): State {
@@ -236,6 +238,14 @@ function reducer(state: State, action: Action): State {
         ),
       };
 
+    case 'CONFIRM_STUDYING':
+      return {
+        ...state,
+        confirmedStudyingTasks: state.confirmedStudyingTasks
+          ? [...state.confirmedStudyingTasks, action.payload]
+          : [action.payload],
+      };
+
     case 'RECORD_ACCEPTANCE': {
       const records = [...(state.acceptanceRecords || []), action.payload];
       // Keep only last 14 days
@@ -282,6 +292,8 @@ interface StudyContextValue {
   }[];
   getActiveNowTask: () => ActiveTask | null;
   rescheduleMissedTasks: () => number;
+  confirmStudying: (taskId: string) => void;
+  isStudyingConfirmed: (taskId: string) => boolean;
   getAcceptanceRate: () => number;
   getAdaptiveSuggestion: (planId: string) => string | null;
 }
@@ -419,6 +431,14 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     return message ?? null;
   }, [state.studyPlans, state.acceptanceRecords]);
 
+  const confirmStudying = useCallback((taskId: string) => {
+    dispatch({ type: 'CONFIRM_STUDYING', payload: taskId });
+  }, []);
+
+  const isStudyingConfirmed = useCallback((taskId: string): boolean => {
+    return (state as any).confirmedStudyingTasks?.includes(taskId) ?? false;
+  }, [(state as any).confirmedStudyingTasks]);
+
   const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
   const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
   const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
@@ -477,13 +497,37 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     const today = now.toISOString().split('T')[0];
     const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
     for (const plan of state.studyPlans) {
       for (const task of plan.tasks) {
         if (task.completed) continue;
-        if (task.date !== today) continue;
-        // If task has a scheduled time, only show during that window
+
+        const isToday = task.date === today;
+        const isYesterday = task.date === yesterday;
+        if (!isToday && !isYesterday) continue;
+
         if (task.startTime && task.endTime) {
-          if (nowStr < task.startTime || nowStr > task.endTime) continue;
+          const crossesMidnight = task.endTime < task.startTime; // e.g. start=23:45 end=00:15
+
+          if (isYesterday) {
+            // Only show yesterday's task if it crosses midnight AND we're still before its endTime
+            if (!crossesMidnight) continue;
+            if (nowStr > task.endTime) continue; // e.g. now=00:20 > end=00:15 → done
+          } else {
+            // Today's task
+            if (crossesMidnight) {
+              // Active from startTime until midnight (00:00+)
+              // nowStr is HH:MM — if we're before startTime today, not started yet
+              if (nowStr < task.startTime) continue;
+              // If nowStr > endTime and not crossing midnight zone, it's done
+              // But crossing midnight means: active if nowStr >= startTime (already checked above)
+            } else {
+              if (nowStr < task.startTime || nowStr > task.endTime) continue;
+            }
+          }
+        } else if (isYesterday) {
+          continue; // no time set on yesterday's task, skip
         }
 
         // Found an active task — build the full info
@@ -543,6 +587,8 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
       getActiveNowTask,
       rescheduleMissedTasks: rescheduleMissed,
+      confirmStudying,
+      isStudyingConfirmed,
       getAcceptanceRate,
       getAdaptiveSuggestion,
     }}>
@@ -555,4 +601,4 @@ export function useStudy(): StudyContextValue {
   const ctx = useContext(StudyContext);
   if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
   return ctx;
-}
+        }
