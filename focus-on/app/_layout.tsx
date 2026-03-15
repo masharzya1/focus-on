@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/comfortaa';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -100,6 +101,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+      <SafeAreaProvider>
       <AuthProvider>
         <StudyProvider>
           <ThemeProvider>
@@ -107,6 +109,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </StudyProvider>
       </AuthProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }
