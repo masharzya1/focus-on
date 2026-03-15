@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules, KeyboardAvoidingView,
+  Modal, Alert, Platform, FlatList, TextInput, Switch, Image, NativeModules,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,8 +45,8 @@ function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: 
   items: string[]; selectedIndex: number; onChange: (i: number) => void;
   width?: number; colors: any;
 }) {
-  const ITEM_H = 42;
-  const VISIBLE = 5;
+  const ITEM_H = 44;
+  const VISIBLE = 3;
   const scrollRef = useRef<ScrollView>(null);
   const isScrolling = useRef(false);
 
@@ -54,65 +54,96 @@ function WheelColumn({ items, selectedIndex, onChange, width = 56, colors: c }: 
     scrollRef.current?.scrollTo({ y: index * ITEM_H, animated });
   }, []);
 
-  // Sync scroll when selectedIndex changes externally (e.g. modal opens with value)
   useEffect(() => {
     if (!isScrolling.current) {
       setTimeout(() => scrollTo(selectedIndex, false), 30);
     }
   }, [selectedIndex]);
 
+  const goUp = () => {
+    const next = Math.max(0, selectedIndex - 1);
+    scrollTo(next, true);
+    onChange(next);
+  };
+
+  const goDown = () => {
+    const next = Math.min(items.length - 1, selectedIndex + 1);
+    scrollTo(next, true);
+    onChange(next);
+  };
+
   return (
-    <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative' }}>
-      {/* Selection highlight */}
-      <View style={{
-        position: 'absolute', top: ITEM_H * 2, height: ITEM_H, left: 0, right: 0,
-        backgroundColor: c.accent + '22', borderRadius: 10,
-        borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
-        zIndex: 1,
-      }} style={{ pointerEvents: 'none' } as any} />
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
-        scrollEventThrottle={16}
-        onScrollBeginDrag={() => { isScrolling.current = true; }}
-        onMomentumScrollEnd={e => {
-          isScrolling.current = false;
-          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-          const clamped = Math.max(0, Math.min(i, items.length - 1));
-          scrollTo(clamped, true);
-          onChange(clamped);
-        }}
-        onScrollEndDrag={e => {
-          const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-          const clamped = Math.max(0, Math.min(i, items.length - 1));
-          scrollTo(clamped, true);
-          onChange(clamped);
-          setTimeout(() => { isScrolling.current = false; }, 100);
-        }}
-        onLayout={() => {
-          setTimeout(() => scrollTo(selectedIndex, false), 50);
-        }}
-      >
-        {items.map((item, i) => {
-          const active = i === selectedIndex;
-          return (
-            <TouchableOpacity key={i} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => { scrollTo(i, true); onChange(i); }} activeOpacity={0.7}>
-              <Text style={{
-                fontSize: active ? 20 : 16,
-                fontWeight: active ? '800' : '400',
-                color: active ? c.accent : c.textMuted,
-                opacity: Math.abs(i - selectedIndex) > 2 ? 0.2 : 1,
-              }}>
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+    <View style={{ width, alignItems: 'center' }}>
+      {/* Up arrow */}
+      <TouchableOpacity
+        onPress={goUp}
+        style={{ height: 32, width: '100%', alignItems: 'center', justifyContent: 'center',
+          opacity: selectedIndex === 0 ? 0.2 : 1 }}
+        activeOpacity={0.6}>
+        <Ionicons name="chevron-up" size={18} color={c.accent} />
+      </TouchableOpacity>
+
+      {/* Scroll wheel */}
+      <View style={{ width, height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative' }}>
+        <View style={{
+          position: 'absolute', top: ITEM_H, height: ITEM_H, left: 0, right: 0,
+          backgroundColor: c.accent + '22', borderRadius: 10,
+          borderTopWidth: 1.5, borderBottomWidth: 1.5, borderColor: c.accent + '55',
+          zIndex: 1,
+        }} style={{ pointerEvents: 'none' } as any} />
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={ITEM_H}
+          decelerationRate="fast"
+          nestedScrollEnabled={true}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ paddingVertical: ITEM_H }}
+          onScrollBeginDrag={() => { isScrolling.current = true; }}
+          onMomentumScrollEnd={e => {
+            isScrolling.current = false;
+            const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+            const clamped = Math.max(0, Math.min(i, items.length - 1));
+            scrollTo(clamped, true);
+            onChange(clamped);
+          }}
+          onScrollEndDrag={e => {
+            const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+            const clamped = Math.max(0, Math.min(i, items.length - 1));
+            scrollTo(clamped, true);
+            onChange(clamped);
+            setTimeout(() => { isScrolling.current = false; }, 100);
+          }}
+          onLayout={() => { setTimeout(() => scrollTo(selectedIndex, false), 50); }}
+        >
+          {items.map((item, i) => {
+            const active = i === selectedIndex;
+            return (
+              <TouchableOpacity key={i}
+                style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => { scrollTo(i, true); onChange(i); }} activeOpacity={0.7}>
+                <Text style={{
+                  fontSize: active ? 20 : 15,
+                  fontFamily: active ? FONTS.bold : FONTS.regular,
+                  color: active ? c.accent : c.textMuted,
+                  opacity: Math.abs(i - selectedIndex) > 1 ? 0.25 : 1,
+                }}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Down arrow */}
+      <TouchableOpacity
+        onPress={goDown}
+        style={{ height: 32, width: '100%', alignItems: 'center', justifyContent: 'center',
+          opacity: selectedIndex === items.length - 1 ? 0.2 : 1 }}
+        activeOpacity={0.6}>
+        <Ionicons name="chevron-down" size={18} color={c.accent} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -889,9 +920,8 @@ export default function AppBlockScreen() {
       {/* ── Add Website Modal ── */}
       <Modal visible={showAddWebsite} transparent animationType="slide"
         onRequestClose={() => { setShowAddWebsite(false); setWebsiteInput(''); }}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={styles.modalBg}>
-            <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
+        <View style={styles.modalBg}>
+          <View style={[styles.sheet, { backgroundColor: c.bgCard }]}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <View style={styles.sheetHeader}>
               <TouchableOpacity onPress={() => { setShowAddWebsite(false); setWebsiteInput(''); }}>
@@ -945,10 +975,9 @@ export default function AppBlockScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-              <View style={{ height: 20 }} />
-            </View>
+            <View style={{ height: 20 }} />
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
