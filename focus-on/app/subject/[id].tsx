@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Pressable, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Pressable, Alert, Platform, KeyboardAvoidingView } from 'react-native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 import type { Chapter, Topic } from '@/types/study';
 
 const DIFFICULTIES = [
@@ -208,8 +208,9 @@ export default function SubjectDetailScreen() {
 
       {/* Add Chapter Modal */}
       <Modal visible={showAddChapter} transparent animationType="slide" onRequestClose={() => setShowAddChapter(false)}>
-        <Pressable style={styles.modalBg} onPress={() => setShowAddChapter(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Pressable style={styles.modalBg} onPress={() => setShowAddChapter(false)}>
+            <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <Text style={[styles.sheetTitle, { color: c.text }]}>New Chapter</Text>
             <TextInput
@@ -221,14 +222,16 @@ export default function SubjectDetailScreen() {
               onPress={addChapter} disabled={!chapterName.trim()}>
               <Text style={styles.createTxt}>Add Chapter</Text>
             </TouchableOpacity>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Add Topic Modal */}
       <Modal visible={!!addingTopicForChapter} transparent animationType="slide" onRequestClose={() => setAddingTopicForChapter(null)}>
-        <Pressable style={styles.modalBg} onPress={() => setAddingTopicForChapter(null)}>
-          <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Pressable style={styles.modalBg} onPress={() => setAddingTopicForChapter(null)}>
+            <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <Text style={[styles.sheetTitle, { color: c.text }]}>New Topic</Text>
             <TextInput
@@ -252,8 +255,9 @@ export default function SubjectDetailScreen() {
               onPress={addTopic} disabled={!topicName.trim()}>
               <Text style={styles.createTxt}>Add Topic</Text>
             </TouchableOpacity>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -266,7 +270,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerMid: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   iconCircle: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  subjectName: { fontSize: 18, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  subjectName: { fontSize: 18, fontWeight: '800', fontFamily: FONTS.bold },
   subjectSub: { fontSize: 12, marginTop: 1 },
   addChBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   progBg: { height: 3 },
@@ -278,33 +282,33 @@ const styles = StyleSheet.create({
   chapterHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
   chapterLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   chDot: { width: 10, height: 10, borderRadius: 5 },
-  chapterName: { fontSize: 15, fontWeight: '700', fontFamily: 'Inter_700Bold', flex: 1 },
+  chapterName: { fontSize: 15, fontWeight: '700', fontFamily: FONTS.bold, flex: 1 },
   chapterCount: { fontSize: 12 },
   chapterActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   chAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  chAddTxt: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  chAddTxt: { fontSize: 12, fontWeight: '700', fontFamily: FONTS.bold },
   delBtn: { padding: 4 },
   emptyTopics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     margin: 12, marginTop: 0, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 10, paddingVertical: 12 },
   emptyTopicsTxt: { fontSize: 13 },
   topicRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1 },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  topicName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
+  topicName: { fontSize: 14, fontWeight: '600', fontFamily: FONTS.semibold, marginBottom: 4 },
   topicDone: { textDecorationLine: 'line-through', opacity: 0.5 },
   diffRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   diffBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  diffTxt: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  diffTxt: { fontSize: 11, fontWeight: '700', fontFamily: FONTS.bold },
   minTxt: { fontSize: 11 },
   modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 22, fontWeight: '800', fontFamily: 'Inter_800ExtraBold', marginBottom: 20 },
+  sheetTitle: { fontSize: 22, fontWeight: '800', fontFamily: FONTS.bold, marginBottom: 20 },
   input: { height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 16, borderWidth: 1.5, marginBottom: 20 },
-  sLabel: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  sLabel: { fontSize: 12, fontWeight: '700', fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
   diffPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   diffOption: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 2, alignItems: 'center' },
-  diffOptTxt: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  diffOptTxt: { fontSize: 12, fontWeight: '700', fontFamily: FONTS.bold },
   diffOptMin: { fontSize: 10, marginTop: 2 },
   createBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  createTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  createTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: FONTS.bold },
 });
