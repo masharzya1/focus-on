@@ -10,6 +10,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, type PlannedTask } from '@/types/study';
+import { scheduleStudyCheckIns, schedulePostTaskUsageCheck } from '@/services/studyMonitor';
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAY_NAMES    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -134,8 +135,8 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
       if (cm >= 60) { ch += 1; cm = 0; }
       if (ch > 23) { ch = 23; cm = 0; }
       setSh(ch); setSm(cm);
-      const endM = ch * 60 + cm + 60;
-      setEh(Math.min(23, Math.floor(endM / 60))); setEm(endM % 60);
+      const endM = ch * 60 + cm + 60; // allow overflow past midnight for display
+      setEh(Math.floor(endM / 60)); setEm(endM % 60);
     }
   }, [visible]);
 
@@ -156,14 +157,19 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
     setEh(Math.floor(t / 60)); setEm(t % 60);
   };
 
-  const overflowsToTomorrow = sh >= 24;
+  const startOverflowsCheck = sh >= 24; // only start matters for moving to tomorrow
+  const overflowsToTomorrow = startOverflowsCheck;
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   const handleSave = () => {
-    const clampSh = Math.min(23, sh);
-    const clampEh = Math.min(23, eh);
-    const newDate = overflowsToTomorrow ? tomorrow : undefined;
-    onSave(task.id, `${pad(clampSh)}:${pad(sm)}`, `${pad(clampEh)}:${pad(em)}`, newDate);
+    // Store actual times — midnight crossing uses modulo
+    // e.g. 23:45 start → 00:15 end is valid (task stays on today's date)
+    // Only if START overflows does the task move to tomorrow
+    const startOverflows = sh >= 24;
+    const savedSh = sh % 24;
+    const savedEh = eh % 24; // 24:00 → 00:00, 24:15 → 00:15, etc.
+    const newDate = startOverflows ? tomorrow : undefined;
+    onSave(task.id, `${pad(savedSh)}:${pad(sm)}`, `${pad(savedEh)}:${pad(em)}`, newDate);
     onClose();
   };
 
@@ -241,10 +247,10 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
             />
           </View>
 
-          {overflowsToTomorrow && (
+          {(sh >= 24 || eh >= 24) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 14 }}>
               <Ionicons name="information-circle" size={16} color="#D97706" />
-              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>This task will move to tomorrow's plan</Text>
+              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>{sh >= 24 ? "This task will move to tomorrow's plan" : 'End time clamped to 11:59 PM'}</Text>
             </View>
           )}
 
@@ -330,6 +336,7 @@ export default function PlanDetailScreen() {
   };
 
   const saveTaskTime = (taskId: string, startTime: string, endTime: string, newDate?: string) => {
+    const task = plan.tasks.find(t => t.id === taskId);
     updateStudyPlan({
       ...plan,
       tasks: plan.tasks.map(t => {
@@ -337,6 +344,23 @@ export default function PlanDetailScreen() {
         return { ...t, startTime, endTime, ...(newDate ? { date: newDate } : {}) };
       }),
     });
+    // Schedule study monitor check-ins when time is set from plan page
+    if (task) {
+      const subject = state.subjects.find(s => s.id === task.subjectId);
+      const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
+      const topic = chapter?.topics.find(t => t.id === task.topicId);
+      const taskDate = newDate ?? task.date;
+      const topicName = topic?.name ?? chapter?.name ?? 'Study task';
+      scheduleStudyCheckIns({
+        id: taskId, topicName, subjectName: subject?.name ?? '',
+        startTime, endTime, date: taskDate,
+        estimatedMinutes: task.estimatedMinutes ?? 40,
+      }).catch(() => {});
+      schedulePostTaskUsageCheck({
+        id: taskId, topicName, endTime, date: taskDate,
+        estimatedMinutes: task.estimatedMinutes ?? 40,
+      }).catch(() => {});
+    }
   };
 
   const clearTaskTime = (taskId: string) => {
