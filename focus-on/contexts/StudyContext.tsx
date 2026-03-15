@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AppState, Subject, StudySession,
-  StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit,
+  StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit, ActiveTask,
 } from '@/types/study';
 import { DEFAULT_SETTINGS } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
@@ -47,6 +47,7 @@ type Action =
   | { type: 'UPDATE_PLAN'; payload: StudyPlan }
   | { type: 'DELETE_PLAN'; payload: string }
   | { type: 'COMPLETE_TASK'; payload: string }
+  | { type: 'COMPLETE_TASK_AND_TOPIC'; payload: { taskId: string; subjectId: string; chapterId: string; topicId: string } }
   | { type: 'ADD_ROUTINE'; payload: AppBlockRoutine }
   | { type: 'UPDATE_ROUTINE'; payload: AppBlockRoutine }
   | { type: 'DELETE_ROUTINE'; payload: string }
@@ -144,6 +145,56 @@ function reducer(state: State, action: Action): State {
         })),
       };
 
+    // Complete both the plan task AND the topic/chapter in the subject
+    case 'COMPLETE_TASK_AND_TOPIC': {
+      const { taskId, subjectId, chapterId, topicId } = action.payload;
+
+      // Mark plan task done
+      const studyPlans = state.studyPlans.map(plan => ({
+        ...plan,
+        tasks: plan.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t),
+      }));
+
+      // Mark topic or chapter todo done
+      let totalTopicsCompleted = state.totalTopicsCompleted;
+      const subjects = state.subjects.map(subj => {
+        if (subj.id !== subjectId) return subj;
+
+        if (subj.topicBased) {
+          // chapter-only: mark all todos done
+          return {
+            ...subj,
+            chapters: subj.chapters.map(ch => {
+              if (ch.id !== chapterId) return ch;
+              totalTopicsCompleted += 1;
+              return {
+                ...ch,
+                todos: (ch.todos ?? []).map(t => ({ ...t, completed: true })),
+              };
+            }),
+          };
+        } else {
+          // topic-based: mark specific topic done
+          return {
+            ...subj,
+            chapters: subj.chapters.map(ch => {
+              if (ch.id !== chapterId) return ch;
+              return {
+                ...ch,
+                topics: ch.topics.map(t => {
+                  if (t.id !== topicId) return t;
+                  if (!t.completed) totalTopicsCompleted += 1;
+                  return { ...t, completed: true, completedAt: new Date().toISOString() };
+                }),
+              };
+            }),
+          };
+        }
+      });
+
+      return { ...state, studyPlans, subjects, totalTopicsCompleted };
+    }
+
     case 'ADD_ROUTINE':
       return { ...state, blockRoutines: [...state.blockRoutines, action.payload] };
 
@@ -191,6 +242,7 @@ interface StudyContextValue {
   updateStudyPlan: (p: StudyPlan) => void;
   deleteStudyPlan: (id: string) => void;
   completePlanTask: (taskId: string) => void;
+  completeTaskAndTopic: (taskId: string, subjectId: string, chapterId: string, topicId: string) => void;
   addBlockRoutine: (r: AppBlockRoutine) => void;
   updateBlockRoutine: (r: AppBlockRoutine) => void;
   deleteBlockRoutine: (id: string) => void;
@@ -209,13 +261,12 @@ interface StudyContextValue {
     estimatedMinutes: number; type: 'study' | 'revision';
     completed: boolean; startTime?: string; endTime?: string;
   }[];
+  getActiveNowTask: () => ActiveTask | null;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
-// Web এ localStorage, native এ AsyncStorage।
-// localStorage কে AsyncStorage এর মতো wrap করা হয়েছে।
 const store = Platform.OS === 'web'
   ? {
       getItem: async (key: string) => {
@@ -238,7 +289,6 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load from storage on mount
   useEffect(() => {
     store.getItem(STORAGE_KEY)
       .then(raw => {
@@ -246,22 +296,18 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           try {
             const saved = JSON.parse(raw);
             dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...saved, settings: { ...DEFAULT_SETTINGS, ...saved?.settings } } });
-          } catch {
-            // corrupt data — start fresh
-          }
+          } catch {}
         }
       })
-      .catch(() => {/* storage unavailable — start fresh */})
+      .catch(() => {})
       .finally(() => setReady(true));
   }, []);
 
-  // Debounced save to storage on every state change
   useEffect(() => {
     if (!ready) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       store.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-      // Sync time limits to native layer
       if (state.timeLimits && state.timeLimits.length >= 0) {
         AppBlocking.saveTimeLimits(
           state.timeLimits.map(t => ({
@@ -272,9 +318,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         );
       }
     }, 300);
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, ready]);
 
   // ── Action wrappers ─────────────────────────────────────────────────────────
@@ -296,6 +340,13 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const updateStudyPlan = useCallback((p: StudyPlan) => dispatch({ type: 'UPDATE_PLAN', payload: p }), []);
   const deleteStudyPlan = useCallback((id: string) => dispatch({ type: 'DELETE_PLAN', payload: id }), []);
   const completePlanTask = useCallback((taskId: string) => dispatch({ type: 'COMPLETE_TASK', payload: taskId }), []);
+
+  const completeTaskAndTopic = useCallback((
+    taskId: string, subjectId: string, chapterId: string, topicId: string
+  ) => {
+    dispatch({ type: 'COMPLETE_TASK_AND_TOPIC', payload: { taskId, subjectId, chapterId, topicId } });
+  }, []);
+
   const addBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'ADD_ROUTINE', payload: r }), []);
   const updateBlockRoutine = useCallback((r: AppBlockRoutine) => dispatch({ type: 'UPDATE_ROUTINE', payload: r }), []);
   const deleteBlockRoutine = useCallback((id: string) => dispatch({ type: 'DELETE_ROUTINE', payload: id }), []);
@@ -348,6 +399,59 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [state.studyPlans]);
 
+  // ── Active now task — finds the task that should be happening RIGHT NOW ─────
+  const getActiveNowTask = useCallback((): ActiveTask | null => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    for (const plan of state.studyPlans) {
+      for (const task of plan.tasks) {
+        if (task.completed) continue;
+        if (task.date !== today) continue;
+        if (!task.startTime || !task.endTime) continue;
+        if (nowStr < task.startTime || nowStr > task.endTime) continue;
+
+        // Found an active task — build the full info
+        const subject = state.subjects.find(s => s.id === task.subjectId);
+        if (!subject) continue;
+
+        const isChapterOnly = subject.topicBased;
+        let topicName = '';
+
+        if (isChapterOnly) {
+          const chapter = subject.chapters.find(ch => ch.id === task.chapterId);
+          topicName = chapter?.name ?? 'Chapter';
+        } else {
+          const topic = subject.chapters
+            .flatMap(ch => ch.topics)
+            .find(t => t.id === task.topicId);
+          topicName = topic?.name ?? 'Topic';
+        }
+
+        return {
+          planId: plan.id,
+          taskId: task.id,
+          topicId: task.topicId,
+          subjectId: task.subjectId,
+          chapterId: task.chapterId,
+          estimatedMinutes: task.estimatedMinutes,
+          startTime: task.startTime,
+          endTime: task.endTime,
+          subjectName: subject.name,
+          subjectColor: subject.color,
+          subjectIcon: subject.icon,
+          topicName,
+          isChapterOnly,
+          blockApps: plan.blockApps,
+          hardBlock: plan.hardBlock,
+          deviceAdmin: plan.deviceAdmin,
+        };
+      }
+    }
+    return null;
+  }, [state.studyPlans, state.subjects]);
+
   return (
     <StudyContext.Provider value={{
       state: state as AppState,
@@ -356,21 +460,22 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       toggleTopicComplete,
       addSession,
       addStudyPlan, updateStudyPlan, deleteStudyPlan, completePlanTask,
+      completeTaskAndTopic,
       addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
       addTimeLimit, updateTimeLimit, deleteTimeLimit,
       updateSettings,
       gainXp,
       completeOnboarding,
       getTodayMinutes, getStreak, getSubjectProgress, getTodayPlanTasks,
+      getActiveNowTask,
     }}>
       {children}
     </StudyContext.Provider>
   );
 }
 
-// ── useStudy — drop-in replacement ───────────────────────────────────────────
 export function useStudy(): StudyContextValue {
   const ctx = useContext(StudyContext);
   if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
   return ctx;
-}
+  }
