@@ -1,10 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const NOTIF_KEY = 'focuson_notif_scheduled';
-
-// ── Handler (show notification even when app is foregrounded) ──────────────
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -33,7 +29,7 @@ export async function scheduleTimerDoneNotification(
       title: mode === 'focus' ? '🎯 Focus session complete!' : '☕ Break time over!',
       body: mode === 'focus'
         ? 'Great work! Time for a break.'
-        : 'Ready to focus again? Let\'s go!',
+        : "Ready to focus again? Let's go!",
       sound: true,
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, repeats: false },
@@ -51,7 +47,6 @@ export async function cancelAllNotifications(): Promise<void> {
 
 // ── Daily study reminder ───────────────────────────────────────────────────
 export async function scheduleDailyReminder(hour = 19, minute = 0): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
   await Notifications.scheduleNotificationAsync({
     content: {
       title: '📚 Time to study!',
@@ -60,30 +55,25 @@ export async function scheduleDailyReminder(hour = 19, minute = 0): Promise<void
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute,
+      hour, minute,
     },
   });
 }
 
-// ── Streak reminder ────────────────────────────────────────────────────────
 export async function scheduleStreakReminder(): Promise<void> {
-  // Every day at 9 PM — if they haven't studied, remind them
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '🔥 Don\'t break your streak!',
-      body: 'You haven\'t studied today. Open Focus On to keep your streak alive.',
+      title: "🔥 Don't break your streak!",
+      body: "You haven't studied today. Open Focus On to keep your streak alive.",
       sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 21,
-      minute: 0,
+      hour: 21, minute: 0,
     },
   });
 }
 
-// ── Exam deadline reminder ─────────────────────────────────────────────────
 export async function scheduleExamReminder(
   examName: string,
   examDate: string,
@@ -96,7 +86,7 @@ export async function scheduleExamReminder(
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `📅 ${examName} in ${daysBefore} day${daysBefore > 1 ? 's' : ''}!`,
-          body: 'Review your study plan and make sure you\'re on track.',
+          body: "Review your study plan and make sure you're on track.",
           sound: true,
         },
         trigger: {
@@ -108,25 +98,65 @@ export async function scheduleExamReminder(
   }
 }
 
-// ── Plan task reminder ─────────────────────────────────────────────────────
 export async function schedulePlanReminder(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '📋 Today\'s study tasks are waiting!',
+      title: "📋 Today's study tasks are waiting!",
       body: 'You have tasks planned for today. Tap to get started.',
       sound: true,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 8,
-      minute: 30,
+      hour: 8, minute: 30,
     },
   });
 }
 
+// ── Per-task notifications ─────────────────────────────────────────────────
+// Fires a notification at the exact start time of each planned task
+export async function scheduleTaskNotifications(tasks: {
+  date: string;
+  startTime?: string;
+  topicName: string;
+  subjectName: string;
+  estimatedMinutes: number;
+}[]): Promise<void> {
+  for (const task of tasks) {
+    if (!task.startTime || !task.date) continue;
+
+    const [h, m] = task.startTime.split(':').map(Number);
+    const taskDate = new Date(task.date);
+    taskDate.setHours(h, m, 0, 0);
+
+    // Only schedule future notifications
+    if (taskDate <= new Date()) continue;
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `📖 Time to study: ${task.topicName}`,
+          body: `${task.subjectName} · ${task.estimatedMinutes} minutes scheduled. Open Focus On to start!`,
+          sound: true,
+          data: { screen: 'timer', topicName: task.topicName },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: taskDate,
+        },
+      });
+    } catch {
+      // Silently fail per task — don't block saving
+    }
+  }
+}
+
 // ── Setup all notifications ────────────────────────────────────────────────
 export async function setupAllNotifications(
-  studyPlans: { examName: string; examDate: string }[]
+  studyPlans: { examName: string; examDate: string }[],
+  tasks?: {
+    date: string; startTime?: string;
+    topicName: string; subjectName: string; estimatedMinutes: number;
+  }[]
 ): Promise<void> {
   const granted = await requestNotificationPermission();
   if (!granted) return;
@@ -139,4 +169,8 @@ export async function setupAllNotifications(
   for (const plan of studyPlans) {
     await scheduleExamReminder(plan.examName, plan.examDate);
   }
-}
+
+  if (tasks && tasks.length > 0) {
+    await scheduleTaskNotifications(tasks);
+  }
+  }
