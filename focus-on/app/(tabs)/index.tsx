@@ -504,10 +504,13 @@ export default function HomeScreen() {
   const progress = Math.min(todayMin / goalMin, 1);
   const today    = new Date().toISOString().split('T')[0];
 
-  // Today's tasks across all plans (max 5 shown in list)
+  // Today's tasks — exclude the active task (already shown in banner above)
   const todayTasks = useMemo(() =>
-    state.studyPlans.flatMap(p => p.tasks.filter(t => t.date === today)).slice(0, 5),
-    [state.studyPlans, today]
+    state.studyPlans
+      .flatMap(p => p.tasks.filter(t => t.date === today))
+      .filter(t => t.id !== activeTask?.taskId)
+      .slice(0, 5),
+    [state.studyPlans, today, activeTask?.taskId]
   );
 
   // Tasks that have NO time set yet — these need routine scheduling
@@ -537,15 +540,28 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [getActiveNowTask]));
 
-  // Setup Android notification channel on mount
+  // Setup on mount
   useEffect(() => {
     setupAndroidChannel().catch(() => {});
     setupStudyMonitorChannel().catch(() => {});
     const t = setTimeout(() => rescheduleMissedTasks(), 2000);
-    // New-day reminder scheduled after routine save — not on mount
+
+    // Schedule midnight "new day" notification on every app open
+    // Fires at 00:01 AM IF tomorrow has tasks with no startTime set
+    // This ensures it's always scheduled regardless of whether user used the modal
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const tomorrowUnscheduled = state.studyPlans.flatMap(p =>
+      p.tasks.filter(t2 => t2.date === tomorrow && !t2.completed && !t2.startTime)
+    ).map(t2 => {
+      const subj = state.subjects.find(s => s.id === t2.subjectId);
+      const ch = subj?.chapters.find(c => c.id === t2.chapterId);
+      const tp = ch?.topics.find(x => x.id === t2.topicId);
+      return { topicName: tp?.name ?? ch?.name ?? 'Task' };
+    });
+    scheduleNewDayRoutineReminder(tomorrowUnscheduled).catch(() => {});
+
     // Wire up notification tap → show check-in card
     const unsub = setupStudyMonitorNotificationHandler((taskId) => {
-      // Notification tapped — bring home screen into view with check-in
       setCheckInTaskId(taskId);
     });
     return () => { clearTimeout(t); unsub(); };
@@ -939,4 +955,4 @@ export default function HomeScreen() {
     </ScrollView>
     </View>
   );
-                           }
+            }
