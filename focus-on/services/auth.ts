@@ -7,18 +7,33 @@ import {
 } from 'firebase/auth';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
+import { Platform } from 'react-native';
 import { auth } from './firebase';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export const WEB_CLIENT_ID =
   '702598065897-a2foncrkpvmf0jpitatfecgi54j9ilhk.apps.googleusercontent.com';
-export const ANDROID_CLIENT_ID = '702598065897-csrhd1vj816jv4027i4uauadepqkn39k.apps.googleusercontent.com'; 
+export const ANDROID_CLIENT_ID =
+  '702598065897-csrhd1vj816jv4027i4uauadepqkn39k.apps.googleusercontent.com';
+
+// Reversed Android client ID — required for native APK redirect
+const ANDROID_SCHEME =
+  'com.googleusercontent.apps.702598065897-csrhd1vj816jv4027i4uauadepqkn39k';
 
 export function useGoogleAuth() {
+  const redirectUri = makeRedirectUri(
+    Platform.OS === 'android'
+      ? { native: `${ANDROID_SCHEME}:/oauth2redirect` }
+      : {}
+  );
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: WEB_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
     scopes: ['profile', 'email'],
+    redirectUri,
   });
 
   return { request, response, promptAsync };
