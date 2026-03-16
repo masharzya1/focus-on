@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -124,7 +124,6 @@ function LangPickerSlide({ colors: c, onPick }: {
 export default function OnboardingScreen() {
   const { completeOnboarding } = useStudy();
   const { colors } = useTheme();
-  const t = useT();
   const { setLanguage, t } = useLanguage();
   const router = useRouter();
   const [current, setCurrent] = useState(0);

@@ -55,7 +55,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 export default function ProfileScreen() {
   const { state } = useStudy();
-  const { user, isPro, signOut } = useAuth();
+  const { user, isPro, signOut, signInWithGoogle } = useAuth();
   const { colors: c, isDark, toggleTheme } = useTheme();
   const t = useT();
   const router = useRouter();
@@ -106,7 +106,7 @@ export default function ProfileScreen() {
           {!user && (
             <TouchableOpacity
               style={[s.signInBtn, { backgroundColor: c.accentSoft }]}
-              onPress={() => router.push('/(tabs)/profile' as any)}>
+              onPress={signInWithGoogle}>
               <Ionicons name="logo-google" size={16} color={c.accent} />
               <Text style={[s.signInTxt, { color: c.accent }]}>{t.profileSignIn}</Text>
             </TouchableOpacity>
@@ -125,7 +125,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(40).springify()}
           style={[s.xpCard, { backgroundColor: c.bgCard }]}>
           <View style={s.xpTop}>
-            <Text style={[s.xpLbl, { color: c.textMuted }]}>Level {lvl}</Text>
+            <Text style={[s.xpLbl, { color: c.textMuted }]}>{t.profileLevel(lvl)}</Text>
             <Text style={[s.xpLbl, { color: c.textMuted }]}>{earned}/{total} XP</Text>
           </View>
           <View style={[s.xpBg, { backgroundColor: c.border }]}>
@@ -137,10 +137,10 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.delay(60).springify()}
           style={[s.statsCard, { backgroundColor: c.bgCard }]}>
           {[
-            { icon: 'flame',            color: '#FF9500', val: String(state.streak),              lbl: 'Streak'   },
-            { icon: 'time-outline',     color: c.accent,  val: String(completedSessions.length),  lbl: 'Sessions' },
-            { icon: 'hourglass',        color: '#3B82F6', val: studiedStr,                        lbl: 'Studied'  },
-            { icon: 'checkmark-circle', color: '#10B981', val: String(state.totalTopicsCompleted), lbl: 'Done'    },
+            { icon: 'flame',            color: '#FF9500', val: String(state.streak),              lbl: t.profileStreak   },
+            { icon: 'time-outline',     color: c.accent,  val: String(completedSessions.length),  lbl: t.profileSessions },
+            { icon: 'hourglass',        color: '#3B82F6', val: studiedStr,                        lbl: t.profileStudied  },
+            { icon: 'checkmark-circle', color: '#10B981', val: String(state.totalTopicsCompleted), lbl: t.profileDone    },
           ].map((item, i, arr) => (
             <React.Fragment key={item.lbl}>
               <View style={s.statItem}>
@@ -161,11 +161,11 @@ export default function ProfileScreen() {
             <TouchableOpacity onPress={() => router.push('/profile/upgrade' as any)} activeOpacity={0.9}>
               <LinearGradient colors={['#6C63FF', '#9C5FFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upgradeBanner}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.upgradeTitle}>Upgrade to PRO</Text>
-                  <Text style={s.upgradeSub}>Unlock all features · One-time payment</Text>
+                  <Text style={s.upgradeTitle}>{t.profileUpgradeTitle}</Text>
+                  <Text style={s.upgradeSub}>{t.profileUpgradeSub}</Text>
                 </View>
                 <View style={s.upgradeBtn}>
-                  <Text style={s.upgradeBtnTxt}>Upgrade</Text>
+                  <Text style={s.upgradeBtnTxt}>{t.profileUpgradeBtn}</Text>
                   <Ionicons name="arrow-forward" size={14} color="#6C63FF" />
                 </View>
               </LinearGradient>
@@ -175,47 +175,47 @@ export default function ProfileScreen() {
 
         {/* ── Study ── */}
         <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>STUDY</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileStudy}</Text>
           <Section>
-            <MenuRow icon="bar-chart-outline"   label="Progress"         iconBg="#EDE9FF" iconColor="#6C63FF"  onPress={() => router.push('/profile/progress' as any)} />
-            <MenuRow icon="checkmark-done-outline" label="Completed Tasks" iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/profile/completed-tasks' as any)} />
-            <MenuRow icon="timer-outline"        label="Session History"  iconBg="#DBEAFE" iconColor="#3B82F6" onPress={() => router.push('/profile/session-history' as any)} isLast />
+            <MenuRow icon="bar-chart-outline"   label={t.profileProgress}         iconBg="#EDE9FF" iconColor="#6C63FF"  onPress={() => router.push('/profile/progress' as any)} />
+            <MenuRow icon="checkmark-done-outline" label={t.profileCompletedTasks} iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/profile/completed-tasks' as any)} />
+            <MenuRow icon="timer-outline"        label={t.profileSessionHistory}  iconBg="#DBEAFE" iconColor="#3B82F6" onPress={() => router.push('/profile/session-history' as any)} isLast />
           </Section>
         </Animated.View>
 
         {/* ── Account ── */}
         <Animated.View entering={FadeInDown.delay(120).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>ACCOUNT</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileAccount}</Text>
           <Section>
-            <MenuRow icon="person-outline"       label="Personal Information" iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/profile/personal-info' as any)} />
-            <MenuRow icon="diamond-outline"      label="Subscription"         iconBg="#EDE9FF" iconColor="#6C63FF" onPress={() => router.push('/profile/subscription' as any)} badge={isPro ? 'PRO' : undefined} />
-            <MenuRow icon="settings-outline"     label="App Settings"         iconBg="#F0FDF4" iconColor="#10B981" onPress={() => router.push('/(tabs)/settings' as any)} isLast />
+            <MenuRow icon="person-outline"       label={t.profilePersonalInfo} iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/profile/personal-info' as any)} />
+            <MenuRow icon="diamond-outline"      label={t.profileSubscription}         iconBg="#EDE9FF" iconColor="#6C63FF" onPress={() => router.push('/profile/subscription' as any)} badge={isPro ? 'PRO' : undefined} />
+            <MenuRow icon="settings-outline"     label={t.profileAppSettings}         iconBg="#F0FDF4" iconColor="#10B981" onPress={() => router.push('/(tabs)/settings' as any)} isLast />
           </Section>
         </Animated.View>
 
         {/* ── Info ── */}
         <Animated.View entering={FadeInDown.delay(140).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>INFO</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileInfo}</Text>
           <Section>
-            <MenuRow icon="information-circle-outline" label="About Us"           iconBg="#EFF6FF" iconColor="#3B82F6" onPress={() => router.push('/profile/about' as any)} />
-            <MenuRow icon="document-text-outline"      label="Privacy Policy"     iconBg="#F5F3FF" iconColor="#8B5CF6" onPress={() => router.push('/profile/privacy-policy' as any)} />
-            <MenuRow icon="reader-outline"             label="Terms & Conditions" iconBg="#FFF7ED" iconColor="#EA580C" onPress={() => router.push('/profile/terms-conditions' as any)} isLast />
+            <MenuRow icon="information-circle-outline" label={t.profileAboutUs}           iconBg="#EFF6FF" iconColor="#3B82F6" onPress={() => router.push('/profile/about' as any)} />
+            <MenuRow icon="document-text-outline"      label={t.profilePrivacyPolicy}     iconBg="#F5F3FF" iconColor="#8B5CF6" onPress={() => router.push('/profile/privacy-policy' as any)} />
+            <MenuRow icon="reader-outline"             label={t.profileTerms} iconBg="#FFF7ED" iconColor="#EA580C" onPress={() => router.push('/profile/terms-conditions' as any)} isLast />
           </Section>
         </Animated.View>
 
         {/* ── Danger zone ── */}
         <Animated.View entering={FadeInDown.delay(160).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>ACCOUNT</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileAccount}</Text>
           <Section>
             {user ? (
               <>
-                <MenuRow icon="person-outline"  label="Account Info"   iconBg="#F0F0F0" iconColor="#6B7280" onPress={() => {}} />
-                <MenuRow icon="trash-outline"   label="Delete Account" iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/profile/delete-account' as any)} danger />
-                <MenuRow icon="log-out-outline" label="Logout"         iconBg="#FEE2E2" iconColor="#EF4444" onPress={handleSignOut} isLast danger />
+                <MenuRow icon="person-outline"  label={t.profilePersonalInfo}   iconBg="#F0F0F0" iconColor="#6B7280" onPress={() => router.push('/profile/personal-info' as any)} />
+                <MenuRow icon="trash-outline"   label={t.profileDeleteAccount} iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/profile/delete-account' as any)} danger />
+                <MenuRow icon="log-out-outline" label={t.profileLogout}         iconBg="#FEE2E2" iconColor="#EF4444" onPress={handleSignOut} isLast danger />
               </>
             ) : (
-              <MenuRow icon="logo-google" label="Sign in with Google" iconBg="#EDE9FF" iconColor="#6C63FF"
-                onPress={() => {}} isLast />
+              <MenuRow icon="logo-google" label={t.profileSignInGoogle} iconBg="#EDE9FF" iconColor="#6C63FF"
+                onPress={signInWithGoogle} isLast />
             )}
           </Section>
         </Animated.View>

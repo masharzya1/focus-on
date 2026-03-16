@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, isSubjectTopicBased, type Chapter, type Topic } from '@/types/study';
 

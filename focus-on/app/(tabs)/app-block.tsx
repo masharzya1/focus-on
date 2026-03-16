@@ -198,6 +198,7 @@ function TimePicker({ value, onChange, label, colors: c }: {
 function DurationPicker({ value, onChange, colors: c }: {
   value: number; onChange: (mins: number) => void; colors: any;
 }) {
+  const t = useT();
   const hours = Array.from({ length: 13 }, (_, i) => String(i).padStart(1, '0'));
   const mins  = ['00', '15', '30', '45'];
   const h = Math.floor(value / 60);
@@ -221,7 +222,7 @@ function DurationPicker({ value, onChange, colors: c }: {
           onChange={i => onChange(h * 60 + i * 15)}
           width={46} colors={c}
         />
-        <Text style={{ color: c.textMuted, fontSize: 13, fontWeight: '600' }}>min</Text>
+        <Text style={{ color: c.textMuted, fontSize: 13, fontWeight: '600' }}>{t.appBlockMin}</Text>
       </View>
     </View>
   );
@@ -232,6 +233,7 @@ export default function AppBlockScreen() {
   const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
           addTimeLimit, updateTimeLimit, deleteTimeLimit } = useStudy();
   const { colors: c } = useTheme();
+  const t = useT();
 
   const [activeTab, setActiveTab] = useState<Tab>('apps');
   const [accessEnabled, setAccessEnabled] = useState(false);
@@ -469,8 +471,8 @@ export default function AppBlockScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: c.text }]}>App Block</Text>
-          <Text style={[styles.subtitle, { color: c.textMuted }]}>Stay focused, stay in control</Text>
+          <Text style={[styles.title, { color: c.text }]}>{t.appBlockTitle}</Text>
+          <Text style={[styles.subtitle, { color: c.textMuted }]}>{t.appBlockSubtitle}</Text>
         </View>
         <TouchableOpacity
           style={[styles.addBtn, { backgroundColor: c.accent }]}
@@ -481,7 +483,7 @@ export default function AppBlockScreen() {
               Alert.alert('Permission needed',
                 'Enable Accessibility permission so Focus On can block apps.',
                 [{ text: 'Open Settings', onPress: () => AppBlocking.openAccessibilitySettings() },
-                 { text: 'Cancel', style: 'cancel' }]);
+                 { text: t.appBlockCancel, style: 'cancel' }]);
               return;
             }
             resetForm(); setShowCreate(true);
@@ -502,8 +504,8 @@ export default function AppBlockScreen() {
             <Ionicons name="warning" size={18} color="#D97706" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.warnTitle, { color: '#92400E' }]}>Accessibility Permission Required</Text>
-            <Text style={[styles.warnSub, { color: '#B45309' }]}>Tap to enable — needed for all blocking</Text>
+            <Text style={[styles.warnTitle, { color: '#92400E' }]}>{t.appBlockAccessTitle}</Text>
+            <Text style={[styles.warnSub, { color: '#B45309' }]}>{t.appBlockAccessDesc}</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color="#D97706" />
         </TouchableOpacity>
@@ -534,8 +536,8 @@ export default function AppBlockScreen() {
                 <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
                   <Ionicons name="shield-outline" size={40} color={c.accent} />
                 </View>
-                <Text style={[styles.emptyTitle, { color: c.text }]}>No block routines</Text>
-                <Text style={[styles.emptySub, { color: c.textMuted }]}>Block distracting apps during study time</Text>
+                <Text style={[styles.emptyTitle, { color: c.text }]}>{t.appBlockNoRoutines}</Text>
+                <Text style={[styles.emptySub, { color: c.textMuted }]}>{t.appBlockNoRoutinesDesc}</Text>
               </View>
             ) : (
               <>
@@ -546,7 +548,7 @@ export default function AppBlockScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                         <Text style={[styles.routineName, { color: c.text }]}>{r.name}</Text>
                         <View style={{ backgroundColor: c.accentSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                          <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: c.accent }}>AUTO</Text>
+                          <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: c.accent }}>{t.appBlockAuto}</Text>
                         </View>
                       </View>
                       <Text style={[styles.routineTime, { color: c.textMuted }]}>{r.startTime} – {r.endTime}</Text>
@@ -570,7 +572,7 @@ export default function AppBlockScreen() {
                       {active && (
                         <View style={[styles.activePill, { backgroundColor: c.success + '18' }]}>
                           <View style={[styles.activeDot, { backgroundColor: c.success }]} />
-                          <Text style={[styles.activePillTxt, { color: c.success }]}>ACTIVE NOW</Text>
+                          <Text style={[styles.activePillTxt, { color: c.success }]}>{t.appBlockActiveNow}</Text>
                         </View>
                       )}
                       <View style={styles.routineTop}>
@@ -597,13 +599,13 @@ export default function AppBlockScreen() {
                             {r.hardBlock && (
                               <View style={[styles.badge, { backgroundColor: c.destructive + '18' }]}>
                                 <Ionicons name="lock-closed" size={10} color={c.destructive} />
-                                <Text style={[styles.badgeTxt, { color: c.destructive }]}>Hard</Text>
+                                <Text style={[styles.badgeTxt, { color: c.destructive }]}>{t.appBlockHard}</Text>
                               </View>
                             )}
                             {r.deviceAdmin && (
                               <View style={[styles.badge, { backgroundColor: '#DC2626' + '15' }]}>
                                 <Ionicons name="shield-checkmark" size={10} color="#DC2626" />
-                                <Text style={[styles.badgeTxt, { color: '#DC2626' }]}>Admin</Text>
+                                <Text style={[styles.badgeTxt, { color: '#DC2626' }]}>{t.appBlockAdmin}</Text>
                               </View>
                             )}
                           </View>
@@ -651,7 +653,7 @@ export default function AppBlockScreen() {
                         <View style={[styles.actionRow, { borderTopColor: c.border, justifyContent: 'center' }]}>
                           <View style={[styles.actionBtn, { backgroundColor: c.accentSoft, opacity: 0.8 }]}>
                             <Ionicons name="shield-checkmark-outline" size={14} color={c.accent} />
-                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Auto — managed by plan</Text>
+                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>{t.appBlockAutoManaged}</Text>
                           </View>
                         </View>
                       ) : (
@@ -659,15 +661,15 @@ export default function AppBlockScreen() {
                           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.accentSoft }]}
                             onPress={() => openEdit(r)}>
                             <Ionicons name="pencil-outline" size={14} color={c.accent} />
-                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>Edit</Text>
+                            <Text style={[styles.actionBtnTxt, { color: c.accent }]}>{t.appBlockEdit}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c.destructive + '12' }]}
                             onPress={() => Alert.alert('Delete?', `Delete "${r.name}"?`, [
-                              { text: 'Cancel', style: 'cancel' },
+                              { text: t.appBlockCancel, style: 'cancel' },
                               { text: 'Delete', style: 'destructive', onPress: () => deleteBlockRoutine(r.id) },
                             ])}>
                             <Ionicons name="trash-outline" size={14} color={c.destructive} />
-                            <Text style={[styles.actionBtnTxt, { color: c.destructive }]}>Delete</Text>
+                            <Text style={[styles.actionBtnTxt, { color: c.destructive }]}>{t.appBlockDelete}</Text>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -694,8 +696,8 @@ export default function AppBlockScreen() {
                 <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
                   <Ionicons name="globe-outline" size={40} color={c.accent} />
                 </View>
-                <Text style={[styles.emptyTitle, { color: c.text }]}>No websites blocked</Text>
-                <Text style={[styles.emptySub, { color: c.textMuted }]}>Block distracting websites across all browsers</Text>
+                <Text style={[styles.emptyTitle, { color: c.text }]}>{t.appBlockNoWebsites}</Text>
+                <Text style={[styles.emptySub, { color: c.textMuted }]}>{t.appBlockNoWebsitesDesc}</Text>
               </View>
             ) : (
               blockedWebsites.map((domain, i) => (
@@ -706,7 +708,7 @@ export default function AppBlockScreen() {
                     </View>
                     <Text style={[styles.webDomain, { color: c.text }]}>{domain}</Text>
                     <TouchableOpacity onPress={() => Alert.alert('Remove?', `Unblock ${domain}?`, [
-                      { text: 'Cancel', style: 'cancel' },
+                      { text: t.appBlockCancel, style: 'cancel' },
                       { text: 'Remove', style: 'destructive', onPress: () => removeWebsite(domain) },
                     ])}>
                       <Ionicons name="trash-outline" size={18} color={c.destructive} />
@@ -729,8 +731,8 @@ export default function AppBlockScreen() {
                   <Ionicons name="time" size={18} color="#7C3AED" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.warnTitle, { color: '#4C1D95' }]}>Usage Access Required</Text>
-                  <Text style={[styles.warnSub, { color: '#6D28D9' }]}>Tap to grant — needed to track daily app usage</Text>
+                  <Text style={[styles.warnTitle, { color: '#4C1D95' }]}>{t.appBlockUsageTitle}</Text>
+                  <Text style={[styles.warnSub, { color: '#6D28D9' }]}>{t.appBlockUsageDesc}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#7C3AED" />
               </TouchableOpacity>
@@ -748,8 +750,8 @@ export default function AppBlockScreen() {
                 <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
                   <Ionicons name="timer-outline" size={40} color={c.accent} />
                 </View>
-                <Text style={[styles.emptyTitle, { color: c.text }]}>No time limits</Text>
-                <Text style={[styles.emptySub, { color: c.textMuted }]}>Set daily time limits for distracting apps</Text>
+                <Text style={[styles.emptyTitle, { color: c.text }]}>{t.appBlockNoLimits}</Text>
+                <Text style={[styles.emptySub, { color: c.textMuted }]}>{t.appBlockNoLimitsDesc}</Text>
               </View>
             ) : (
               timeLimits.map((tl, i) => (
@@ -783,7 +785,7 @@ export default function AppBlockScreen() {
                       <Ionicons name="pencil-outline" size={18} color={c.accent} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => Alert.alert('Remove?', `Remove limit for ${tl.appName}?`, [
-                      { text: 'Cancel', style: 'cancel' },
+                      { text: t.appBlockCancel, style: 'cancel' },
                       { text: 'Remove', style: 'destructive', onPress: () => deleteTimeLimit(tl.id) },
                     ])} style={{ marginLeft: 4 }}>
                       <Ionicons name="trash-outline" size={18} color={c.destructive} />
@@ -816,7 +818,7 @@ export default function AppBlockScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={[styles.lbl, { color: c.textMuted }]}>Name</Text>
               <TextInput style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-                placeholder="e.g. Morning Study Block" placeholderTextColor={c.textFaint}
+                placeholder={t.appBlockRoutinePlaceholder} placeholderTextColor={c.textFaint}
                 value={rName} onChangeText={setRName} />
 
               <Text style={[styles.lbl, { color: c.textMuted }]}>Time</Text>
@@ -927,7 +929,7 @@ export default function AppBlockScreen() {
             <View style={[styles.handle, { backgroundColor: c.border }]} />
             <View style={styles.sheetHeader}>
               <View style={{ width: 22 }} />
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t.planCreateSelectApps}</Text>
               <TouchableOpacity onPress={() => setShowAppPicker(false)}>
                 <Text style={{ color: c.accent, fontWeight: '800', fontSize: 15 }}>Done ({rApps.length})</Text>
               </TouchableOpacity>
@@ -935,12 +937,12 @@ export default function AppBlockScreen() {
             <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
               <Ionicons name="search-outline" size={16} color={c.textMuted} />
               <TextInput style={{ color: c.text, flex: 1, marginLeft: 8 }}
-                placeholder="Search apps..." placeholderTextColor={c.textFaint}
+                placeholder={t.appBlockSearchPlaceholder} placeholderTextColor={c.textFaint}
                 value={appSearch} onChangeText={setAppSearch} />
             </View>
             {loadingApps && (
               <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 13 }}>Loading apps...</Text>
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 13 }}>{t.appBlockLoadingApps}</Text>
               </View>
             )}
             <FlatList
@@ -978,18 +980,18 @@ export default function AppBlockScreen() {
               <TouchableOpacity onPress={() => setShowLimitModal(false)}>
                 <Ionicons name="close" size={22} color={c.textMuted} />
               </TouchableOpacity>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Set Time Limit</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t.appBlockSetTimeLimit}</Text>
               <View style={{ width: 22 }} />
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* App selector (only for new limits) */}
               {limitPickerFor === 'new' && (
                 <>
-                  <Text style={[styles.lbl, { color: c.textMuted }]}>Select App</Text>
+                  <Text style={[styles.lbl, { color: c.textMuted }]}>{t.appBlockSelectApp}</Text>
                   <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border, marginBottom: 10 }]}>
                     <Ionicons name="search-outline" size={16} color={c.textMuted} />
                     <TextInput style={{ color: c.text, flex: 1, marginLeft: 8 }}
-                      placeholder="Search apps..." placeholderTextColor={c.textFaint}
+                      placeholder={t.appBlockSearchPlaceholder} placeholderTextColor={c.textFaint}
                       value={limitAppSearch} onChangeText={setLimitAppSearch} />
                   </View>
                   <FlatList
@@ -1019,7 +1021,7 @@ export default function AppBlockScreen() {
                 </View>
               )}
 
-              <Text style={[styles.lbl, { color: c.textMuted }]}>Daily Limit</Text>
+              <Text style={[styles.lbl, { color: c.textMuted }]}>{t.appBlockDailyLimit}</Text>
               <DurationPicker value={limitMinutes} onChange={setLimitMinutes} colors={c} />
 
               <TouchableOpacity
@@ -1027,7 +1029,7 @@ export default function AppBlockScreen() {
                   opacity: (limitSelectedApp || limitPickerFor !== 'new') && limitMinutes >= 15 ? 1 : 0.45 }]}
                 onPress={saveTimeLimit}>
                 <Ionicons name="timer" size={18} color="#fff" />
-                <Text style={styles.saveTxt}>Set Limit</Text>
+                <Text style={styles.saveTxt}>{t.appBlockSetLimit}</Text>
               </TouchableOpacity>
               <View style={{ height: 20 }} />
             </ScrollView>
@@ -1063,7 +1065,7 @@ export default function AppBlockScreen() {
               {/* Password if set */}
               {emergencyRoutine?.emergencyPassword && (
                 <>
-                  <Text style={[styles.lbl, { color: c.textMuted }]}>Enter password to unlock</Text>
+                  <Text style={[styles.lbl, { color: c.textMuted }]}>{t.appBlockEnterPassword}</Text>
                   <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: emergencyError ? '#EF4444' : c.border }]}>
                     <Ionicons name="key-outline" size={16} color={c.textMuted} />
                     <TextInput
@@ -1104,10 +1106,10 @@ export default function AppBlockScreen() {
                   setEmergencyRoutine(null);
                 }}>
                 <Ionicons name="shield-outline" size={18} color="#fff" />
-                <Text style={styles.saveTxt}>Disable Temporarily</Text>
+                <Text style={styles.saveTxt}>{t.appBlockDisableTemp}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowEmergency(false)} style={{ alignItems: 'center', paddingVertical: 12 }}>
-                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 14 }}>Cancel</Text>
+                <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 14 }}>{t.appBlockCancel}</Text>
               </TouchableOpacity>
               <View style={{ height: 8 }} />
             </Pressable>
@@ -1125,7 +1127,7 @@ export default function AppBlockScreen() {
               <TouchableOpacity onPress={() => { setShowAddWebsite(false); setWebsiteInput(''); }}>
                 <Ionicons name="close" size={22} color={c.textMuted} />
               </TouchableOpacity>
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Block a Website</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t.appBlockBlockWebsite}</Text>
               <View style={{ width: 22 }} />
             </View>
             <Text style={[styles.lbl, { color: c.textMuted }]}>Website URL or Domain</Text>
@@ -1149,7 +1151,7 @@ export default function AppBlockScreen() {
               style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 20, opacity: websiteInput.trim() ? 1 : 0.45 }]}
               onPress={addWebsite}>
               <Ionicons name="globe" size={18} color="#fff" />
-              <Text style={styles.saveTxt}>Block Website</Text>
+              <Text style={styles.saveTxt}>{t.appBlockBlockWebsiteBtn}</Text>
             </TouchableOpacity>
             <Text style={[styles.lbl, { color: c.textMuted, marginTop: 20 }]}>Quick Add</Text>
             <View style={styles.quickAddRow}>

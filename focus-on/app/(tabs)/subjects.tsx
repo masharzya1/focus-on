@@ -194,12 +194,12 @@ export default function SubjectsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: c.text }]}>{t.subjectsTitle}</Text>
-          <Text style={[styles.subtitle, { color: c.textMuted }]}>Tap & hold to delete · Tap pencil to edit</Text>
+          <Text style={[styles.subtitle, { color: c.textMuted }]}>{t.subjectsSubtitle}</Text>
         </View>
         <TouchableOpacity style={[styles.addBtn, { backgroundColor: c.accent }]}
           onPress={() => setShowCreate(true)}>
           <Ionicons name="add" size={20} color="#fff" />
-          <Text style={styles.addTxt}>New</Text>
+          <Text style={styles.addTxt}>{t.subjectsNewBtn}</Text>
         </TouchableOpacity>
       </View>
 
@@ -253,7 +253,7 @@ export default function SubjectsScreen() {
           <Pressable style={styles.modalBg} onPress={() => setShowCreate(false)}>
             <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
               <View style={[styles.handle, { backgroundColor: c.border }]} />
-              <Text style={[styles.sheetTitle, { color: c.text }]}>New Subject</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t.subjectsCreateTitle}</Text>
 
               <TextInput
                 style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
@@ -266,7 +266,7 @@ export default function SubjectsScreen() {
               <TouchableOpacity
                 style={[styles.createBtn, { backgroundColor: c.accent, opacity: name.trim() ? 1 : 0.5 }]}
                 onPress={create} disabled={!name.trim()}>
-                <Text style={styles.createTxt}>Create Subject</Text>
+                <Text style={styles.createTxt}>{t.subjectsCreateBtn}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -279,7 +279,7 @@ export default function SubjectsScreen() {
           <Pressable style={styles.modalBg} onPress={() => setEditingSubject(null)}>
             <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
               <View style={[styles.handle, { backgroundColor: c.border }]} />
-              <Text style={[styles.sheetTitle, { color: c.text }]}>Edit Subject</Text>
+              <Text style={[styles.sheetTitle, { color: c.text }]}>{t.subjectsEditTitle}</Text>
 
               <TextInput
                 style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
@@ -292,7 +292,7 @@ export default function SubjectsScreen() {
               <TouchableOpacity
                 style={[styles.createBtn, { backgroundColor: c.accent, opacity: editName.trim() ? 1 : 0.5 }]}
                 onPress={saveEdit} disabled={!editName.trim()}>
-                <Text style={styles.createTxt}>Save Changes</Text>
+                <Text style={styles.createTxt}>{t.subjectsSaveBtn}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, type PlannedTask } from '@/types/study';
 import { scheduleStudyCheckIns, schedulePostTaskUsageCheck } from '@/services/studyMonitor';
@@ -30,6 +30,7 @@ function DatePickerModal({ visible, current, onClose, onSelect, colors: c }: {
   visible: boolean; current: string; onClose: () => void;
   onSelect: (d: string) => void; colors: any;
 }) {
+  const t = useT();
   const [offset, setOffset] = useState(0);
   const base = new Date();
 
@@ -48,7 +49,7 @@ function DatePickerModal({ visible, current, onClose, onSelect, colors: c }: {
         <Pressable style={[{ borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44 }, { backgroundColor: c.bgCard }]}
           onPress={e => e.stopPropagation()}>
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: c.border, alignSelf: 'center', marginBottom: 20 }} />
-          <Text style={{ fontSize: 18, fontFamily: FONTS.bold, color: c.text, marginBottom: 16 }}>Move to date</Text>
+          <Text style={{ fontSize: 18, fontFamily: FONTS.bold, color: c.text, marginBottom: 16 }}>{t.planIdMoveToDate}</Text>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <TouchableOpacity onPress={() => setOffset(o => Math.max(0, o - 1))} style={{ opacity: offset === 0 ? 0.3 : 1, padding: 8 }}>
@@ -112,6 +113,7 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
   onSave: (taskId: string, startTime: string, endTime: string, newDate?: string) => void;
   colors: any;
 }) {
+  const tl = useT();
   const [sh, setSh] = useState(8);
   const [sm, setSm] = useState(0);
   const [eh, setEh] = useState(9);
@@ -217,7 +219,7 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontFamily: 'System', fontWeight: '700', color: c.text }}>{taskName}</Text>
-              <Text style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>Set start & end time</Text>
+              <Text style={{ fontSize: 12, color: c.textMuted, marginTop: 2 }}>{tl.planIdSetTime}</Text>
             </View>
           </View>
 
@@ -227,8 +229,8 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
               onMinus={() => adjustStart(-15)}
               onPlus={() => adjustStart(15)}
               onToggleAmPm={() => {
-                const t = sh * 60 + sm;
-                const newT = t + (sh < 12 ? 12 * 60 : -12 * 60);
+                const timeTotal = sh * 60 + sm;
+                const newT = timeTotal + (sh < 12 ? 12 * 60 : -12 * 60);
                 const dur = (eh * 60 + em) - (sh * 60 + sm);
                 setSh(Math.floor(Math.max(0, newT) / 60)); setSm(newT % 60);
                 const ne = Math.max(0, newT) + Math.max(15, dur);
@@ -259,11 +261,11 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
             style={{ marginTop: 20, height: 52, borderRadius: 16, backgroundColor: subjectColor, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
             onPress={handleSave}>
             <Ionicons name="checkmark" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'System', fontWeight: '700' }}>Save Time</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'System', fontWeight: '700' }}>{tl.planIdSaveTime}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onClose} style={{ alignItems: 'center', paddingVertical: 12 }}>
-            <Text style={{ color: c.textMuted, fontSize: 14 }}>Cancel</Text>
+            <Text style={{ color: c.textMuted, fontSize: 14 }}>{tl.planIdCancel}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
@@ -488,7 +490,7 @@ export default function PlanDetailScreen() {
 
         {dates.length === 0 && (
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <Text style={{ color: c.textMuted, fontFamily: FONTS.regular }}>No tasks scheduled.</Text>
+            <Text style={{ color: c.textMuted, fontFamily: FONTS.regular }}>{t.planIdNoTasks}</Text>
           </View>
         )}
 
@@ -568,7 +570,7 @@ export default function PlanDetailScreen() {
                         )}
                         {isReview && (
                           <View style={[styles.reviewBadge, { backgroundColor: '#8B5CF6' + '20' }]}>
-                            <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: '#8B5CF6' }}>REVIEW</Text>
+                            <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: '#8B5CF6' }}>{t.planIdReview}</Text>
                           </View>
                         )}
                         {task.startTime && (
@@ -641,12 +643,12 @@ export default function PlanDetailScreen() {
               style={[styles.rescheduleBtn, { backgroundColor: c.accent }]}
               onPress={handleReschedule}>
               <Ionicons name="calendar-outline" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>Reschedule Automatically</Text>
+              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>{t.planIdReschedule}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.rescheduleBtn, { backgroundColor: c.bgSecondary }]}
               onPress={() => setShowRescheduleConfirm(false)}>
-              <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>Keep as is</Text>
+              <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>{t.planIdKeepAsIs}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Pressable>

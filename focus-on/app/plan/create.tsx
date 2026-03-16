@@ -303,7 +303,7 @@ export default function CreatePlanScreen() {
   // ── Step bar ──────────────────────────────────────────────────────────────
   const StepBar = () => (
     <View style={styles.stepBar}>
-      {STEPS.map((s, i) => (
+      {t.planCreateSteps.map((s: string, i: number) => (
         <React.Fragment key={s}>
           <View style={{ alignItems: 'center' }}>
             <View style={[styles.stepDot, { backgroundColor: i <= step ? c.accent : c.border }]}>
@@ -330,7 +330,7 @@ export default function CreatePlanScreen() {
         <TouchableOpacity onPress={() => step > 0 ? setStep(s => s - 1) : router.back()}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: c.text }]}>New Study Plan</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]}>{t.planCreateTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -341,23 +341,23 @@ export default function CreatePlanScreen() {
         {/* ── Step 0: Setup ── */}
         {step === 0 && (
           <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>Set up your plan</Text>
+            <Text style={[styles.stepTitle, { color: c.text }]}>{t.planCreateSetupTitle}</Text>
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Exam name</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>{t.planCreateExamName}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: c.inputBg, color: c.text, borderColor: c.border }]}
-              placeholder="e.g. Physics Final" placeholderTextColor={c.textFaint}
+              placeholder={t.planCreateExamNamePlaceholder} placeholderTextColor={c.textFaint}
               value={examName} onChangeText={setExamName}
             />
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Exam date</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>{t.planCreateExamDate}</Text>
             <View style={[styles.card, { backgroundColor: c.bgCard }]}>
               <DatePicker value={examDate} onChange={setExamDate} colors={c} months={t.planCreateMonths} daysFromTodayLabel={t.planCreateDaysFromToday} />
             </View>
 
-            <Text style={[styles.label, { color: c.textMuted }]}>How much can you study per day?</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>{t.planCreateDailyCapacity}</Text>
             <View style={styles.capacityRow}>
-              {Object.entries(CAPACITY_LABELS).map(([val, info]) => {
+              {Object.entries(t.planCreateCapacityLabels).map(([val, info]) => {
                 const v = Number(val);
                 const active = dailyCapacity === v;
                 return (
@@ -374,9 +374,9 @@ export default function CreatePlanScreen() {
               })}
             </View>
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Study days</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>{t.planCreateStudyDays}</Text>
             <View style={styles.dayRow}>
-              {DAY_NAMES.map((d, i) => (
+              {t.planCreateDayNames.map((d: string, i: number) => (
                 <TouchableOpacity key={i}
                   style={[styles.dayBtn, {
                     backgroundColor: studyDays.includes(i) ? c.accent : c.inputBg,
@@ -391,7 +391,7 @@ export default function CreatePlanScreen() {
               <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textFaint, marginTop: 4 }}>Every day</Text>
             )}
 
-            <Text style={[styles.label, { color: c.textMuted }]}>Revision days before exam</Text>
+            <Text style={[styles.label, { color: c.textMuted }]}>{t.planCreateRevisionDays}</Text>
             <View style={styles.dayRow}>
               {[0,1,2,3,5,7].map(n => (
                 <TouchableOpacity key={n}
@@ -410,7 +410,7 @@ export default function CreatePlanScreen() {
         {/* ── Step 1: Topics with weights ── */}
         {step === 1 && (
           <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>What will you study?</Text>
+            <Text style={[styles.stepTitle, { color: c.text }]}>{t.planCreateWhatStudy}</Text>
             <Text style={{ fontSize: 14, fontFamily: FONTS.regular, color: c.textMuted, marginBottom: 16, lineHeight: 20 }}>
               Select chapters or topics. Set how heavy each one feels — the plan will schedule harder things first.
             </Text>
@@ -465,7 +465,7 @@ export default function CreatePlanScreen() {
                   </View>
 
                   {subject.chapters.length === 0 && (
-                    <Text style={{ color: c.textFaint, fontFamily: FONTS.regular, fontSize: 13, paddingBottom: 8 }}>No content yet</Text>
+                    <Text style={{ color: c.textFaint, fontFamily: FONTS.regular, fontSize: 13, paddingBottom: 8 }}>{t.planCreateNoContent}</Text>
                   )}
 
                   {/* Chapter-only subject */}
@@ -543,15 +543,15 @@ export default function CreatePlanScreen() {
         {/* ── Step 2: Blocking ── */}
         {step === 2 && (
           <Animated.View entering={FadeInRight.springify()}>
-            <Text style={[styles.stepTitle, { color: c.text }]}>App Blocking</Text>
+            <Text style={[styles.stepTitle, { color: c.text }]}>{t.planCreateAppBlocking}</Text>
             <Text style={{ fontSize: 14, fontFamily: FONTS.regular, color: c.textMuted, marginBottom: 16 }}>
               Optional — block distracting apps when you study.
             </Text>
 
             <View style={[styles.optRow, { backgroundColor: c.bgCard }]}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.optLabel, { color: c.text }]}>Block apps during study</Text>
-                <Text style={[styles.optSub, { color: c.textMuted }]}>Activates when your daily routine starts</Text>
+                <Text style={[styles.optLabel, { color: c.text }]}>{t.planCreateBlockDuringStudy}</Text>
+                <Text style={[styles.optSub, { color: c.textMuted }]}>{t.planCreateActivatesRoutine}</Text>
               </View>
               <Switch value={blockApps}
                 onValueChange={v => { setBlockApps(v); if (!v) setHardBlock(false); }}
@@ -562,8 +562,8 @@ export default function CreatePlanScreen() {
               <>
                 <View style={[styles.optRow, { backgroundColor: c.bgCard }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.optLabel, { color: c.text }]}>Hard Block</Text>
-                    <Text style={[styles.optSub, { color: c.textMuted }]}>Cannot dismiss — forces you to stay focused</Text>
+                    <Text style={[styles.optLabel, { color: c.text }]}>{t.planCreateHardBlock}</Text>
+                    <Text style={[styles.optSub, { color: c.textMuted }]}>{t.planCreateHardBlockDesc}</Text>
                   </View>
                   <Switch value={hardBlock} onValueChange={setHardBlock} trackColor={{ true: c.destructive }} />
                 </View>
@@ -586,15 +586,15 @@ export default function CreatePlanScreen() {
             {/* Final summary */}
             {preview && (
               <View style={[styles.summaryCard, { backgroundColor: c.bgCard }]}>
-                <Text style={{ fontFamily: FONTS.bold, color: c.text, fontSize: 15, marginBottom: 12 }}>Plan Summary</Text>
+                <Text style={{ fontFamily: FONTS.bold, color: c.text, fontSize: 15, marginBottom: 12 }}>{t.planCreatePlanSummary}</Text>
 
                 {[
-                  { icon: 'layers-outline', label: 'Items', value: `${scheduleItems.length}` },
-                  { icon: 'speedometer-outline', label: 'Daily capacity', value: t.planCreateCapacityLabels[dailyCapacity]?.label ?? `${dailyCapacity}` },
-                  { icon: 'calendar-outline', label: 'Study days', value: studyDays.length > 0 ? studyDays.map(d => t.planCreateDayNames[d]).join(', ') : 'Every day' },
-                  { icon: 'time-outline', label: 'Days needed', value: `~${preview.daysNeeded} days` },
-                  { icon: 'refresh-outline', label: 'Auto-reviews', value: preview.reviewCount > 0 ? `${preview.reviewCount} sessions` : 'None' },
-                  { icon: 'flag-outline', label: 'Exam', value: examDate },
+                  { icon: 'layers-outline', label: t.planCreateItems, value: `${scheduleItems.length}` },
+                  { icon: 'speedometer-outline', label: t.planCreateDailyCapacityLabel, value: t.planCreateCapacityLabels[dailyCapacity]?.label ?? `${dailyCapacity}` },
+                  { icon: 'calendar-outline', label: t.planCreateStudyDays, value: studyDays.length > 0 ? studyDays.map((d: number) => t.planCreateDayNames[d]).join(', ') : t.planCreateEveryDay },
+                  { icon: 'time-outline', label: t.planCreateDaysNeeded(0).replace('0',''), value: t.planCreateDaysNeeded(preview.daysNeeded) },
+                  { icon: 'refresh-outline', label: t.planCreateAutoReviews, value: preview.reviewCount > 0 ? t.planCreateReviewSessions(preview.reviewCount) : t.planCreateNone },
+                  { icon: 'flag-outline', label: t.planCreateExamLabel, value: examDate },
                 ].map((row, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderTopWidth: i > 0 ? 1 : 0, borderColor: c.border }}>
                     <Ionicons name={row.icon as any} size={16} color={c.textMuted} />
@@ -628,7 +628,7 @@ export default function CreatePlanScreen() {
           {saving
             ? <ActivityIndicator color="#fff" />
             : <Text style={[styles.nextTxt, { color: canNext() ? '#fff' : c.textFaint }]}>
-                {step === t.planCreateSteps.length - 1 ? 'Create Plan 🚀' : 'Next →'}
+                {step === t.planCreateSteps.length - 1 ? `${t.planCreateGenerate} 🚀` : `${t.planCreateNext} →`}
               </Text>}
         </TouchableOpacity>
       </View>
@@ -640,7 +640,7 @@ export default function CreatePlanScreen() {
             <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
               <View style={[styles.handle, { backgroundColor: c.border }]} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={[styles.sheetTitle, { color: c.text }]}>Select Apps</Text>
+                <Text style={[styles.sheetTitle, { color: c.text }]}>{t.planCreateSelectApps}</Text>
                 <TouchableOpacity onPress={() => setShowAppPicker(false)}>
                   <Text style={{ color: c.accent, fontFamily: FONTS.bold, fontSize: 15 }}>Done ({blockedApps.length})</Text>
                 </TouchableOpacity>
@@ -648,7 +648,7 @@ export default function CreatePlanScreen() {
               <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: c.border }]}>
                 <Ionicons name="search-outline" size={16} color={c.textMuted} />
                 <TextInput style={{ color: c.text, flex: 1, marginLeft: 8, fontFamily: FONTS.regular }}
-                  placeholder="Search..." placeholderTextColor={c.textFaint}
+                  placeholder={t.planCreateSearchPlaceholder} placeholderTextColor={c.textFaint}
                   value={appSearch} onChangeText={setAppSearch} />
               </View>
               <FlatList

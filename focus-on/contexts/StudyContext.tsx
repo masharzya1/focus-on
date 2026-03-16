@@ -340,6 +340,24 @@ const store = Platform.OS === 'web'
       setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
     };
 
+
+// ── Sanitize state for Firestore (remove undefined values) ───────────────────
+function sanitizeForFirestore(obj: any): any {
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  if (obj !== null && typeof obj === 'object') {
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === undefined) {
+        clean[k] = null; // Firestore needs null, not undefined
+      } else {
+        clean[k] = sanitizeForFirestore(v);
+      }
+    }
+    return clean;
+  }
+  return obj;
+}
+
 // ── Provider ──────────────────────────────────────────────────────────────────
 export function StudyProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, defaultState);
@@ -395,13 +413,69 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           );
         } catch {}
 
-        // Load data from Firestore on login
+        // Load data from Firestore on login — merge with local data
         try {
           const snap = await getDoc(doc(db, 'users', user.uid, 'data', 'app'));
+          // Get current local state at the time of login
+          const localSnapshot = await store.getItem(STORAGE_KEY); // use platform-aware store
+          const local = localSnapshot ? JSON.parse(localSnapshot) : null;
+
           if (snap.exists()) {
-            const data = snap.data();
-            delete data.updatedAt;
-            dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...data, settings: { ...DEFAULT_SETTINGS, ...data?.settings } } });
+            const cloud = snap.data();
+            delete cloud.updatedAt;
+
+            if (local) {
+              // Merge: combine subjects, sessions, plans, routines from both
+              // Use id-based dedup so nothing is lost from either device
+              const mergeById = (a: any[], b: any[]): any[] => {
+                const map = new Map<string, any>();
+                (a ?? []).forEach((x: any) => map.set(x.id, x));
+                (b ?? []).forEach((x: any) => map.set(x.id, x)); // cloud wins on conflict
+                return Array.from(map.values());
+              };
+
+              const merged: Partial<State> = {
+                ...defaultState,
+                ...cloud,
+                subjects:      mergeById(local.subjects ?? [], cloud.subjects ?? []),
+                sessions:      mergeById(local.sessions ?? [], cloud.sessions ?? []),
+                studyPlans:    mergeById(local.studyPlans ?? [], cloud.studyPlans ?? []),
+                blockRoutines: mergeById(local.blockRoutines ?? [], cloud.blockRoutines ?? []),
+                // Take the higher value for streak/xp/level
+                streak: Math.max(local.streak ?? 0, cloud.streak ?? 0),
+                xp:     Math.max(local.xp ?? 0, cloud.xp ?? 0),
+                level:  Math.max(local.level ?? 1, cloud.level ?? 1),
+                totalTopicsCompleted: Math.max(local.totalTopicsCompleted ?? 0, cloud.totalTopicsCompleted ?? 0),
+                settings: { ...DEFAULT_SETTINGS, ...cloud.settings },
+                onboardingCompleted: cloud.onboardingCompleted || local.onboardingCompleted,
+              };
+              dispatch({ type: 'HYDRATE', payload: merged });
+              // Push merged result back to cloud so both devices are in sync
+              try {
+                await setDoc(
+                  doc(db, 'users', user.uid, 'data', 'app'),
+                  { ...sanitizeForFirestore(merged), updatedAt: serverTimestamp() },
+                  { merge: true }
+                );
+              } catch {}
+            } else {
+              // No local data — just use cloud
+              dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...cloud, settings: { ...DEFAULT_SETTINGS, ...cloud?.settings } } });
+            }
+          } else if (local) {
+            // No cloud data yet — local stays, then immediately push to cloud
+            dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...local, settings: { ...DEFAULT_SETTINGS, ...local?.settings } } });
+            // Immediately upload local data to Firestore so other devices can see it
+            try {
+              await setDoc(
+                doc(db, 'users', user.uid, 'data', 'app'),
+                { ...sanitizeForFirestore(local), updatedAt: serverTimestamp() },
+                { merge: true }
+              );
+              console.log('[Sync] Local data uploaded to Firestore on first login');
+            } catch (e) {
+              console.error('[Sync] Failed to upload local data on login:', e);
+            }
           }
         } catch {}
 
@@ -438,10 +512,12 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       try {
         await setDoc(
           doc(db, 'users', currentUser.uid, 'data', 'app'),
-          { ...state, updatedAt: serverTimestamp() },
+          { ...sanitizeForFirestore(state), updatedAt: serverTimestamp() },
           { merge: true }
         );
-      } catch {} finally {
+      } catch (e) {
+        console.error('[Sync] Failed to write to Firestore:', e);
+      } finally {
         isSyncing.current = false;
       }
     }, 2000); // 2s debounce — avoid too many writes

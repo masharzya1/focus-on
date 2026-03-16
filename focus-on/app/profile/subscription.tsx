@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 export default function SubscriptionScreen() {
@@ -21,7 +21,7 @@ export default function SubscriptionScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: c.text }]}>Subscription</Text>
+        <Text style={[s.headerTitle, { color: c.text }]}>{t.subscriptionTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -34,10 +34,10 @@ export default function SubscriptionScreen() {
             <View style={s.proInfo}>
               <View style={s.proBadge}>
                 <Ionicons name="star" size={10} color="#FFD700" />
-                <Text style={s.proBadgeTxt}>PRO — Lifetime</Text>
+                <Text style={s.proBadgeTxt}>{t.subscriptionProLifetime}</Text>
               </View>
-              <Text style={s.proTitle}>All Features Unlocked</Text>
-              <Text style={s.proSub}>Unlimited access · No expiry · No subscription</Text>
+              <Text style={s.proTitle}>{t.subscriptionAllUnlocked}</Text>
+              <Text style={s.proSub}>{t.subscriptionUnlimitedAccess}</Text>
             </View>
           </LinearGradient>
         ) : (
@@ -46,7 +46,7 @@ export default function SubscriptionScreen() {
               <View style={[s.freeIcon, { backgroundColor: c.bgSecondary }]}>
                 <Ionicons name="person-outline" size={30} color={c.textMuted} />
               </View>
-              <Text style={[s.freeTitle, { color: c.text }]}>Free Plan</Text>
+              <Text style={[s.freeTitle, { color: c.text }]}>{t.subscriptionFreePlan}</Text>
               <Text style={[s.freeSub, { color: c.textMuted }]}>
                 You're on the free plan. Upgrade to PRO to unlock all features and support the developer!
               </Text>
@@ -56,7 +56,7 @@ export default function SubscriptionScreen() {
               style={[s.upgradeBtn, { backgroundColor: c.accent }]}
               onPress={() => router.push('/profile/upgrade' as any)}>
               <Ionicons name="diamond-outline" size={20} color="#fff" />
-              <Text style={s.upgradeTxt}>Upgrade to PRO</Text>
+              <Text style={s.upgradeTxt}>{t.subscriptionUpgradeBtn}</Text>
             </TouchableOpacity>
           </>
         )}

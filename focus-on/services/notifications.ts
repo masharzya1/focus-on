@@ -228,10 +228,17 @@ export async function setupAllNotifications(
   await cancelAllNotifications();
   await scheduleDailyReminder(19, 0);
   await scheduleStreakReminder();
-  await schedulePlanReminder();
+
+  // Plan reminder only fires if user has at least one active plan
+  if (studyPlans.length > 0) {
+    await schedulePlanReminder();
+  }
 
   for (const plan of studyPlans) {
-    await scheduleExamReminder(plan.examName, plan.examDate);
+    // Skip plans whose exam date has already passed
+    if (new Date(plan.examDate) > new Date()) {
+      await scheduleExamReminder(plan.examName, plan.examDate);
+    }
   }
 
   if (tasks && tasks.length > 0) {

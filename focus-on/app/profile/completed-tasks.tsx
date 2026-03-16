@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 function formatDate(iso: string) {
@@ -15,23 +15,23 @@ function formatDate(iso: string) {
 export default function CompletedTasksScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
-  const t = useT();
+  const tl = useT();
   const router = useRouter();
 
   // Completed plan tasks
   const completedPlanTasks = state.studyPlans.flatMap(plan =>
-    plan.tasks.filter(t => t.completed).map(t => {
-      const subject = state.subjects.find(s => s.id === t.subjectId);
-      const chapter = subject?.chapters.find(ch => ch.id === t.chapterId);
-      const topic   = chapter?.topics.find(tp => tp.id === t.topicId);
+    plan.tasks.filter(pt => pt.completed).map(task => {
+      const subject = state.subjects.find(s => s.id === task.subjectId);
+      const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
+      const topic   = chapter?.topics.find(tp => tp.id === task.topicId);
       return {
-        id: t.id,
-        name: topic?.name ?? chapter?.name ?? 'Task',
+        id: task.id,
+        name: topic?.name ?? chapter?.name ?? tl.completedTasksTask,
         subjectName: subject?.name ?? '',
         subjectColor: subject?.color ?? c.accent,
         subjectIcon: (subject?.icon ?? 'book-outline') as any,
         planName: plan.examName,
-        date: t.date,
+        date: task.date,
       };
     })
   ).sort((a, b) => b.date.localeCompare(a.date));
@@ -69,7 +69,7 @@ export default function CompletedTasksScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[st.headerTitle, { color: c.text }]}>Completed Tasks</Text>
+        <Text style={[st.headerTitle, { color: c.text }]}>{tl.completedTasksTitle}</Text>
         <View style={[st.countBadge, { backgroundColor: c.accentSoft }]}>
           <Text style={[st.countTxt, { color: c.accent }]}>{total}</Text>
         </View>
@@ -78,15 +78,15 @@ export default function CompletedTasksScreen() {
       {total === 0 ? (
         <View style={st.empty}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={c.textFaint} />
-          <Text style={[st.emptyTxt, { color: c.textMuted }]}>No completed tasks yet</Text>
-          <Text style={[st.emptySub, { color: c.textFaint }]}>Complete topics and plan tasks to see them here</Text>
+          <Text style={[st.emptyTxt, { color: c.textMuted }]}>{tl.completedTasksEmpty}</Text>
+          <Text style={[st.emptySub, { color: c.textFaint }]}>{tl.completedTasksEmptyDesc}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
 
           {completedTopics.length > 0 && (
             <>
-              <Text style={[st.sectionLabel, { color: c.textMuted }]}>TOPICS & CHAPTERS</Text>
+              <Text style={[st.sectionLabel, { color: c.textMuted }]}>{tl.completedTasksTopics}</Text>
               <View style={[st.card, { backgroundColor: c.bgCard }]}>
                 {completedTopics.map((item, i) => (
                   <View key={item.id}
@@ -110,7 +110,7 @@ export default function CompletedTasksScreen() {
 
           {completedPlanTasks.length > 0 && (
             <>
-              <Text style={[st.sectionLabel, { color: c.textMuted }]}>PLAN TASKS</Text>
+              <Text style={[st.sectionLabel, { color: c.textMuted }]}>{tl.completedTasksPlanTasks}</Text>
               <View style={[st.card, { backgroundColor: c.bgCard }]}>
                 {completedPlanTasks.map((item, i) => (
                   <View key={item.id}

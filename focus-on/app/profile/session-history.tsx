@@ -4,15 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
-function formatDate(iso: string) {
+function formatDate(iso: string, t?: any) {
   const d = new Date(iso);
   const today = new Date(); today.setHours(0,0,0,0);
   const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  if (d >= today) return 'Today';
-  if (d >= yesterday) return 'Yesterday';
+  if (d >= today) return t?.sessionHistoryToday ?? 'Today';
+  if (d >= yesterday) return t?.sessionHistoryYesterday ?? 'Yesterday';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -43,15 +43,15 @@ export default function SessionHistoryScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[st.headerTitle, { color: c.text }]}>Session History</Text>
+        <Text style={[st.headerTitle, { color: c.text }]}>{t.sessionHistoryTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       {sessions.length === 0 ? (
         <View style={st.empty}>
           <Ionicons name="timer-outline" size={48} color={c.textFaint} />
-          <Text style={[st.emptyTxt, { color: c.textMuted }]}>No sessions yet</Text>
-          <Text style={[st.emptySub, { color: c.textFaint }]}>Complete focus sessions to see your history</Text>
+          <Text style={[st.emptyTxt, { color: c.textMuted }]}>{t.sessionHistoryEmpty}</Text>
+          <Text style={[st.emptySub, { color: c.textFaint }]}>{t.sessionHistoryEmptyDesc}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
@@ -59,19 +59,19 @@ export default function SessionHistoryScreen() {
           <View style={[st.summaryCard, { backgroundColor: c.bgCard }]}>
             <View style={st.summaryItem}>
               <Text style={[st.summaryVal, { color: c.accent }]}>{sessions.length}</Text>
-              <Text style={[st.summaryLbl, { color: c.textMuted }]}>Total Sessions</Text>
+              <Text style={[st.summaryLbl, { color: c.textMuted }]}>{t.sessionHistoryTotal}</Text>
             </View>
             <View style={[st.summaryDiv, { backgroundColor: c.border }]} />
             <View style={st.summaryItem}>
               <Text style={[st.summaryVal, { color: c.accent }]}>{formatDur(totalMin)}</Text>
-              <Text style={[st.summaryLbl, { color: c.textMuted }]}>Total Time</Text>
+              <Text style={[st.summaryLbl, { color: c.textMuted }]}>{t.sessionHistoryTime}</Text>
             </View>
             <View style={[st.summaryDiv, { backgroundColor: c.border }]} />
             <View style={st.summaryItem}>
               <Text style={[st.summaryVal, { color: c.accent }]}>
                 {sessions.length > 0 ? formatDur(Math.round(totalMin / sessions.length)) : '0m'}
               </Text>
-              <Text style={[st.summaryLbl, { color: c.textMuted }]}>Avg Session</Text>
+              <Text style={[st.summaryLbl, { color: c.textMuted }]}>{t.sessionHistoryAvg}</Text>
             </View>
           </View>
 
@@ -85,7 +85,7 @@ export default function SessionHistoryScreen() {
                   <View style={[st.dot, { backgroundColor: subject?.color ?? c.accent }]} />
                   <View style={{ flex: 1 }}>
                     <Text style={[st.rowTitle, { color: c.text }]}>
-                      {subject?.name ?? 'Focus Session'}
+                      {subject?.name ?? t.sessionHistoryFocus}
                     </Text>
                     <Text style={[st.rowSub, { color: c.textFaint }]}>
                       {formatDate(sess.startTime)} · {formatTime(sess.startTime)}

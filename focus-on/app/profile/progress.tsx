@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS, RADIUS } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -86,7 +86,7 @@ export default function ProgressScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[st.headerTitle, { color: c.text }]}>Progress</Text>
+        <Text style={[st.headerTitle, { color: c.text }]}>{t.progressTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -95,13 +95,13 @@ export default function ProgressScreen() {
         {/* ── Summary stats ── */}
         <Animated.View entering={FadeInDown.delay(0).springify()}
           style={[st.card, { backgroundColor: c.bgCard }]}>
-          <Text style={[st.cardTitle, { color: c.textMuted }]}>OVERALL</Text>
+          <Text style={[st.cardTitle, { color: c.textMuted }]}>{t.progressOverall}</Text>
           <View style={st.summaryRow}>
             {[
-              { icon: 'flame',           color: '#FF9500', val: String(state.streak),              lbl: 'Day Streak'  },
-              { icon: 'time-outline',    color: c.accent,  val: `${totalH}h ${totalM}m`,            lbl: 'Total Time'  },
-              { icon: 'checkmark-done',  color: '#10B981', val: String(state.totalTopicsCompleted), lbl: 'Topics Done' },
-              { icon: 'star',            color: '#FFD700', val: String(state.xp),                  lbl: 'Total XP'    },
+              { icon: 'flame',           color: '#FF9500', val: String(state.streak),              lbl: t.progressDayStreak  },
+              { icon: 'time-outline',    color: c.accent,  val: `${totalH}h ${totalM}m`,            lbl: t.progressTotalTime  },
+              { icon: 'checkmark-done',  color: '#10B981', val: String(state.totalTopicsCompleted), lbl: t.progressTopicsDone },
+              { icon: 'star',            color: '#FFD700', val: String(state.xp),                  lbl: t.progressTotalXp    },
             ].map((item, i, arr) => (
               <React.Fragment key={item.lbl}>
                 <View style={st.summaryItem}>
@@ -120,7 +120,7 @@ export default function ProgressScreen() {
           style={[st.card, { backgroundColor: c.bgCard }]}>
           <View style={st.levelRow}>
             <View>
-              <Text style={[st.cardTitle, { color: c.textMuted }]}>LEVEL PROGRESS</Text>
+              <Text style={[st.cardTitle, { color: c.textMuted }]}>{t.progressLevel}</Text>
               <Text style={[st.levelNum, { color: c.accent }]}>Level {lvl}</Text>
             </View>
             <View style={[st.xpBadge, { backgroundColor: c.accentSoft }]}>
@@ -142,7 +142,7 @@ export default function ProgressScreen() {
               <Ionicons name="chevron-back" size={20} color={c.accent} />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={[st.cardTitle, { color: c.textMuted }]}>DAILY STUDY TIME</Text>
+              <Text style={[st.cardTitle, { color: c.textMuted }]}>{t.progressDailyTime}</Text>
               <Text style={[st.weekLabel, { color: c.textMuted }]}>{weekLabel}</Text>
             </View>
             <TouchableOpacity
@@ -187,7 +187,7 @@ export default function ProgressScreen() {
         {subjectProgress.length > 0 && (
           <Animated.View entering={FadeInDown.delay(120).springify()}
             style={[st.card, { backgroundColor: c.bgCard }]}>
-            <Text style={[st.cardTitle, { color: c.textMuted }]}>SUBJECT PROGRESS</Text>
+            <Text style={[st.cardTitle, { color: c.textMuted }]}>{t.progressSubject}</Text>
             {subjectProgress.map((sub, i) => (
               <View key={sub.id}
                 style={[st.subRow, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}>
@@ -219,8 +219,8 @@ export default function ProgressScreen() {
         {subjectProgress.length === 0 && (
           <View style={[st.empty, { backgroundColor: c.bgCard }]}>
             <Ionicons name="bar-chart-outline" size={40} color={c.textFaint} />
-            <Text style={[st.emptyTxt, { color: c.textMuted }]}>No study data yet</Text>
-            <Text style={[st.emptySub, { color: c.textFaint }]}>Complete some topics to see your progress</Text>
+            <Text style={[st.emptyTxt, { color: c.textMuted }]}>{t.progressEmpty}</Text>
+            <Text style={[st.emptySub, { color: c.textFaint }]}>{t.progressEmptyDesc}</Text>
           </View>
         )}
 

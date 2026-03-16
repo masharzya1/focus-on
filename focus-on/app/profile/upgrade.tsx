@@ -9,18 +9,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 import { PRO_PRICE_BDT } from '@/services/payment';
 
-const FEATURES = [
-  { icon: 'infinite-outline',      title: 'Unlimited Everything',        desc: 'No limits on subjects, plans, or sessions' },
-  { icon: 'shield-checkmark-outline', title: 'Advanced App Blocking',     desc: 'Hard block, Device Admin, emergency control' },
-  { icon: 'notifications-outline', title: 'Smart Reminders',             desc: 'Per-task notifications with custom schedules' },
-  { icon: 'sync-outline',          title: 'Cloud Sync',                  desc: 'Your data backed up across devices' },
-  { icon: 'analytics-outline',     title: 'Detailed Analytics',          desc: 'Track your progress with full charts' },
-  { icon: 'calendar-outline',      title: 'Smart Study Scheduling',      desc: 'AI-powered plan with spaced repetition' },
-];
+function getFeatures(t: any) { return [
+  { icon: 'infinite-outline',         title: t.upgradeUnlimited,    desc: 'No limits on subjects, plans, or sessions' },
+  { icon: 'shield-checkmark-outline', title: t.upgradeAppBlocking,  desc: 'Hard block, Device Admin, emergency control' },
+  { icon: 'notifications-outline',    title: t.upgradeReminders,    desc: 'Per-task notifications with custom schedules' },
+  { icon: 'sync-outline',             title: t.upgradeCloudSync,    desc: t.upgradeCloudSyncDesc },
+  { icon: 'analytics-outline',        title: t.upgradeAnalytics,    desc: t.upgradeAnalyticsDesc },
+  { icon: 'calendar-outline',         title: t.upgradeScheduling,   desc: 'AI-powered plan with spaced repetition' },
+]; }
 
 export default function UpgradeScreen() {
   const { isPro, grantPro } = useAuth();
@@ -43,7 +43,7 @@ export default function UpgradeScreen() {
           <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={st.proIcon}>
             <Ionicons name="shield-checkmark" size={40} color="#fff" />
           </LinearGradient>
-          <Text style={[st.proTitle, { color: c.text }]}>You're a PRO!</Text>
+          <Text style={[st.proTitle, { color: c.text }]}>{t.upgradeProTitle}</Text>
           <Text style={[st.proSub, { color: c.textMuted }]}>All features are unlocked. Thank you for your support!</Text>
         </View>
       </View>
@@ -65,22 +65,22 @@ export default function UpgradeScreen() {
         <LinearGradient colors={['#1a1040', '#6C63FF', '#9C5FFF']} start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }} style={st.hero}>
           <View style={st.premiumBadge}>
             <Ionicons name="star" size={12} color="#FFD700" />
-            <Text style={st.premiumTxt}>PREMIUM</Text>
+            <Text style={st.premiumTxt}>{t.upgradePremium}</Text>
           </View>
           <Text style={st.heroTitle}>Unlock Your{'\n'}Full Potential</Text>
-          <Text style={st.heroSub}>Everything you need to study smarter</Text>
+          <Text style={st.heroSub}>{t.upgradeTagline}</Text>
           <View style={st.priceRow}>
             <Text style={st.price}>৳{PRO_PRICE_BDT}</Text>
             <View>
-              <Text style={st.priceLabel}>One-time payment</Text>
-              <Text style={st.priceLifetime}>Lifetime access · No subscription</Text>
+              <Text style={st.priceLabel}>{t.upgradeOneTime}</Text>
+              <Text style={st.priceLifetime}>{t.upgradeLifetime}</Text>
             </View>
           </View>
         </LinearGradient>
 
         {/* ── Features ── */}
         <View style={{ padding: 16, gap: 10 }}>
-          {FEATURES.map((f, i) => (
+          {getFeatures(t).map((f, i) => (
             <Animated.View key={f.title} entering={FadeInDown.delay(i * 50).springify()}
               style={[st.featureCard, { backgroundColor: c.bgCard }]}>
               <View style={[st.featureIcon, { backgroundColor: c.accentSoft }]}>
@@ -116,7 +116,7 @@ export default function UpgradeScreen() {
             style={[st.paymentSheet, { backgroundColor: c.bgCard }]}
             onStartShouldSetResponder={() => true}>
             <View style={[st.handle, { backgroundColor: c.border }]} />
-            <Text style={[st.paymentTitle, { color: c.text }]}>Payment Method</Text>
+            <Text style={[st.paymentTitle, { color: c.text }]}>{t.upgradePaymentMethod}</Text>
             <Text style={[st.paymentSub, { color: c.textMuted }]}>৳{PRO_PRICE_BDT} · Lifetime Access</Text>
 
             {[
@@ -135,7 +135,7 @@ export default function UpgradeScreen() {
             ))}
 
             <TouchableOpacity onPress={() => setShowPayment(false)} style={st.cancelBtn}>
-              <Text style={[st.cancelTxt, { color: c.textMuted }]}>Cancel</Text>
+              <Text style={[st.cancelTxt, { color: c.textMuted }]}>{t.upgradeCancel}</Text>
             </TouchableOpacity>
           </Animated.View>
         </Pressable>

@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { FONTS, RADIUS } from '@/constants/theme';
 
 export default function PersonalInfoScreen() {
