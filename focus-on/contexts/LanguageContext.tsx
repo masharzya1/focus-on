@@ -1,4 +1,3 @@
-import { FONTS, BN_FONTS } from '@/constants/theme';
 import React, {
   createContext, useContext, useState, useEffect, useCallback,
 } from 'react';
@@ -31,7 +30,6 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => Promise<void>;
   t: Locale;
-  fonts: typeof FONTS;
   ready: boolean;
 }
 
@@ -39,7 +37,6 @@ const LanguageContext = createContext<LanguageContextType>({
   language: 'en',
   setLanguage: async () => {},
   t: en,
-  fonts: FONTS,
   ready: false,
 });
 
@@ -64,10 +61,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const t = LOCALES[language];
-  const fonts = language === 'bn' ? BN_FONTS : FONTS;
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, fonts, ready }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, ready }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -83,9 +79,4 @@ export function useT(): Locale {
 /** Returns full language context */
 export function useLanguage() {
   return useContext(LanguageContext);
-}
-
-/** Returns font family object for current language (Comfortaa or Tiro Bangla) */
-export function useLangFonts(): typeof FONTS {
-  return useContext(LanguageContext).fonts;
 }

@@ -9,15 +9,12 @@ import { useEffect, Component, ReactNode } from 'react';
 import React from 'react';
 import {
   useFonts,
-  Comfortaa_300Light,
-  Comfortaa_400Regular,
-  Comfortaa_500Medium,
-  Comfortaa_600SemiBold,
-  Comfortaa_700Bold,
-} from '@expo-google-fonts/comfortaa';
-import {
-  TiroBangla_400Regular,
-} from '@expo-google-fonts/tiro-bangla';
+  HindSiliguri_300Light,
+  HindSiliguri_400Regular,
+  HindSiliguri_500Medium,
+  HindSiliguri_600SemiBold,
+  HindSiliguri_700Bold,
+} from '@expo-google-fonts/hind-siliguri';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -88,12 +85,11 @@ function InnerLayout() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Comfortaa_300Light,
-    Comfortaa_400Regular,
-    Comfortaa_500Medium,
-    Comfortaa_600SemiBold,
-    Comfortaa_700Bold,
-    TiroBangla_400Regular,
+    HindSiliguri_300Light,
+    HindSiliguri_400Regular,
+    HindSiliguri_500Medium,
+    HindSiliguri_600SemiBold,
+    HindSiliguri_700Bold,
   });
 
   useEffect(() => {

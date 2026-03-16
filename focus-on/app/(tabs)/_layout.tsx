@@ -41,7 +41,7 @@ function CenterBtn({ focused, color, label = 'FOCUS' }: { focused: boolean; colo
       shadowColor: color, shadowOpacity: focused ? 0.55 : 0.28,
     }, anim]}>
       <Ionicons name="timer" size={24} color="#fff" />
-      <Text style={styles.centerLabel}>{t.tabFocus.toUpperCase()}</Text>
+      <Text style={styles.centerLabel}>{label}</Text>
     </Animated.View>
   );
 }

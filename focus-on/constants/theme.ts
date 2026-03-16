@@ -104,13 +104,13 @@ export const PROGRESS_HEIGHT = 6;
 
 // ── Typography — Comfortaa ───────────────────────────────────────────────────
 export const FONTS = {
-  light:     'Comfortaa_300Light',
-  regular:   'Comfortaa_400Regular',
-  medium:    'Comfortaa_500Medium',
-  semibold:  'Comfortaa_600SemiBold',
-  bold:      'Comfortaa_700Bold',
-  extrabold: 'Comfortaa_700Bold',  // Comfortaa max weight is 700
-  black:     'Comfortaa_700Bold',  // Comfortaa max weight is 700
+  light:     'HindSiliguri_300Light',
+  regular:   'HindSiliguri_400Regular',
+  medium:    'HindSiliguri_500Medium',
+  semibold:  'HindSiliguri_600SemiBold',
+  bold:      'HindSiliguri_700Bold',
+  extrabold: 'HindSiliguri_700Bold',
+  black:     'HindSiliguri_700Bold',
 };
 
 // ── Type scale ───────────────────────────────────────────────────────────────
@@ -128,14 +128,13 @@ export const TYPE = {
   label:      { fontSize: 11, fontFamily: FONTS.bold,     letterSpacing: 1,   textTransform: 'uppercase' as const },
 };
 
-// ── Bengali fonts (Tiro Bangla) ───────────────────────────────────────────────
-// Tiro Bangla only has Regular weight — all weights map to it
+// ── Bengali fonts (Hind Siliguri) ────────────────────────────────────────────
 export const BN_FONTS = {
-  light:     'TiroBangla_400Regular',
-  regular:   'TiroBangla_400Regular',
-  medium:    'TiroBangla_400Regular',
-  semibold:  'TiroBangla_400Regular',
-  bold:      'TiroBangla_400Regular',
-  extrabold: 'TiroBangla_400Regular',
-  black:     'TiroBangla_400Regular',
+  light:     'HindSiliguri_300Light',
+  regular:   'HindSiliguri_400Regular',
+  medium:    'HindSiliguri_500Medium',
+  semibold:  'HindSiliguri_600SemiBold',
+  bold:      'HindSiliguri_700Bold',
+  extrabold: 'HindSiliguri_700Bold',
+  black:     'HindSiliguri_700Bold',
 };

@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { SUBJECT_COLORS, SUBJECT_ICONS, isSubjectTopicBased, type Subject } from '@/types/study';
 
@@ -64,7 +64,7 @@ function SubjectCard({
   const c = c2;
   const topicBased = isSubjectTopicBased(item);
   const totalTopics = item.chapters.flatMap(ch => ch.topics).length;
-  const doneTopics  = item.chapters.flatMap(ch => ch.topics).filter(t => t.completed).length;
+  const doneTopics  = item.chapters.flatMap(ch => ch.topics).filter(tp => tp.completed).length;
 
   const doneChapters = item.chapters.filter(ch => ch.completed).length;
 
@@ -116,7 +116,7 @@ function SubjectCard({
 export default function SubjectsScreen() {
   const { state, addSubject, updateSubject, deleteSubject, getSubjectProgress } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
 
   // Create modal
@@ -229,6 +229,7 @@ export default function SubjectsScreen() {
               onPress={() => router.push(`/subject/${item.id}`)}
               onLongPress={() => setDeleteTarget(item)}
               onEdit={() => openEdit(item)}
+              t={t}
             />
           )}
           ItemSeparatorComponent={() => <View style={{ height: 0 }} />}
@@ -243,6 +244,7 @@ export default function SubjectsScreen() {
         name={deleteTarget?.name ?? ''}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => { deleteSubject(deleteTarget!.id); setDeleteTarget(null); }}
+        t={t}
       />
 
       {/* ── Create Modal ── */}

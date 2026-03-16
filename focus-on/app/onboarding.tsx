@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { FONTS } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -79,7 +80,9 @@ function LangPickerSlide({ colors: c, onPick }: {
           onPress={() => pick('en')}
           activeOpacity={0.8}
         >
-          <Text style={styles.langFlag}>🇬🇧</Text>
+          <View style={[styles.langIconCircle, { backgroundColor: '#DBEAFE' }]}>
+            <Text style={styles.langFlagText}>EN</Text>
+          </View>
           <Text style={[styles.langName, { color: c.text }]}>English</Text>
           <Text style={[styles.langSub, { color: c.textMuted }]}>English</Text>
           {selected === 'en' && (
@@ -98,7 +101,9 @@ function LangPickerSlide({ colors: c, onPick }: {
           onPress={() => pick('bn')}
           activeOpacity={0.8}
         >
-          <Text style={styles.langFlag}>🇧🇩</Text>
+          <View style={[styles.langIconCircle, { backgroundColor: '#D1FAE5' }]}>
+            <Text style={[styles.langFlagText, { color: '#059669' }]}>বাং</Text>
+          </View>
           <Text style={[styles.langName, { color: c.text }]}>বাংলা</Text>
           <Text style={[styles.langSub, { color: c.textMuted }]}>Bengali</Text>
           {selected === 'bn' && (
@@ -119,6 +124,7 @@ function LangPickerSlide({ colors: c, onPick }: {
 export default function OnboardingScreen() {
   const { completeOnboarding } = useStudy();
   const { colors } = useTheme();
+  // const t = useT();
   const { setLanguage, t } = useLanguage();
   const router = useRouter();
   const [current, setCurrent] = useState(0);
@@ -210,11 +216,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 20, elevation: 6,
   },
   title: {
-    fontSize: 28, fontWeight: '800', fontFamily: 'Inter_800ExtraBold',
+    fontSize: 28, fontFamily: FONTS.bold,
     textAlign: 'center', letterSpacing: -0.5, marginBottom: 16,
   },
   titleBn: {
-    fontSize: 22, fontWeight: '700',
+    fontSize: 22, fontFamily: FONTS.bold,
     textAlign: 'center', marginTop: -8, marginBottom: 36,
   },
   desc: { fontSize: 16, textAlign: 'center', lineHeight: 26 },
@@ -227,11 +233,12 @@ const styles = StyleSheet.create({
   langCardActive: {
     shadowColor: '#6C63FF', shadowOpacity: 0.18, shadowRadius: 12, elevation: 6,
   },
-  langFlag: { fontSize: 40 },
-  langName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  langSub: { fontSize: 13, fontWeight: '500' },
+  langIconCircle: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  langFlagText: { fontSize: 22, fontFamily: FONTS.bold, color: '#1E40AF' },
+  langName: { fontSize: 20, fontFamily: FONTS.bold, letterSpacing: -0.3 },
+  langSub: { fontSize: 13, fontFamily: FONTS.medium },
   langCheck: { position: 'absolute', top: 10, right: 10 },
-  langHint: { fontSize: 12, textAlign: 'center', lineHeight: 20 },
+  langHint: { fontSize: 12, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
   dotsRow: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     gap: 6, paddingBottom: 20,
@@ -239,10 +246,10 @@ const styles = StyleSheet.create({
   dot: { height: 8, borderRadius: 4 },
   bottom: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24 },
   skipBtn: { paddingHorizontal: 16, paddingVertical: 14 },
-  skipTxt: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  skipTxt: { fontSize: 16, fontFamily: FONTS.semibold },
   nextBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, height: 56, borderRadius: 16,
   },
-  nextTxt: { color: '#fff', fontSize: 17, fontWeight: '800', fontFamily: 'Inter_800ExtraBold' },
+  nextTxt: { color: '#fff', fontSize: 17, fontFamily: FONTS.bold },
 });

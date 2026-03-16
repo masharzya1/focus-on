@@ -56,7 +56,7 @@ function StartButton({ onPress, color, darkColor, label }: {
 }
 
 // ── Active Task Banner ────────────────────────────────────────────────────────
-function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => void }) {
+function ActiveTaskBanner({ task, onPress, t }: { task: ActiveTask; onPress: () => void; t: any }) {
   const pulse = useSharedValue(1);
   useEffect(() => {
     pulse.value = withRepeat(
@@ -291,7 +291,6 @@ export default function HomeScreen() {
   const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
   const t = useT();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const greetingInfo = getGreetingIcon();
   const greeting = { ...greetingInfo, text: t[greetingInfo.key] };
@@ -489,7 +488,7 @@ export default function HomeScreen() {
       {/* Active Task Banner */}
       {activeTask && (
         <Animated.View entering={FadeInDown.delay(40).springify()}>
-          <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} />
+          <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} t={t} />
         </Animated.View>
       )}
 
