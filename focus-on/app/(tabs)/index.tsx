@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, Modal, Pressable, TextInput, KeyboardAvoidingView,
@@ -12,97 +12,9 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { ActiveTask, PlannedTask } from '@/types/study';
-import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel, scheduleRoutineReminder, scheduleNewDayRoutineReminder } from '@/services/notifications';
-import {
-  scheduleStudyCheckIns, schedulePostTaskUsageCheck,
-  confirmStudyingForTask, cancelCheckInsForTask, setupStudyMonitorChannel,
-  setupStudyMonitorNotificationHandler,
-} from '@/services/studyMonitor';
-
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 32, gap: 14 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: 20, paddingBottom: 12,
-  },
-  greetingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  greeting: { fontSize: 14, fontFamily: FONTS.medium },
-  appName: { fontSize: 30, fontFamily: FONTS.bold, letterSpacing: -0.5 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
-  streakNum: { fontSize: 16, fontFamily: FONTS.bold },
-  avatarBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  // Morning routine banner
-  routineBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: RADIUS.xl, borderWidth: 1.5 },
-  routineBannerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  routineBannerTitle: { fontSize: 14, fontFamily: FONTS.bold },
-  routineBannerSub: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 1 },
-  // Active task banner
-  activeBanner: { borderRadius: RADIUS.xl, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14, overflow: 'hidden' },
-  bannerAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
-  bannerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
-  bannerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
-  liveDot: { width: 7, height: 7, borderRadius: 4 },
-  bannerLive: { fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  bannerTime: { fontSize: 11, fontFamily: FONTS.regular },
-  bannerTopic: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 1 },
-  bannerSubject: { fontSize: 12, fontFamily: FONTS.medium },
-  bannerBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  // Goal card
-  goalCard: { borderRadius: RADIUS.xl, padding: 18 },
-  goalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  goalLabelRow: { flexDirection: 'row', alignItems: 'center' },
-  goalLabel: { fontSize: 14, fontFamily: FONTS.semibold },
-  goalTime: { fontSize: 14, fontFamily: FONTS.bold },
-  progBg: { height: 10, borderRadius: 5, overflow: 'hidden' },
-  progFill: { height: '100%', borderRadius: 5 },
-  goalDoneRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  goalDone: { fontSize: 13, fontFamily: FONTS.semibold },
-  // Start button
-  startOuter: { borderRadius: 20, paddingBottom: 5, shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 8 },
-  startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 64, borderRadius: 16 },
-  startTxt: { color: '#fff', fontSize: 18, fontFamily: FONTS.bold, letterSpacing: 0.2 },
-  // Tasks card
-  tasksCard: { borderRadius: RADIUS.xl, padding: 18 },
-  tasksTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  tasksTitle: { fontSize: 16, fontFamily: FONTS.bold, flex: 1 },
-  setTimesBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  setTimesTxt: { fontSize: 12, fontFamily: FONTS.bold },
-  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
-  taskDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  taskName: { fontSize: 14, fontFamily: FONTS.semibold },
-  done: { textDecorationLine: 'line-through', opacity: 0.5 },
-  taskSub: { fontSize: 11, marginTop: 2, fontFamily: FONTS.regular },
-  taskMins: { fontSize: 12, fontFamily: FONTS.semibold },
-  // Empty plan
-  emptyPlan: { borderRadius: RADIUS.xl, padding: 28, alignItems: 'center', gap: 12 },
-  emptyIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  emptyTxt: { fontSize: 14, fontFamily: FONTS.medium },
-  planBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
-  planBtnTxt: { fontSize: 14, fontFamily: FONTS.bold },
-  // Morning routine modal
-  modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44, maxHeight: '88%' },
-  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  routineIconCircle: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  sheetTitle: { fontSize: 18, fontFamily: FONTS.bold },
-  sheetSub: { fontSize: 13, fontFamily: FONTS.regular, marginTop: 2 },
-  routineTaskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
-  routineTaskName: { fontSize: 14, fontFamily: FONTS.semibold },
-  routineTaskSub: { fontSize: 12, fontFamily: FONTS.regular },
-  timeStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  timeStepBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  timeDisplay: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  timeText: { fontSize: 15, fontFamily: FONTS.bold },
-  saveBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  saveTxt: { fontSize: 16, fontFamily: FONTS.bold },
-});
+import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -201,56 +113,20 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
 }) {
   // Each task has start + end time
   const [times, setTimes] = useState<Record<string, { sh: number; sm: number; eh: number; em: number }>>({});
-  // Prevent re-init when parent re-renders (tasks array is new ref every render → caused AM/PM reset bug)
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (!visible) { initialized.current = false; return; }
-    if (initialized.current) return;
-    initialized.current = true;
-
-    // Start from current time rounded up to nearest 15 min (not hardcoded 8AM)
-    const now = new Date();
-    let curH = now.getHours();
-    let curM = Math.ceil(now.getMinutes() / 15) * 15;
-    if (curM >= 60) { curH += 1; curM = 0; }
-    if (curH > 23) { curH = 23; curM = 0; }
-
+    if (!visible) return;
+    let curH = 8, curM = 0;
     const init: Record<string, { sh: number; sm: number; eh: number; em: number }> = {};
     for (const task of tasks) {
-      // Pre-fill from existing startTime/endTime if already set
-      if (task.startTime && task.endTime) {
-        const [sh, sm] = task.startTime.split(':').map(Number);
-        const [eh, em] = task.endTime.split(':').map(Number);
-        init[task.id] = { sh, sm, eh, em };
-        curH = eh; curM = em;
-      } else {
-        const endMins = curH * 60 + curM + 60; // allow overflow, stored as cross-midnight
-        const eh = Math.floor(endMins / 60); // no clamp — 24:00 = midnight
-        const em = endMins % 60;
-        init[task.id] = { sh: curH, sm: curM, eh, em };
-        curH = eh % 24; curM = em; // cascade uses mod24
-      }
+      const endMins = curH * 60 + curM + 60; // default 1hr per task
+      const eh = Math.min(23, Math.floor(endMins / 60));
+      const em = endMins % 60;
+      init[task.id] = { sh: curH, sm: curM, eh, em };
+      curH = eh; curM = em;
     }
     setTimes(init);
-  }, [visible]); // tasks excluded intentionally: new ref every render caused the AM/PM reset
-
-  // Toggle AM/PM by jumping ±12 hours
-  const toggleAmPm = (taskId: string, field: 'start' | 'end') => {
-    setTimes(prev => {
-      const cur = prev[taskId] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
-      const next = { ...prev };
-      if (field === 'start') {
-        const newSh = (cur.sh + 12) % 24;
-        const dur = (cur.eh * 60 + cur.em) - (cur.sh * 60 + cur.sm);
-        const newEnd = Math.min(23 * 60 + 59, newSh * 60 + cur.sm + Math.max(0, dur));
-        next[taskId] = { sh: newSh, sm: cur.sm, eh: Math.floor(newEnd / 60), em: newEnd % 60 };
-      } else {
-        next[taskId] = { ...cur, eh: (cur.eh + 12) % 24 };
-      }
-      return next;
-    });
-  };
+  }, [visible, tasks]);
 
   const adjust = (taskId: string, field: 'start' | 'end', dMin: number) => {
     setTimes(prev => {
@@ -273,14 +149,14 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
         endTotal = Math.max(cur.sh * 60 + cur.sm + 15, Math.min(23 * 60 + 59, endTotal)); // min 15 min duration
         next[taskId] = { ...cur, eh: Math.floor(endTotal / 60), em: endTotal % 60 };
 
-        // Cascade all subsequent tasks — allow overflow past midnight (detected at save)
+        // Cascade all subsequent tasks
         let cascadeStart = endTotal;
         const idx = tasks.findIndex(t => t.id === taskId);
         for (let i = idx + 1; i < tasks.length; i++) {
           const nt = tasks[i];
           const nc = next[nt.id] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
           const dur = Math.max(15, (nc.eh * 60 + nc.em) - (nc.sh * 60 + nc.sm));
-          const newEnd = cascadeStart + dur; // no midnight clamp — overflow detected in handleSave
+          const newEnd = Math.min(23 * 60 + 59, cascadeStart + dur);
           next[nt.id] = {
             sh: Math.floor(cascadeStart / 60), sm: cascadeStart % 60,
             eh: Math.floor(newEnd / 60), em: newEnd % 60,
@@ -301,60 +177,31 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
     return topic?.name ?? chapter.name;
   };
 
-  // Detect tasks that overflowed past midnight
-  const overflowTasks = tasks.filter(task => {
-    const t = times[task.id];
-    return t && (t.sh >= 24 || t.eh >= 24);
-  });
-  const movedTasks = tasks.filter(task => {
-    const t = times[task.id];
-    return t && t.sh >= 24;
-  });
-
   const handleSave = () => {
     const updated = tasks.map(task => {
       const t = times[task.id] ?? { sh: 8, sm: 0, eh: 9, em: 0 };
-      // Clamp to midnight for storage — overflow tasks will be moved to tomorrow
-      const clampedSh = Math.min(23, t.sh);
-      const clampedEh = Math.min(23, t.eh);
-      // Store actual mod-24 times; cross-midnight tasks (end < start) stay on today
-      const startOver = t.sh >= 24;
       return {
         id: task.id,
-        startTime: `${pad(t.sh % 24)}:${pad(t.sm)}`,
-        endTime: `${pad(t.eh % 24)}:${pad(t.em)}`, // 24:15 → 00:15
-        movedToTomorrow: startOver, // only if START crosses midnight
+        startTime: `${pad(t.sh)}:${pad(t.sm)}`,
+        endTime: `${pad(t.eh)}:${pad(t.em)}`,
       };
     });
     onSave(updated);
   };
 
-  const Stepper = ({ value, onMinus, onPlus, onToggleAmPm, color }: {
-    value: string; onMinus: () => void; onPlus: () => void; onToggleAmPm: () => void; color: string;
-  }) => {
-    const ampm = value.slice(-2); // 'AM' or 'PM'
-    const timeOnly = value.slice(0, -3); // e.g. '9:00'
-    return (
-      <View style={styles.timeStepper}>
-        <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onMinus}>
-          <Ionicons name="remove" size={14} color={color} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.timeDisplay, { backgroundColor: color + '18', borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 3 }]}
-          onPress={onToggleAmPm}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.timeText, { color }]}>{timeOnly}</Text>
-          <View style={{ backgroundColor: color + '30', borderRadius: 5, paddingHorizontal: 4, paddingVertical: 1 }}>
-            <Text style={{ fontSize: 11, fontFamily: 'System', fontWeight: '700', color }}>{ampm}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onPlus}>
-          <Ionicons name="add" size={14} color={color} />
-        </TouchableOpacity>
+  const Stepper = ({ value, onMinus, onPlus, color }: { value: string; onMinus: () => void; onPlus: () => void; color: string }) => (
+    <View style={styles.timeStepper}>
+      <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onMinus}>
+        <Ionicons name="remove" size={14} color={color} />
+      </TouchableOpacity>
+      <View style={[styles.timeDisplay, { backgroundColor: color + '18', borderRadius: 8 }]}>
+        <Text style={[styles.timeText, { color }]}>{value}</Text>
       </View>
-    );
-  };
+      <TouchableOpacity style={[styles.timeStepBtn, { backgroundColor: c.bgSecondary }]} onPress={onPlus}>
+        <Ionicons name="add" size={14} color={color} />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -403,7 +250,6 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
                         value={to12h(t.sh, t.sm)}
                         onMinus={() => adjust(task.id, 'start', -15)}
                         onPlus={() => adjust(task.id, 'start', 15)}
-                        onToggleAmPm={() => toggleAmPm(task.id, 'start')}
                         color={color}
                       />
                       <Text style={{ color: c.textFaint, fontSize: 12 }}>→</Text>
@@ -411,7 +257,6 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
                         value={to12h(t.eh, t.em)}
                         onMinus={() => adjust(task.id, 'end', -15)}
                         onPlus={() => adjust(task.id, 'end', 15)}
-                        onToggleAmPm={() => toggleAmPm(task.id, 'end')}
                         color={color}
                       />
                     </View>
@@ -420,17 +265,8 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
               })}
             </ScrollView>
 
-            {overflowTasks.length > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 8 }}>
-                <Ionicons name="information-circle" size={16} color="#D97706" />
-                <Text style={{ flex: 1, fontSize: 12, fontFamily: 'System', color: '#92400E' }}>
-                  {movedTasks.length > 0 ? `${movedTasks.length} task${movedTasks.length > 1 ? 's' : ''} will move to tomorrow` : `${overflowTasks.length - movedTasks.length} task end time clamped to 11:59 PM`}
-                </Text>
-              </View>
-            )}
             <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 8 }]}
+              style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 16 }]}
               onPress={handleSave}>
               <Ionicons name="checkmark" size={18} color="#fff" />
               <Text style={[styles.saveTxt, { color: '#fff' }]}>Set Routine & Get Notified</Text>
@@ -448,90 +284,32 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
   );
 }
 
-
-// ── Study Check-In Card ───────────────────────────────────────────────────────
-function StudyCheckInCard({ task, onConfirm, onDismiss, colors: c }: {
-  task: ActiveTask;
-  onConfirm: () => void;
-  onDismiss: () => void;
-  colors: any;
-}) {
-  return (
-    <Animated.View entering={FadeInDown.springify()}
-      style={{
-        borderRadius: 16, padding: 14,
-        backgroundColor: task.subjectColor + '12',
-        borderWidth: 1.5, borderColor: task.subjectColor + '30',
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-      }}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: c.text, marginBottom: 2 }}>
-          📚 এখন কি পড়ছো?
-        </Text>
-        <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: c.textMuted }}>
-          {task.topicName} · {task.startTime}–{task.endTime}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={{
-          paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-          backgroundColor: task.subjectColor, gap: 4,
-          flexDirection: 'row', alignItems: 'center',
-        }}
-        onPress={onConfirm}>
-        <Ionicons name="checkmark" size={14} color="#fff" />
-        <Text style={{ color: '#fff', fontSize: 12, fontFamily: FONTS.bold }}>হ্যাঁ, পড়ছি</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={{ padding: 6 }}
-        onPress={onDismiss}>
-        <Ionicons name="close" size={16} color={c.textFaint} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
-  const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine, confirmStudying, isStudyingConfirmed } = useStudy();
+  const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
   const greeting = getGreeting();
-  const { top: topInset } = useSafeAreaInsets();
 
   const todayMin = getTodayMinutes();
   const goalMin  = state.settings.dailyGoalMinutes;
   const progress = Math.min(todayMin / goalMin, 1);
   const today    = new Date().toISOString().split('T')[0];
 
-  // Today's tasks — exclude the active task (already shown in banner above)
-  const todayTasks = useMemo(() =>
-    state.studyPlans
-      .flatMap(p => p.tasks.filter(t => t.date === today))
-      .filter(t => t.id !== activeTask?.taskId)
-      .slice(0, 5),
-    [state.studyPlans, today, activeTask?.taskId]
-  );
+  // Today's tasks across all plans
+  const todayTasks = state.studyPlans
+    .flatMap(p => p.tasks.filter(t => t.date === today))
+    .slice(0, 5);
 
-  // Tasks that have NO time set yet — these need routine scheduling
-  const unscheduledTasks = useMemo(() =>
-    state.studyPlans.flatMap(p => p.tasks.filter(t => t.date === today && !t.completed && !t.startTime)),
-    [state.studyPlans, today]
-  );
-  // Show banner only when there are tasks without a time set
-  const needsRoutine = unscheduledTasks.length > 0;
-
-  // Today's incomplete tasks for modal — only today's date, exclude tasks user manually moved to tomorrow
-  const todayIncompleteTasks = useMemo(() =>
-    state.studyPlans.flatMap(p => p.tasks.filter(t => t.date === today && !t.completed)),
-    [state.studyPlans, today]
-  );
-
-  const [showRoutine, setShowRoutine] = useState(false);
-  const [checkInTaskId, setCheckInTaskId] = useState<string | null>(null);
-
+  // Morning routine: tasks that don't have a startTime yet
+  const unscheduledTasks = state.studyPlans
+    .flatMap(p => p.tasks.filter(t => t.date === today && !t.completed && !t.startTime));
   // Active task — refreshes every 30s
   const [activeTask, setActiveTask] = useState<ActiveTask | null>(null);
+
+  const needsRoutine = unscheduledTasks.length > 0;
+
+  const [showRoutine, setShowRoutine] = useState(false);
 
   useFocusEffect(useCallback(() => {
     const refresh = () => setActiveTask(getActiveNowTask());
@@ -540,31 +318,11 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [getActiveNowTask]));
 
-  // Setup on mount
+  // Setup Android notification channel on mount
   useEffect(() => {
     setupAndroidChannel().catch(() => {});
-    setupStudyMonitorChannel().catch(() => {});
     const t = setTimeout(() => rescheduleMissedTasks(), 2000);
-
-    // Schedule midnight "new day" notification on every app open
-    // Fires at 00:01 AM IF tomorrow has tasks with no startTime set
-    // This ensures it's always scheduled regardless of whether user used the modal
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    const tomorrowUnscheduled = state.studyPlans.flatMap(p =>
-      p.tasks.filter(t2 => t2.date === tomorrow && !t2.completed && !t2.startTime)
-    ).map(t2 => {
-      const subj = state.subjects.find(s => s.id === t2.subjectId);
-      const ch = subj?.chapters.find(c => c.id === t2.chapterId);
-      const tp = ch?.topics.find(x => x.id === t2.topicId);
-      return { topicName: tp?.name ?? ch?.name ?? 'Task' };
-    });
-    scheduleNewDayRoutineReminder(tomorrowUnscheduled).catch(() => {});
-
-    // Wire up notification tap → show check-in card
-    const unsub = setupStudyMonitorNotificationHandler((taskId) => {
-      setCheckInTaskId(taskId);
-    });
-    return () => { clearTimeout(t); unsub(); };
+    return () => clearTimeout(t);
   }, []);
 
   // Show routine modal automatically in the morning (once per day)
@@ -576,24 +334,16 @@ export default function HomeScreen() {
     }
   }, [needsRoutine]);
 
-  const [movedCount, setMovedCount] = useState(0);
-
   const handleSaveRoutine = async (
-    updates: { id: string; startTime: string; endTime: string; movedToTomorrow?: boolean }[]
+    updates: { id: string; startTime: string; endTime: string }[]
   ) => {
     // 1. Save times to tasks
     for (const plan of state.studyPlans) {
       const hasUpdates = plan.tasks.some(t => updates.find(u => u.id === t.id));
       if (!hasUpdates) continue;
-      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
       const updatedTasks = plan.tasks.map(task => {
         const u = updates.find(x => x.id === task.id);
         if (!u) return task;
-        // If task overflowed past midnight → move to tomorrow but CLEAR time
-        // Tomorrow's routine will let user set time fresh for that day
-        if (u.movedToTomorrow) {
-          return { ...task, date: tomorrow, startTime: undefined, endTime: undefined };
-        }
         return { ...task, startTime: u.startTime, endTime: u.endTime };
       });
       updateStudyPlan({ ...plan, tasks: updatedTasks });
@@ -659,47 +409,6 @@ export default function HomeScreen() {
       }
     }
 
-    const moved = updates.filter(u => u.movedToTomorrow).length;
-    if (moved > 0) setMovedCount(moved);
-    // Schedule smart study check-ins for each task
-    for (const plan of state.studyPlans) {
-      for (const task of plan.tasks) {
-        const u = updates.find(x => x.id === task.id);
-        if (!u || !task.startTime) continue;
-        const subject = state.subjects.find(s => s.id === task.subjectId);
-        const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
-        const topic = chapter?.topics.find(t => t.id === task.topicId);
-        const name = topic?.name ?? chapter?.name ?? 'Study task';
-        scheduleStudyCheckIns({
-          id: task.id,
-          topicName: name,
-          subjectName: subject?.name ?? '',
-          startTime: u.startTime,
-          endTime: u.endTime,
-          date: today,
-          estimatedMinutes: task.estimatedMinutes ?? 40,
-        }).catch(() => {});
-        schedulePostTaskUsageCheck({
-          id: task.id,
-          topicName: name,
-          endTime: u.endTime,
-          date: today,
-          estimatedMinutes: task.estimatedMinutes ?? 40,
-        }).catch(() => {});
-      }
-    }
-    // Schedule midnight notification for tomorrow's unscheduled tasks
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    const tomorrowUnscheduled = state.studyPlans.flatMap(p =>
-      p.tasks.filter(t => t.date === tomorrow && !t.completed && !t.startTime)
-    ).map(t => {
-      const subj = state.subjects.find(s => s.id === t.subjectId);
-      const ch = subj?.chapters.find(c => c.id === t.chapterId);
-      const tp = ch?.topics.find(x => x.id === t.topicId);
-      return { topicName: tp?.name ?? ch?.name ?? 'Task' };
-    });
-    scheduleNewDayRoutineReminder(tomorrowUnscheduled).catch(() => {});
-
     setShowRoutine(false);
   };
 
@@ -721,9 +430,13 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: c.bg }]}>
-      {/* Sticky Header - outside ScrollView so it stays fixed while scrolling */}
-      <Animated.View entering={FadeInDown.delay(0).springify()} style={[styles.header, { backgroundColor: c.bg, paddingTop: topInset + 12 }]}>
+    <ScrollView
+      style={[styles.root, { backgroundColor: c.bg }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <Animated.View entering={FadeInDown.delay(0).springify()} style={styles.header}>
         <View>
           <View style={styles.greetingRow}>
             <Ionicons name={greeting.icon} size={16} color={greeting.color} />
@@ -745,11 +458,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
 
       {/* Morning routine banner */}
       {needsRoutine && (
@@ -778,22 +486,6 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(40).springify()}>
           <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} />
         </Animated.View>
-      )}
-
-      {/* Study Check-In Card — shown when task is active and not yet confirmed */}
-      {activeTask && !isStudyingConfirmed(activeTask.taskId) && (
-        <StudyCheckInCard
-          task={activeTask}
-          colors={c}
-          onConfirm={() => {
-            confirmStudying(activeTask.taskId);
-            confirmStudyingForTask(activeTask.taskId).catch(() => {});
-          }}
-          onDismiss={() => {
-            // Just dismiss the card locally — notifications will still fire
-            confirmStudying(activeTask.taskId);
-          }}
-        />
       )}
 
       {/* Daily goal */}
@@ -919,40 +611,93 @@ export default function HomeScreen() {
 
       <View style={{ height: 40 }} />
 
-      {/* Moved to tomorrow toast */}
-      {movedCount > 0 && (
-        <Animated.View entering={FadeInDown.springify()}
-          style={{
-            position: 'absolute', bottom: 90, left: 16, right: 16,
-            backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
-            flexDirection: 'row', alignItems: 'center', gap: 10,
-            shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8,
-          }}>
-          <Ionicons name="calendar" size={20} color="#D97706" />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: '#92400E' }}>
-              {movedCount} task{movedCount > 1 ? 's' : ''} moved to tomorrow — time cleared
-            </Text>
-            <Text style={{ fontSize: 11, fontFamily: FONTS.regular, color: '#B45309', marginTop: 2 }}>
-              Time set হয়নি — কাল routine set করার সময় দেখাবে
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => setMovedCount(0)}>
-            <Ionicons name="close" size={18} color="#D97706" />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
       {/* Morning Routine Modal */}
       <MorningRoutineModal
         visible={showRoutine}
-        tasks={todayIncompleteTasks}
+        tasks={unscheduledTasks}
         subjects={state.subjects}
         onSave={handleSaveRoutine}
         onClose={() => setShowRoutine(false)}
         colors={c}
       />
     </ScrollView>
-    </View>
   );
-            }
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 52, paddingBottom: 32, gap: 14 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 4 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  greeting: { fontSize: 14, fontFamily: FONTS.medium },
+  appName: { fontSize: 30, fontFamily: FONTS.bold, letterSpacing: -0.5 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
+  streakNum: { fontSize: 16, fontFamily: FONTS.bold },
+  avatarBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  // Morning routine banner
+  routineBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: RADIUS.xl, borderWidth: 1.5 },
+  routineBannerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  routineBannerTitle: { fontSize: 14, fontFamily: FONTS.bold },
+  routineBannerSub: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 1 },
+  // Active task banner
+  activeBanner: { borderRadius: RADIUS.xl, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14, overflow: 'hidden' },
+  bannerAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
+  bannerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
+  bannerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  bannerLive: { fontSize: 11, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
+  bannerTime: { fontSize: 11, fontFamily: FONTS.regular },
+  bannerTopic: { fontSize: 15, fontFamily: FONTS.bold, marginBottom: 1 },
+  bannerSubject: { fontSize: 12, fontFamily: FONTS.medium },
+  bannerBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  // Goal card
+  goalCard: { borderRadius: RADIUS.xl, padding: 18 },
+  goalTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  goalLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  goalLabel: { fontSize: 14, fontFamily: FONTS.semibold },
+  goalTime: { fontSize: 14, fontFamily: FONTS.bold },
+  progBg: { height: 10, borderRadius: 5, overflow: 'hidden' },
+  progFill: { height: '100%', borderRadius: 5 },
+  goalDoneRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  goalDone: { fontSize: 13, fontFamily: FONTS.semibold },
+  // Start button
+  startOuter: { borderRadius: 20, paddingBottom: 5, shadowOffset: { width: 0, height: 5 }, shadowRadius: 14, elevation: 8 },
+  startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 64, borderRadius: 16 },
+  startTxt: { color: '#fff', fontSize: 18, fontFamily: FONTS.bold, letterSpacing: 0.2 },
+  // Tasks card
+  tasksCard: { borderRadius: RADIUS.xl, padding: 18 },
+  tasksTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  tasksTitle: { fontSize: 16, fontFamily: FONTS.bold, flex: 1 },
+  setTimesBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  setTimesTxt: { fontSize: 12, fontFamily: FONTS.bold },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  taskDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  taskName: { fontSize: 14, fontFamily: FONTS.semibold },
+  done: { textDecorationLine: 'line-through', opacity: 0.5 },
+  taskSub: { fontSize: 11, marginTop: 2, fontFamily: FONTS.regular },
+  taskMins: { fontSize: 12, fontFamily: FONTS.semibold },
+  // Empty plan
+  emptyPlan: { borderRadius: RADIUS.xl, padding: 28, alignItems: 'center', gap: 12 },
+  emptyIconCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  emptyTxt: { fontSize: 14, fontFamily: FONTS.medium },
+  planBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  planBtnTxt: { fontSize: 14, fontFamily: FONTS.bold },
+  // Morning routine modal
+  modalBg: { flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 44, maxHeight: '88%' },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
+  routineIconCircle: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  sheetTitle: { fontSize: 18, fontFamily: FONTS.bold },
+  sheetSub: { fontSize: 13, fontFamily: FONTS.regular, marginTop: 2 },
+  routineTaskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
+  routineTaskName: { fontSize: 14, fontFamily: FONTS.semibold },
+  routineTaskSub: { fontSize: 12, fontFamily: FONTS.regular },
+  timeStepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeStepBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  timeDisplay: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  timeText: { fontSize: 15, fontFamily: FONTS.bold },
+  saveBtn: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  saveTxt: { fontSize: 16, fontFamily: FONTS.bold },
+});
