@@ -10,8 +10,6 @@ import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
 import { useFocusEffect } from 'expo-router';
 
-
-
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const h = useSharedValue(0);
   const pct = max > 0 ? value / max : 0;
@@ -62,29 +60,34 @@ export default function AnalyticsScreen() {
     });
 
     const totalMins = state.sessions.filter(s => s.completed).reduce((a, s) => a + s.durationMinutes, 0);
-    const weekMins = weekSessions.reduce((a, s) => a + s.durationMinutes, 0);
-    const avgDaily = Math.round(weekMins / 7);
-    const completedTopics = state.subjects.flatMap(s => s.chapters.flatMap(c => c.topics)).filter(t => t.completed).length;
+    const weekMins  = weekSessions.reduce((a, s) => a + s.durationMinutes, 0);
+    const avgDaily  = Math.round(weekMins / 7);
+    const completedTopics = state.subjects.flatMap(s => s.chapters.flatMap(c => c.topics)).filter(tp => tp.completed).length;
 
     const days: { label: string; mins: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const mins = state.sessions.filter(s => s.completed && s.startTime.startsWith(dateStr)).reduce((a, s) => a + s.durationMinutes, 0);
+      const mins = state.sessions
+        .filter(s => s.completed && s.startTime.startsWith(dateStr))
+        .reduce((a, s) => a + s.durationMinutes, 0);
       days.push({ label: t.analyticsDayLabels[d.getDay()], mins });
     }
 
     const subjectStats = state.subjects.map(sub => {
       const topics = sub.chapters.flatMap(ch => ch.topics);
-      const done = topics.filter(t => t.completed).length;
+      const done  = topics.filter(tp => tp.completed).length;
       const total = topics.length;
-      const mins = state.sessions.filter(s => s.completed && s.subjectId === sub.id).reduce((a, s) => a + s.durationMinutes, 0);
+      const mins  = state.sessions.filter(s => s.completed && s.subjectId === sub.id).reduce((a, s) => a + s.durationMinutes, 0);
       return { ...sub, done, total, mins, progress: total > 0 ? Math.round((done / total) * 100) : 0 };
     });
 
-    return { totalMins, weekMins, avgDaily, completedTopics, days, subjectStats };
-  }, [state]);
+    const h = Math.floor(totalMins / 60), m = totalMins % 60;
+    const timeStr = t.analyticsHours(h, m);
+
+    return { totalMins, weekMins, avgDaily, completedTopics, days, subjectStats, timeStr };
+  }, [state, t]);
 
   const maxDayMins = Math.max(...stats.days.map(d => d.mins), 1);
 
@@ -95,7 +98,7 @@ export default function AnalyticsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[s.title, { color: c.text }]}>Analytics</Text>
+        <Text style={[s.title, { color: c.text }]}>{t.analyticsTitle}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -103,15 +106,15 @@ export default function AnalyticsScreen() {
 
         {/* Stat cards */}
         <Animated.View entering={FadeInDown.delay(60).springify()} style={s.statRow}>
-          <StatCard icon="time-outline" label="Total" value={`${Math.floor(stats.totalMins / 60)}h`} color="#6C63FF" bg={c.bgCard} />
-          <StatCard icon="calendar-outline" label=t.analyticsThisWeek value={`${stats.weekMins}m`} color="#3B82F6" bg={c.bgCard} />
-          <StatCard icon="trending-up-outline" label="Daily Avg" value={`${stats.avgDaily}m`} color="#10B981" bg={c.bgCard} />
-          <StatCard icon="checkmark-circle-outline" label="Topics" value={String(stats.completedTopics)} color="#F59E0B" bg={c.bgCard} />
+          <StatCard icon="time-outline"             label={t.analyticsTotalTime}  value={stats.timeStr}                      color="#6C63FF" bg={c.bgCard} />
+          <StatCard icon="calendar-outline"         label={t.analyticsThisWeek}   value={`${stats.weekMins}m`}               color="#3B82F6" bg={c.bgCard} />
+          <StatCard icon="trending-up-outline"      label={t.analyticsAvgDay}     value={`${stats.avgDaily}m`}               color="#10B981" bg={c.bgCard} />
+          <StatCard icon="checkmark-circle-outline" label={t.analyticsSessions}   value={String(stats.completedTopics)}      color="#F59E0B" bg={c.bgCard} />
         </Animated.View>
 
         {/* Weekly bar chart */}
         <Animated.View entering={FadeInDown.delay(120).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
-          <Text style={[s.cardTitle, { color: c.text }]}>Last 7 Days</Text>
+          <Text style={[s.cardTitle, { color: c.text }]}>{t.analyticsThisWeek}</Text>
           <View style={s.barChart}>
             {stats.days.map((d, i) => (
               <View key={i} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
@@ -126,7 +129,7 @@ export default function AnalyticsScreen() {
         {/* Subject breakdown */}
         {stats.subjectStats.length > 0 && (
           <Animated.View entering={FadeInDown.delay(180).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
-            <Text style={[s.cardTitle, { color: c.text }]}>Subject Progress</Text>
+            <Text style={[s.cardTitle, { color: c.text }]}>{t.analyticsStreak}</Text>
             {stats.subjectStats.map((sub, i) => (
               <View key={sub.id} style={[s.subRow, i > 0 && { borderTopColor: c.border, borderTopWidth: 1 }]}>
                 <View style={[s.subIcon, { backgroundColor: sub.color + '22' }]}>
@@ -141,7 +144,7 @@ export default function AnalyticsScreen() {
                     <View style={[s.progFill, { backgroundColor: sub.color, width: `${sub.progress}%` }]} />
                   </View>
                   <Text style={[s.subStats, { color: c.textFaint }]}>
-                    {sub.done}/{sub.total} topics · {sub.mins}m studied
+                    {sub.done}/{sub.total} · {sub.mins}m
                   </Text>
                 </View>
               </View>
@@ -149,41 +152,42 @@ export default function AnalyticsScreen() {
           </Animated.View>
         )}
 
-        {/* Empty state — icon instead of emoji */}
+        {/* Empty state */}
         {stats.subjectStats.length === 0 && (
           <Animated.View entering={FadeInDown.delay(120).springify()} style={s.empty}>
             <View style={[s.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
               <Ionicons name="bar-chart-outline" size={40} color={c.accent} />
             </View>
-            <Text style={[s.emptyTitle, { color: c.text }]}>No data yet</Text>
-            <Text style={[s.emptyTxt, { color: c.textMuted }]}>Start studying to see your analytics</Text>
+            <Text style={[s.emptyTitle, { color: c.text }]}>{t.analyticsNoUsage}</Text>
+            <Text style={[s.emptyTxt, { color: c.textMuted }]}>{t.analyticsTitle}</Text>
           </Animated.View>
         )}
 
-        {/* ── App Usage Today ── */}
+        {/* App Usage Today */}
         <Animated.View entering={FadeInDown.delay(200).springify()} style={[s.card, { backgroundColor: c.bgCard }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={[s.cardTitle, { color: c.text }]}>Today's App Usage</Text>
+            <Text style={[s.cardTitle, { color: c.text }]}>{t.analyticsTopApps}</Text>
             {!hasUsagePerm && (
-              <TouchableOpacity onPress={() => AppBlocking.openUsageSettings()}
+              <TouchableOpacity
+                onPress={() => AppBlocking.openUsageSettings()}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
                   backgroundColor: '#7C3AED18', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 }}>
                 <Ionicons name="lock-closed" size={12} color="#7C3AED" />
-                <Text style={{ fontSize: 11, color: '#7C3AED', fontWeight: '700' }}>Grant Access</Text>
+                <Text style={{ fontSize: 11, color: '#7C3AED', fontFamily: FONTS.bold }}>Grant Access</Text>
               </TouchableOpacity>
             )}
           </View>
+
           {!hasUsagePerm ? (
             <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
               <Ionicons name="time-outline" size={36} color={c.textFaint} />
-              <Text style={{ color: c.textMuted, fontSize: 13, textAlign: 'center' }}>
-                Usage Access permission needed
-to track daily app usage
+              <Text style={{ color: c.textMuted, fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center' }}>
+                {t.analyticsNoUsage}
               </Text>
             </View>
           ) : usageStats.length === 0 ? (
-            <Text style={{ color: c.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 16 }}>
-              No usage data for today yet
+            <Text style={{ color: c.textMuted, fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', paddingVertical: 16 }}>
+              {t.analyticsNoUsage}
             </Text>
           ) : (
             usageStats.slice(0, 8).map((app, i) => {
@@ -192,8 +196,10 @@ to track daily app usage
               return (
                 <View key={app.packageName} style={{ marginBottom: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ color: c.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>{app.name}</Text>
-                    <Text style={{ color: c.textMuted, fontSize: 12 }}>
+                    <Text style={{ color: c.text, fontSize: 13, fontFamily: FONTS.semibold, flex: 1 }} numberOfLines={1}>
+                      {app.name}
+                    </Text>
+                    <Text style={{ color: c.textMuted, fontSize: 12, fontFamily: FONTS.regular }}>
                       {app.minutes >= 60
                         ? `${Math.floor(app.minutes / 60)}h ${app.minutes % 60}m`
                         : `${app.minutes}m`}
@@ -217,35 +223,35 @@ to track daily app usage
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1 },
-  header: {
+  root:     { flex: 1 },
+  header:   {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 44,
     paddingBottom: 14, borderBottomWidth: 1,
   },
-  backBtn: { width: 40, alignItems: 'flex-start' },
-  title: { fontSize: 18, fontFamily: FONTS.black },
-  content: { padding: 16, gap: 14 },
-  statRow: { flexDirection: 'row', gap: 10 },
+  backBtn:  { width: 40, alignItems: 'flex-start' },
+  title:    { fontSize: 18, fontFamily: FONTS.black },
+  content:  { padding: 16, gap: 14 },
+  statRow:  { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, borderRadius: RADIUS.xl, padding: 12, alignItems: 'center', gap: 6 },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statVal: { fontSize: 18, fontFamily: FONTS.black },
-  statLabel: { fontSize: 10, color: '#9CA3AF', fontFamily: FONTS.semibold, textAlign: 'center' },
-  card: { borderRadius: RADIUS.xl, padding: 18 },
-  cardTitle: { fontSize: 16, fontFamily: FONTS.bold, marginBottom: 16 },
+  statVal:  { fontSize: 18, fontFamily: FONTS.black },
+  statLabel:{ fontSize: 10, color: '#9CA3AF', fontFamily: FONTS.semibold, textAlign: 'center' },
+  card:     { borderRadius: RADIUS.xl, padding: 18 },
+  cardTitle:{ fontSize: 16, fontFamily: FONTS.bold, marginBottom: 16 },
   barChart: { flexDirection: 'row', gap: 6, alignItems: 'flex-end' },
   barLabel: { fontSize: 10, fontFamily: FONTS.semibold },
-  barVal: { fontSize: 9, fontFamily: FONTS.regular },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  subIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  subTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  subName: { fontSize: 14, fontFamily: FONTS.bold },
-  subPct: { fontSize: 14, fontFamily: FONTS.black },
-  progBg: { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
+  barVal:   { fontSize: 9,  fontFamily: FONTS.regular },
+  subRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  subIcon:  { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  subTop:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  subName:  { fontSize: 14, fontFamily: FONTS.bold },
+  subPct:   { fontSize: 14, fontFamily: FONTS.black },
+  progBg:   { height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
   progFill: { height: '100%', borderRadius: 3 },
   subStats: { fontSize: 11, fontFamily: FONTS.regular },
-  empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyIconCircle: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle: { fontSize: 20, fontFamily: FONTS.bold },
-  emptyTxt: { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center' },
+  empty:         { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyIconCircle:{ width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle:    { fontSize: 20, fontFamily: FONTS.bold },
+  emptyTxt:      { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center' },
 });
