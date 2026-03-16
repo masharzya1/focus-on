@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+Tumi import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Platform, Modal, Pressable,
@@ -276,6 +276,7 @@ export default function PlanDetailScreen() {
   const {
     state, updateStudyPlan,
     rescheduleMissedTasks, getAdaptiveSuggestion, getAcceptanceRate,
+    addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
   } = useStudy();
   const { colors: c } = useTheme();
   const router = useRouter();
@@ -344,13 +345,46 @@ export default function PlanDetailScreen() {
         return { ...t, startTime, endTime, ...(newDate ? { date: newDate } : {}) };
       }),
     });
-    // Schedule study monitor check-ins when time is set from plan page
+
     if (task) {
       const subject = state.subjects.find(s => s.id === task.subjectId);
       const chapter = subject?.chapters.find(ch => ch.id === task.chapterId);
       const topic = chapter?.topics.find(t => t.id === task.topicId);
       const taskDate = newDate ?? task.date;
       const topicName = topic?.name ?? chapter?.name ?? 'Study task';
+
+      // Sync block routine if this plan has app blocking enabled
+      if (plan.blockApps && plan.blockedApps && plan.blockedApps.length > 0) {
+        const routineId = `plan_${plan.id}_task_${taskId}`;
+        const todayDay = new Date().getDay();
+        const existingRoutine = state.blockRoutines.find(r => r.id === routineId);
+
+        if (existingRoutine) {
+          // Update existing routine with new times
+          updateBlockRoutine({
+            ...existingRoutine,
+            startTime,
+            endTime,
+          });
+        } else {
+          // Create new routine (user set time for first time from plan page)
+          addBlockRoutine({
+            id: routineId,
+            name: `📚 ${topicName}`,
+            startTime,
+            endTime,
+            days: [todayDay],
+            blockedApps: plan.blockedApps,
+            blockShorts: false,
+            enabled: true,
+            hardBlock: plan.hardBlock ?? false,
+            deviceAdmin: plan.deviceAdmin ?? false,
+            fromPlanId: plan.id,
+          });
+        }
+      }
+
+      // Schedule study monitor check-ins
       scheduleStudyCheckIns({
         id: taskId, topicName, subjectName: subject?.name ?? '',
         startTime, endTime, date: taskDate,
