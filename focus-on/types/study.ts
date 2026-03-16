@@ -167,6 +167,7 @@ export interface AppState {
   todaySessionsDate?: string;
   onboardingCompleted: boolean;
   acceptanceRecords: { date: string; scheduled: number; completed: number }[];
+  confirmedStudyingTasks?: string[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

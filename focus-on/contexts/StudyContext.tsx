@@ -3,6 +3,9 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, setDoc, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/services/firebase';
 import type {
   AppState, Subject, StudySession,
   StudyPlan, AppSettings, AppBlockRoutine, AppTimeLimit, ActiveTask,
@@ -15,12 +18,32 @@ import { DEFAULT_SETTINGS } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
 
 const STORAGE_KEY = 'focuson_data_v3';
+const SESSION_TOKEN_KEY = 'focuson_session_token';
+
+// Generate a unique session token for this device
+function generateSessionToken(): string {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+let deviceSessionToken = '';
+(async () => {
+  try {
+    const stored = await AsyncStorage.getItem(SESSION_TOKEN_KEY);
+    if (stored) {
+      deviceSessionToken = stored;
+    } else {
+      deviceSessionToken = generateSessionToken();
+      await AsyncStorage.setItem(SESSION_TOKEN_KEY, deviceSessionToken);
+    }
+  } catch {}
+})();
 
 // ── Default state ─────────────────────────────────────────────────────────────
 const defaultState: AppState & {
   lastStudyDate?: string;
   todaySessionsDate?: string;
   acceptanceRecords: AcceptanceRecord[];
+  confirmedStudyingTasks: string[];
 } = {
   subjects: [],
   sessions: [],
@@ -322,6 +345,9 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, defaultState);
   const [ready, setReady] = React.useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
+  const firestoreUnsub = useRef<(() => void) | null>(null);
+  const isSyncing = useRef(false);
 
   useEffect(() => {
     store.getItem(STORAGE_KEY)
@@ -354,6 +380,73 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     }, 300);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, ready]);
+
+  // ── Firebase auth listener ─────────────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        // Register this device session — force signout other devices
+        try {
+          await setDoc(
+            doc(db, 'users', user.uid, 'session', 'current'),
+            { token: deviceSessionToken, updatedAt: serverTimestamp() },
+            { merge: false }
+          );
+        } catch {}
+
+        // Load data from Firestore on login
+        try {
+          const snap = await getDoc(doc(db, 'users', user.uid, 'data', 'app'));
+          if (snap.exists()) {
+            const data = snap.data();
+            delete data.updatedAt;
+            dispatch({ type: 'HYDRATE', payload: { ...defaultState, ...data, settings: { ...DEFAULT_SETTINGS, ...data?.settings } } });
+          }
+        } catch {}
+
+        // Subscribe to real-time session invalidation (force signout other devices)
+        if (firestoreUnsub.current) firestoreUnsub.current();
+        firestoreUnsub.current = onSnapshot(
+          doc(db, 'users', user.uid, 'session', 'current'),
+          (snap) => {
+            if (snap.exists()) {
+              const token = snap.data()?.token;
+              if (token && token !== deviceSessionToken) {
+                // Another device logged in — sign out this device
+                auth.signOut().catch(() => {});
+              }
+            }
+          }
+        );
+      } else {
+        // User signed out — stop syncing
+        if (firestoreUnsub.current) { firestoreUnsub.current(); firestoreUnsub.current = null; }
+      }
+    });
+    return () => { unsub(); if (firestoreUnsub.current) firestoreUnsub.current(); };
+  }, []);
+
+  // ── Sync state to Firestore (debounced, only when logged in) ───────────────
+  const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!ready || !currentUser) return;
+    if (syncTimer.current) clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(async () => {
+      if (isSyncing.current) return;
+      isSyncing.current = true;
+      try {
+        await setDoc(
+          doc(db, 'users', currentUser.uid, 'data', 'app'),
+          { ...state, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+      } catch {} finally {
+        isSyncing.current = false;
+      }
+    }, 2000); // 2s debounce — avoid too many writes
+    return () => { if (syncTimer.current) clearTimeout(syncTimer.current); };
+  }, [state, ready, currentUser]);
 
   // ── Auto-remove block routines whose task end time has passed ───────────────
   useEffect(() => {
