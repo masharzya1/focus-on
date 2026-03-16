@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { deleteUser } from 'firebase/auth';
@@ -18,6 +19,7 @@ const CONFIRM_PHRASE = 'delete my account';
 export default function DeleteAccountScreen() {
   const { user, signOut } = useAuth();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [input, setInput] = useState('');

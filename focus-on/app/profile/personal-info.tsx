@@ -8,12 +8,14 @@ import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS, RADIUS } from '@/constants/theme';
 
 export default function PersonalInfoScreen() {
   const { state, updateSettings } = useStudy();
   const { user } = useAuth();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const [tab, setTab] = useState<'personal' | 'academic'>('personal');
 

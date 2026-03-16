@@ -229,6 +229,7 @@ function DurationPicker({ value, onChange, colors: c }: {
 export default function AppBlockScreen() {
   const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
           addTimeLimit, updateTimeLimit, deleteTimeLimit } = useStudy();
+  const { fonts: FONTS } = useLanguage();
   const { colors: c } = useTheme();
 
   const [activeTab, setActiveTab] = useState<Tab>('apps');

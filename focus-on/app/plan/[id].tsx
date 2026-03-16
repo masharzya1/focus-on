@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, type PlannedTask } from '@/types/study';
 import { scheduleStudyCheckIns, schedulePostTaskUsageCheck } from '@/services/studyMonitor';
@@ -279,6 +280,7 @@ export default function PlanDetailScreen() {
     addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
   } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const plan = state.studyPlans.find(p => p.id === id);

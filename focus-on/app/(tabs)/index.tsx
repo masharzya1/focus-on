@@ -15,7 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { ActiveTask, PlannedTask } from '@/types/study';
 import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 
 function getGreetingIcon() {
   const h = new Date().getHours();
@@ -291,6 +291,7 @@ export default function HomeScreen() {
   const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
   const t = useT();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const greetingInfo = getGreetingIcon();
   const greeting = { ...greetingInfo, text: t[greetingInfo.key] };

@@ -127,3 +127,15 @@ export const TYPE = {
   caption:    { fontSize: 11, fontFamily: FONTS.medium,   letterSpacing: 0.5  },
   label:      { fontSize: 11, fontFamily: FONTS.bold,     letterSpacing: 1,   textTransform: 'uppercase' as const },
 };
+
+// ── Bengali fonts (Tiro Bangla) ───────────────────────────────────────────────
+// Tiro Bangla only has Regular weight — all weights map to it
+export const BN_FONTS = {
+  light:     'TiroBangla_400Regular',
+  regular:   'TiroBangla_400Regular',
+  medium:    'TiroBangla_400Regular',
+  semibold:  'TiroBangla_400Regular',
+  bold:      'TiroBangla_400Regular',
+  extrabold: 'TiroBangla_400Regular',
+  black:     'TiroBangla_400Regular',
+};

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 function formatDate(iso: string) {
@@ -27,6 +28,7 @@ function formatDur(min: number) {
 export default function SessionHistoryScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const sessions = [...state.sessions]

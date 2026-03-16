@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS, RADIUS } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -35,6 +36,7 @@ function getWeekDates(offsetWeeks = 0) {
 export default function ProgressScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const [weekOffset, setWeekOffset] = useState(0);
 

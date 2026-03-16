@@ -13,7 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, isSubjectTopicBased, type StudySession, type Subject, type Chapter, type Topic } from '@/types/study';
 import { scheduleTimerDoneNotification, cancelNotification } from '@/services/notifications';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function fmt(s: number) { return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; }
@@ -274,6 +274,7 @@ export default function TimerScreen() {
   const { state, addSession, gainXp, completeTaskAndTopic, getActiveNowTask } = useStudy();
   const t = useT();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const params = useLocalSearchParams<{

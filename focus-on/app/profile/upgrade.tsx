@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 import { PRO_PRICE_BDT } from '@/services/payment';
 
@@ -24,6 +25,7 @@ const FEATURES = [
 export default function UpgradeScreen() {
   const { isPro, grantPro } = useAuth();
   const { colors: c, isDark } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const [showPayment, setShowPayment] = useState(false);
 

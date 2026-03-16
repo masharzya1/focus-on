@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 const TABS = ['About', 'Privacy', 'Terms'] as const;
@@ -61,6 +62,7 @@ For questions about these terms, contact us through the app.`;
 
 export default function AboutScreen() {
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
   const [tab, setTab] = useState<typeof TABS[number]>('About');
 

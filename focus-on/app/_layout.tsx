@@ -15,6 +15,9 @@ import {
   Comfortaa_600SemiBold,
   Comfortaa_700Bold,
 } from '@expo-google-fonts/comfortaa';
+import {
+  TiroBangla_400Regular,
+} from '@expo-google-fonts/tiro-bangla';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -90,6 +93,7 @@ export default function RootLayout() {
     Comfortaa_500Medium,
     Comfortaa_600SemiBold,
     Comfortaa_700Bold,
+    TiroBangla_400Regular,
   });
 
   useEffect(() => {

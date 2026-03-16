@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isSubjectTopicBased, type StudyPlan } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
@@ -161,6 +161,7 @@ function WeightPicker({ value, onChange, colors: c, weightLabels }: {
 export default function CreatePlanScreen() {
   const { state, addStudyPlan, getAcceptanceRate } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const [step, setStep] = useState(0);

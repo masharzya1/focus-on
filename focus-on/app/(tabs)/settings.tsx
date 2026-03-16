@@ -109,7 +109,7 @@ function Card({ children, delay = 0 }: { children: React.ReactNode; delay?: numb
 export default function SettingsScreen() {
   const { state, updateSettings } = useStudy();
   const t = useT();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, fonts: FONTS } = useLanguage();
   const { colors: c, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const { settings } = state;

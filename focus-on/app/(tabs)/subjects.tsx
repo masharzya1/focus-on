@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { SUBJECT_COLORS, SUBJECT_ICONS, isSubjectTopicBased, type Subject } from '@/types/study';
 
@@ -116,6 +116,7 @@ function SubjectCard({
 export default function SubjectsScreen() {
   const { state, addSubject, updateSubject, deleteSubject, getSubjectProgress } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   // Create modal

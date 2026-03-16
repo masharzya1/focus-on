@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT } from '@/contexts/LanguageContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
 import { useFocusEffect } from 'expo-router';
@@ -41,6 +41,7 @@ function StatCard({ icon, label, value, color, bg }: { icon: any; label: string;
 export default function AnalyticsScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
+  const { fonts: FONTS } = useLanguage();
   const t = useT();
   const router = useRouter();
   const [usageStats, setUsageStats] = useState<{ packageName: string; name: string; minutes: number }[]>([]);
