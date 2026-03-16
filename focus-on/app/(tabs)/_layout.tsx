@@ -6,7 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 
 const NUM_TABS = 5;
 
@@ -85,6 +85,7 @@ export default function TabLayout() {
           height: 62 + (bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 22 : 16),
           paddingBottom: bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 22 : 16,
           paddingTop: 4, elevation: 0,
+          
         },
       }}
     >
@@ -118,12 +119,13 @@ const styles = StyleSheet.create({
   tabBg: { flex: 1, borderTopWidth: 1 },
   indicator: { position: 'absolute', top: 4, bottom: 4, borderRadius: RADIUS.lg },
   iconWrap: { height: 32, minWidth: 36, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1 },
+  label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.1, fontFamily: FONTS.semibold},
   centerBtn: {
     width: 58, height: 56, borderRadius: 28,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 14, borderBottomWidth: 4,
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 10, gap: 1,
+    
   },
-  centerLabel: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.3 },
+  centerLabel: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.3, fontFamily: FONTS.semibold, },
 });

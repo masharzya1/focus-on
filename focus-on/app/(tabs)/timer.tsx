@@ -28,11 +28,27 @@ function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text
 
   useEffect(() => {
     if (isRunning) {
-      pulsate.value = withTiming(1.018, { duration: 900 });
-      const t = setTimeout(() => { pulsate.value = withTiming(1, { duration: 900 }); }, 900);
-      return () => clearTimeout(t);
+      // Gentle continuous pulse while running — loops via recursive setTimeout
+      let alive = true;
+      const pulse = () => {
+        if (!alive) return;
+        pulsate.value = withTiming(1.018, { duration: 900 });
+        setTimeout(() => {
+          if (!alive) return;
+          pulsate.value = withTiming(1, { duration: 900 });
+          setTimeout(() => pulse(), 900);
+        }, 900);
+      };
+      pulse();
+      return () => {
+        alive = false;
+        // Reset scale cleanly so remount doesn't show a stuck scale value
+        pulsate.value = withTiming(1, { duration: 150 });
+      };
+    } else {
+      pulsate.value = withTiming(1, { duration: 150 });
     }
-  }, [isRunning, timeStr]);
+  }, [isRunning]);
 
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: pulsate.value }] }));
 
@@ -111,13 +127,11 @@ function TimeBadgeButton({ label, onPress, accent, tapLabel = 'tap to edit' }: {
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(pressed.value ? 2 : 0, { duration: 60 }) }] }));
   return (
     <View style={{ alignItems: 'center' }}>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: accent + '33', position: 'absolute', top: 3 }} />
       <Animated.View style={anim}>
-        <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 14, backgroundColor: accent + '18', borderWidth: 1.5, borderColor: accent + '40', alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.12, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 3 }}
+        <TouchableOpacity style={{ paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100, backgroundColor: accent + '18', borderWidth: 1.5, borderColor: accent + '40', alignItems: 'center', justifyContent: 'center', shadowColor: accent, shadowOpacity: 0.12, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 3 }}
           onPress={onPress} activeOpacity={1}
           onPressIn={() => { pressed.value = 1; }} onPressOut={() => { pressed.value = 0; }}>
           <Text style={{ fontSize: 15, fontFamily: FONTS.bold, color: accent }}>{label}</Text>
-          <Text style={{ fontSize: 9, fontFamily: FONTS.medium, color: accent + 'AA', textTransform: 'uppercase', letterSpacing: 0.5 }}>{tapLabel}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

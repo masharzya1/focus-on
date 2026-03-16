@@ -279,12 +279,12 @@ export default function AppBlockScreen() {
   const [loadingApps, setLoadingApps] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
-    AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
-    AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
-    // Preload apps after tab transition completes (avoids freeze)
-    if (installedApps.length === 0) {
-      const task = InteractionManager.runAfterInteractions(() => {
+    // Delay ALL native calls until after tab transition completes
+    const task = InteractionManager.runAfterInteractions(() => {
+      AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
+      AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
+      AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
+      if (installedApps.length === 0) {
         setLoadingApps(true);
         AppBlocking.getInstalledApps()
           .then(all => {
@@ -296,9 +296,9 @@ export default function AppBlockScreen() {
             setLoadingApps(false);
           })
           .catch(() => setLoadingApps(false));
-      });
-      return () => task.cancel();
-    }
+      }
+    });
+    return () => task.cancel();
   }, []));
 
   const loadApps = (forPicker: 'routine' | 'limit' = 'routine') => {

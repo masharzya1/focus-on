@@ -1,18 +1,21 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { useRouter } from 'expo-router';
 
-/**
- * This screen handles the OAuth2 redirect from Google.
- * After Google signs in, it redirects to focuson://oauth2redirect?code=...
- * WebBrowser.maybeCompleteAuthSession() intercepts the URL and passes it
- * back to the expo-auth-session hook in AuthContext.
- */
 export default function OAuth2RedirectScreen() {
+  const router = useRouter();
+
   useEffect(() => {
+    // Complete the auth session — passes token back to AuthContext
     WebBrowser.maybeCompleteAuthSession();
+    // Navigate back after a short delay
+    const t = setTimeout(() => {
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)');
+    }, 300);
+    return () => clearTimeout(t);
   }, []);
 
-  // Blank screen — closes immediately after completing auth
-  return <View />;
+  return <View style={{ flex: 1 }} />;
 }

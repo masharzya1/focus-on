@@ -52,17 +52,14 @@ export default function UpgradeScreen() {
 
   return (
     <View style={[st.root, { backgroundColor: c.bg }]}>
-      {/* Header */}
-      <View style={[st.header, { backgroundColor: 'transparent' }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}
-          style={[st.backBtn, { backgroundColor: '#ffffff30' }]}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 0 }}>
         {/* ── Hero ── */}
         <LinearGradient colors={['#1a1040', '#6C63FF', '#9C5FFF']} start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }} style={st.hero}>
+          {/* Back button inside hero */}
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12}
+            style={[st.backBtn, { backgroundColor: '#ffffff25', alignSelf: 'flex-start', marginBottom: 16 }]}>
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
           <View style={st.premiumBadge}>
             <Ionicons name="star" size={12} color="#FFD700" />
             <Text style={st.premiumTxt}>{t.upgradePremium}</Text>
@@ -146,10 +143,10 @@ export default function UpgradeScreen() {
 
 const st = StyleSheet.create({
   root: { flex: 1 },
-  header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingHorizontal: 16, paddingBottom: 12 },
+  header: { paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingHorizontal: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontFamily: FONTS.bold },
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  hero: { paddingTop: Platform.OS === 'ios' ? 110 : 100, paddingBottom: 32, paddingHorizontal: 24, gap: 12 },
+  hero: { paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: 36, paddingHorizontal: 24, gap: 10 },
   premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#ffffff20', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   premiumTxt: { color: '#FFD700', fontFamily: FONTS.bold, fontSize: 11, letterSpacing: 1 },
   heroTitle: { fontSize: 30, fontFamily: FONTS.bold, color: '#fff', lineHeight: 36 },
