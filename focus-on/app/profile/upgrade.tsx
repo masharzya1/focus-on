@@ -25,7 +25,7 @@ const FEATURES = [
 export default function UpgradeScreen() {
   const { isPro, grantPro } = useAuth();
   const { colors: c, isDark } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
   const [showPayment, setShowPayment] = useState(false);
 

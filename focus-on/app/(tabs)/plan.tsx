@@ -5,14 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { StudyPlan } from '@/types/study';
 
 export default function PlanScreen() {
   const { state, deleteStudyPlan } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
   const t = useT();
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];

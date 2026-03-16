@@ -15,7 +15,7 @@ function formatDate(iso: string) {
 export default function CompletedTasksScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
 
   // Completed plan tasks

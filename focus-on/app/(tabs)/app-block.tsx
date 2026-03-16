@@ -10,6 +10,7 @@ import { useFocusEffect } from 'expo-router';
 import { InteractionManager } from 'react-native';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
 import type { AppBlockRoutine, AppTimeLimit } from '@/types/study';
@@ -49,6 +50,7 @@ function getCurrentTime() {
 // ── App Icon ──────────────────────────────────────────────────────────────────
 function AppIcon({ icon, name, size = 40 }: { icon: string; name: string; size?: number }) {
   const { colors: c } = useTheme();
+  const t = useT();
   if (icon) return (
     <Image
       source={{ uri: `data:image/png;base64,${icon}` }}
@@ -229,7 +231,6 @@ function DurationPicker({ value, onChange, colors: c }: {
 export default function AppBlockScreen() {
   const { state, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
           addTimeLimit, updateTimeLimit, deleteTimeLimit } = useStudy();
-  const { fonts: FONTS } = useLanguage();
   const { colors: c } = useTheme();
 
   const [activeTab, setActiveTab] = useState<Tab>('apps');

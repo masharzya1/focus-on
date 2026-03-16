@@ -12,7 +12,7 @@ import { FONTS } from '@/constants/theme';
 export default function SubscriptionScreen() {
   const { isPro } = useAuth();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
 
   return (

@@ -19,7 +19,7 @@ const CONFIRM_PHRASE = 'delete my account';
 export default function DeleteAccountScreen() {
   const { user, signOut } = useAuth();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [input, setInput] = useState('');

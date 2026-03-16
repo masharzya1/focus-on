@@ -280,7 +280,7 @@ export default function PlanDetailScreen() {
     addBlockRoutine, updateBlockRoutine, deleteBlockRoutine,
   } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
 
   const plan = state.studyPlans.find(p => p.id === id);

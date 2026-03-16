@@ -15,7 +15,7 @@ export default function PersonalInfoScreen() {
   const { state, updateSettings } = useStudy();
   const { user } = useAuth();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState<'personal' | 'academic'>('personal');
 

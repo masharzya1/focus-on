@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { FONTS } from '@/constants/theme';
 
 const SECTIONS = [
@@ -42,6 +43,7 @@ const SECTIONS = [
 
 export default function PrivacyPolicyScreen() {
   const { colors: c } = useTheme();
+  const t = useT();
   const router = useRouter();
 
   return (

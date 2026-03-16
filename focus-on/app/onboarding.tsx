@@ -124,7 +124,7 @@ function LangPickerSlide({ colors: c, onPick }: {
 export default function OnboardingScreen() {
   const { completeOnboarding } = useStudy();
   const { colors } = useTheme();
-  // const t = useT();
+  const t = useT();
   const { setLanguage, t } = useLanguage();
   const router = useRouter();
   const [current, setCurrent] = useState(0);

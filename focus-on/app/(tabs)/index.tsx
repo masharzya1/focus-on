@@ -15,7 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { ActiveTask, PlannedTask } from '@/types/study';
 import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 
 function getGreetingIcon() {
   const h = new Date().getHours();

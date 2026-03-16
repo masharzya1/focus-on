@@ -62,7 +62,7 @@ For questions about these terms, contact us through the app.`;
 
 export default function AboutScreen() {
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState<typeof TABS[number]>('About');
 

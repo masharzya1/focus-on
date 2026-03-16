@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS, SPACING, HEADER_TOP } from '@/constants/theme';
 
 function getLevelProgress(xp: number) {
@@ -58,7 +58,6 @@ export default function ProfileScreen() {
   const { user, isPro, signOut } = useAuth();
   const { colors: c, isDark, toggleTheme } = useTheme();
   const t = useT();
-  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const { lvl, earned, total } = getLevelProgress(state.xp);

@@ -13,7 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, isSubjectTopicBased, type StudySession, type Subject, type Chapter, type Topic } from '@/types/study';
 import { scheduleTimerDoneNotification, cancelNotification } from '@/services/notifications';
-import { useT, useLanguage } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function fmt(s: number) { return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; }
@@ -61,7 +61,7 @@ function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text
       </View>
       <Text style={{ fontSize: 58, fontFamily: FONTS.bold, color: text, letterSpacing: -2 }}>{timeStr}</Text>
       <Text style={{ fontSize: 11, color: muted, fontFamily: FONTS.semibold, marginTop: 6, textTransform: 'uppercase', letterSpacing: 3 }}>
-        {mode === 'focus' ? t.timerFocus : t.timerBreak}
+        {modeLabel ?? (mode === 'focus' ? 'FOCUS' : 'BREAK')}
       </Text>
     </Animated.View>
   );
@@ -274,7 +274,6 @@ export default function TimerScreen() {
   const { state, addSession, gainXp, completeTaskAndTopic, getActiveNowTask } = useStudy();
   const t = useT();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const params = useLocalSearchParams<{

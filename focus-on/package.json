@@ -12,10 +12,6 @@
     "lint": "expo lint"
   },
   "dependencies": {
-    "@expo-google-fonts/comfortaa": "^0.4.2",
-    "@expo-google-fonts/hind-siliguri": "^0.4.1",
-    "@expo-google-fonts/inter": "^0.2.3",
-    "@expo-google-fonts/nunito": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-navigation/bottom-tabs": "^7.4.0",
@@ -47,7 +43,8 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.0",
-    "zustand": "^5.0.11"
+    "zustand": "^5.0.11",
+    "@expo-google-fonts/hind-siliguri": "^0.4.2"
   },
   "devDependencies": {
     "@expo/config-plugins": "~9.0.0",

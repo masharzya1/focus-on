@@ -28,7 +28,7 @@ function formatDur(min: number) {
 export default function SessionHistoryScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
 
   const sessions = [...state.sessions]

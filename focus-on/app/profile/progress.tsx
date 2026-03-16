@@ -36,7 +36,7 @@ function getWeekDates(offsetWeeks = 0) {
 export default function ProgressScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
+  const t = useT();
   const router = useRouter();
   const [weekOffset, setWeekOffset] = useState(0);
 

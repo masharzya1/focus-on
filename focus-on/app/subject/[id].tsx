@@ -20,6 +20,7 @@ function DeleteModal({ visible, title, subtitle, onCancel, onConfirm }: {
   onCancel: () => void; onConfirm: () => void;
 }) {
   const { colors: c } = useTheme();
+  const t = useT();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={dm.overlay} onPress={onCancel}>
@@ -59,7 +60,6 @@ export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, updateSubject, toggleTopicComplete, gainXp } = useStudy();
   const { colors: c } = useTheme();
-  const { fonts: FONTS } = useLanguage();
   const router = useRouter();
 
   const subject = state.subjects.find(s => s.id === id);
