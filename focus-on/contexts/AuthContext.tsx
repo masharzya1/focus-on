@@ -12,6 +12,8 @@ import {
 import { auth } from '@/services/firebase';
 import { getProStatus, setProStatus } from '@/services/sync';
 import { WEB_CLIENT_ID, ANDROID_CLIENT_ID } from '@/services/auth';
+import { makeRedirectUri } from 'expo-auth-session';
+import { Platform } from 'react-native';
 import AppBlocking from '@/modules/AppBlocking';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -33,10 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
+  const redirectUri = makeRedirectUri(
+    Platform.OS === 'android'
+      ? { native: 'com.googleusercontent.apps.702598065897-csrhd1vj816jv4027i4uauadepqkn39k:/oauth2redirect' }
+      : {}
+  );
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: WEB_CLIENT_ID,
     androidClientId: ANDROID_CLIENT_ID,
     scopes: ['profile', 'email'],
+    redirectUri,
   });
 
   // Listen for Firebase auth state
@@ -105,4 +114,4 @@ export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
   return ctx;
-}
+    }
