@@ -355,6 +355,40 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, ready]);
 
+  // ── Auto-remove block routines whose task end time has passed ───────────────
+  useEffect(() => {
+    if (!ready) return;
+    const now = new Date();
+    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const todayStr = now.toISOString().split('T')[0];
+
+    state.blockRoutines.forEach(routine => {
+      if (!(routine as any).fromPlanId) return; // only auto-routines
+      if (!routine.endTime) return;
+
+      // Find the task this routine belongs to
+      const taskId = routine.id.replace(`plan_${(routine as any).fromPlanId}_task_`, '');
+      const task = state.studyPlans
+        .find(p => p.id === (routine as any).fromPlanId)
+        ?.tasks.find(t => t.id === taskId);
+
+      if (!task) {
+        // Task deleted → remove routine
+        dispatch({ type: 'DELETE_ROUTINE', payload: routine.id });
+        return;
+      }
+
+      // If task date is today and endTime has passed → remove routine
+      if (task.date === todayStr && routine.endTime < nowStr) {
+        dispatch({ type: 'DELETE_ROUTINE', payload: routine.id });
+      }
+      // If task date is in the past → remove routine
+      if (task.date < todayStr) {
+        dispatch({ type: 'DELETE_ROUTINE', payload: routine.id });
+      }
+    });
+  }, [ready]); // runs once on mount — enough for cleanup
+
   // ── Action wrappers ─────────────────────────────────────────────────────────
   const addSubject = useCallback((s: Subject) => dispatch({ type: 'ADD_SUBJECT', payload: s }), []);
   const updateSubject = useCallback((s: Subject) => dispatch({ type: 'UPDATE_SUBJECT', payload: s }), []);
@@ -601,4 +635,4 @@ export function useStudy(): StudyContextValue {
   const ctx = useContext(StudyContext);
   if (!ctx) throw new Error('useStudy must be used inside <StudyProvider>');
   return ctx;
-        }
+              }
