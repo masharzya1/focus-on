@@ -15,12 +15,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { ActiveTask, PlannedTask } from '@/types/study';
 import { scheduleTaskNotifications, cancelAllNotifications, setupAndroidChannel } from '@/services/notifications';
+import { useT } from '@/contexts/LanguageContext';
 
-function getGreeting() {
+function getGreetingIcon() {
   const h = new Date().getHours();
-  if (h < 12) return { text: 'Good morning', icon: 'sunny' as const, color: '#FF9500' };
-  if (h < 17) return { text: 'Good afternoon', icon: 'partly-sunny' as const, color: '#FFB347' };
-  return { text: 'Good evening', icon: 'moon' as const, color: '#8C85FF' };
+  if (h < 12) return { key: 'greetMorning' as const, icon: 'sunny' as const, color: '#FF9500' };
+  if (h < 17) return { key: 'greetAfternoon' as const, icon: 'partly-sunny' as const, color: '#FFB347' };
+  return { key: 'greetEvening' as const, icon: 'moon' as const, color: '#8C85FF' };
 }
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
@@ -79,7 +80,7 @@ function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => 
           <View style={styles.bannerTopRow}>
             <View style={[styles.liveDot, { backgroundColor: task.subjectColor }]} />
             <Text style={[styles.bannerLive, { color: task.subjectColor }]}>
-              {task.startTime ? 'Study Time!' : 'Up next'}
+              {task.startTime ? t.homeStudyTime : t.homeUpNext}
             </Text>
             {!!task.startTime && !!task.endTime && (
               <Text style={[styles.bannerTime, { color: task.subjectColor + 'AA' }]}>
@@ -103,13 +104,14 @@ function ActiveTaskBanner({ task, onPress }: { task: ActiveTask; onPress: () => 
 }
 
 // ── Morning Routine Modal ─────────────────────────────────────────────────────
-function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors: c }: {
+function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors: c, t }: {
   visible: boolean;
   tasks: PlannedTask[];
   subjects: ReturnType<typeof useStudy>['state']['subjects'];
   onSave: (updated: { id: string; startTime: string; endTime: string }[]) => void;
   onClose: () => void;
   colors: any;
+  t: any;
 }) {
   // Each task has start + end time
   const [times, setTimes] = useState<Record<string, { sh: number; sm: number; eh: number; em: number }>>({});
@@ -215,14 +217,14 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
                 <Ionicons name="sunny" size={22} color={c.accent} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.sheetTitle, { color: c.text }]}>Set Today's Routine</Text>
-                <Text style={[styles.sheetSub, { color: c.textMuted }]}>Set start & end time for each topic</Text>
+                <Text style={[styles.sheetTitle, { color: c.text }]}>{t.homeRoutineModalTitle}</Text>
+                <Text style={[styles.sheetSub, { color: c.textMuted }]}>{t.homeRoutineModalSub}</Text>
               </View>
             </View>
 
             {/* Header row */}
             <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 4 }}>
-              <Text style={{ flex: 1, fontSize: 11, fontFamily: FONTS.bold, color: c.textFaint, textTransform: 'uppercase', letterSpacing: 0.6 }}>Topic</Text>
+              <Text style={{ flex: 1, fontSize: 11, fontFamily: FONTS.bold, color: c.textFaint, textTransform: 'uppercase', letterSpacing: 0.6 }}>{t.homeRoutineColTopic}</Text>
               <Text style={{ width: 120, fontSize: 11, fontFamily: FONTS.bold, color: c.textFaint, textTransform: 'uppercase', letterSpacing: 0.6, textAlign: 'center' }}>Start → End</Text>
             </View>
 
@@ -269,12 +271,12 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
               style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: 16 }]}
               onPress={handleSave}>
               <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={[styles.saveTxt, { color: '#fff' }]}>Set Routine & Get Notified</Text>
+              <Text style={[styles.saveTxt, { color: '#fff' }]}>{t.homeRoutineSetBtn}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={onClose} style={{ alignItems: 'center', paddingVertical: 12 }}>
               <Text style={{ color: c.textMuted, fontFamily: FONTS.regular, fontSize: 14 }}>
-                I'll study without a schedule
+                {t.homeRoutineNoSchedule}
               </Text>
             </TouchableOpacity>
           </Pressable>
@@ -287,9 +289,11 @@ function MorningRoutineModal({ visible, tasks, subjects, onSave, onClose, colors
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const { state, getTodayMinutes, getActiveNowTask, rescheduleMissedTasks, updateStudyPlan, addBlockRoutine, updateBlockRoutine, deleteBlockRoutine } = useStudy();
+  const t = useT();
   const { colors: c } = useTheme();
   const router = useRouter();
-  const greeting = getGreeting();
+  const greetingInfo = getGreetingIcon();
+  const greeting = { ...greetingInfo, text: t[greetingInfo.key] };
 
   const todayMin = getTodayMinutes();
   const goalMin  = state.settings.dailyGoalMinutes;
@@ -442,7 +446,7 @@ export default function HomeScreen() {
             <Ionicons name={greeting.icon} size={16} color={greeting.color} />
             <Text style={[styles.greeting, { color: c.textMuted }]}> {greeting.text}</Text>
           </View>
-          <Text style={[styles.appName, { color: c.text }]}>Focus On</Text>
+          <Text style={[styles.appName, { color: c.text }]}>{t.homeAppName}</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -470,10 +474,10 @@ export default function HomeScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.routineBannerTitle, { color: '#92400E' }]}>
-                Set today's study routine
+                {t.homeRoutineBannerTitle}
               </Text>
               <Text style={[styles.routineBannerSub, { color: '#B45309' }]}>
-                {unscheduledTasks.length} task{unscheduledTasks.length > 1 ? 's' : ''} waiting · tap to schedule
+                {t.homeRoutineBannerSub(unscheduledTasks.length)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#F59E0B" />
@@ -494,7 +498,7 @@ export default function HomeScreen() {
         <View style={styles.goalTop}>
           <View style={styles.goalLabelRow}>
             <Ionicons name="trophy" size={15} color={c.accent} />
-            <Text style={[styles.goalLabel, { color: c.textMuted }]}> Today's Goal</Text>
+            <Text style={[styles.goalLabel, { color: c.textMuted }]}> {t.homeTodayGoal}</Text>
           </View>
           <Text style={[styles.goalTime, { color: c.accent }]}>{todayMin}m / {goalMin}m</Text>
         </View>
@@ -507,7 +511,7 @@ export default function HomeScreen() {
         {progress >= 1 && (
           <View style={styles.goalDoneRow}>
             <Ionicons name="checkmark-circle" size={15} color={c.success} />
-            <Text style={[styles.goalDone, { color: c.success }]}> Goal complete!</Text>
+            <Text style={[styles.goalDone, { color: c.success }]}> {t.homeGoalComplete}</Text>
           </View>
         )}
       </Animated.View>
@@ -518,7 +522,7 @@ export default function HomeScreen() {
           onPress={() => goToTimer(activeTask ?? undefined)}
           color={activeTask ? activeTask.subjectColor : c.accent}
           darkColor={activeTask ? activeTask.subjectColor + 'CC' : c.accentDark}
-          label={activeTask ? `Study ${activeTask.topicName}` : 'Start Focus'}
+          label={activeTask ? `${t.homeStudy} ${activeTask.topicName}` : t.homeStartFocus}
         />
       </Animated.View>
 
@@ -528,13 +532,13 @@ export default function HomeScreen() {
           style={[styles.tasksCard, { backgroundColor: c.bgCard }]}>
           <View style={styles.tasksTitleRow}>
             <Ionicons name="calendar" size={15} color={c.accent} />
-            <Text style={[styles.tasksTitle, { color: c.text }]}> Today's Plan</Text>
+            <Text style={[styles.tasksTitle, { color: c.text }]}> {t.homeTodayPlan}</Text>
             {needsRoutine && (
               <TouchableOpacity
                 style={[styles.setTimesBtn, { backgroundColor: c.accentSoft }]}
                 onPress={() => setShowRoutine(true)}>
                 <Ionicons name="time-outline" size={12} color={c.accent} />
-                <Text style={[styles.setTimesTxt, { color: c.accent }]}>Set times</Text>
+                <Text style={[styles.setTimesTxt, { color: c.accent }]}>{t.homeSetTimes}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -578,7 +582,6 @@ export default function HomeScreen() {
                   <Text style={[styles.taskSub, { color: c.textFaint }]}>
                     {subject?.name}
                     {task.startTime ? ` · ${task.startTime}` : ''}
-                    {isActive ? ' · Now' : ''}
                   </Text>
                 </View>
                 {task.completed
@@ -600,10 +603,10 @@ export default function HomeScreen() {
           <View style={[styles.emptyIconCircle, { backgroundColor: c.accentSoft }]}>
             <Ionicons name="calendar-outline" size={34} color={c.accent} />
           </View>
-          <Text style={[styles.emptyTxt, { color: c.textMuted }]}>No plan for today</Text>
+          <Text style={[styles.emptyTxt, { color: c.textMuted }]}>{t.homeNoPlan}</Text>
           <TouchableOpacity style={[styles.planBtn, { backgroundColor: c.accentSoft }]}
             onPress={() => router.push('/(tabs)/plan')}>
-            <Text style={[styles.planBtnTxt, { color: c.accent }]}>Create a plan</Text>
+            <Text style={[styles.planBtnTxt, { color: c.accent }]}>{t.homeCreatePlan}</Text>
             <Ionicons name="arrow-forward" size={14} color={c.accent} />
           </TouchableOpacity>
         </Animated.View>
@@ -619,6 +622,7 @@ export default function HomeScreen() {
         onSave={handleSaveRoutine}
         onClose={() => setShowRoutine(false)}
         colors={c}
+        t={t}
       />
     </ScrollView>
   );

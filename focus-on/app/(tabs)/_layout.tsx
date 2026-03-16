@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS } from '@/constants/theme';
 
 const NUM_TABS = 5;
@@ -30,7 +31,7 @@ function TabIcon({ name, focused, color }: { name: React.ComponentProps<typeof I
   );
 }
 
-function CenterBtn({ focused, color }: { focused: boolean; color: string }) {
+function CenterBtn({ focused, color, label = 'FOCUS' }: { focused: boolean; color: string; label?: string }) {
   const scale = useSharedValue(1);
   useEffect(() => { scale.value = withTiming(focused ? 1.08 : 1, { duration: 180 }); }, [focused]);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -40,13 +41,14 @@ function CenterBtn({ focused, color }: { focused: boolean; color: string }) {
       shadowColor: color, shadowOpacity: focused ? 0.55 : 0.28,
     }, anim]}>
       <Ionicons name="timer" size={24} color="#fff" />
-      <Text style={styles.centerLabel}>Focus</Text>
+      <Text style={styles.centerLabel}>{t.tabFocus.toUpperCase()}</Text>
     </Animated.View>
   );
 }
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const t = useT();
   const pathname = usePathname();
   const [tabWidth, setTabWidth] = useState(Dimensions.get('window').width / NUM_TABS);
   const { bottom: bottomInset } = useSafeAreaInsets();
@@ -86,19 +88,19 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home',
+      <Tabs.Screen name="index" options={{ title: t.tabHome,
         tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} color={color} />,
       }} />
-      <Tabs.Screen name="subjects" options={{ title: 'Subjects',
+      <Tabs.Screen name="subjects" options={{ title: t.tabSubjects,
         tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'book' : 'book-outline'} focused={focused} color={color} />,
       }} />
       <Tabs.Screen name="timer" options={{ title: '',
-        tabBarIcon: ({ focused, color }) => <CenterBtn focused={focused} color={color} />,
+        tabBarIcon: ({ focused, color }) => <CenterBtn focused={focused} color={color} label={t.tabFocus.toUpperCase()} />,
       }} />
-      <Tabs.Screen name="plan" options={{ title: 'Plans',
+      <Tabs.Screen name="plan" options={{ title: t.tabPlans,
         tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'calendar' : 'calendar-outline'} focused={focused} color={color} />,
       }} />
-      <Tabs.Screen name="app-block" options={{ title: 'Block',
+      <Tabs.Screen name="app-block" options={{ title: t.tabBlock,
         tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'shield' : 'shield-outline'} focused={focused} color={color} />,
       }} />
 

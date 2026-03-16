@@ -8,13 +8,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { SUBJECT_COLORS, SUBJECT_ICONS, isSubjectTopicBased, type Subject } from '@/types/study';
 
 // ── Delete Confirmation Modal ─────────────────────────────────────────────────
 function DeleteModal({
-  visible, name, onCancel, onConfirm,
-}: { visible: boolean; name: string; onCancel: () => void; onConfirm: () => void }) {
+  visible, name, onCancel, onConfirm, t,
+}: { visible: boolean; name: string; onCancel: () => void; onConfirm: () => void; t: any }) {
   const { colors: c } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -23,16 +24,16 @@ function DeleteModal({
           <View style={[dm.icon, { backgroundColor: '#FEE2E2' }]}>
             <Ionicons name="trash-outline" size={28} color="#EF4444" />
           </View>
-          <Text style={[dm.title, { color: c.text }]}>Delete Subject?</Text>
+          <Text style={[dm.title, { color: c.text }]}>{t.subjectsDeleteTitle}</Text>
           <Text style={[dm.sub, { color: c.textMuted }]}>
-            "{name}" and all its chapters, topics and todos will be permanently deleted.
+            {t.subjectsDeleteMsg(name)}
           </Text>
           <View style={dm.btnRow}>
             <TouchableOpacity style={[dm.btn, { backgroundColor: c.bgSecondary }]} onPress={onCancel}>
-              <Text style={[dm.btnTxt, { color: c.textMuted }]}>Cancel</Text>
+              <Text style={[dm.btnTxt, { color: c.textMuted }]}>{t.subjectsCancel}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[dm.btn, { backgroundColor: '#EF4444' }]} onPress={onConfirm}>
-              <Text style={[dm.btnTxt, { color: '#fff' }]}>Delete</Text>
+              <Text style={[dm.btnTxt, { color: '#fff' }]}>{t.subjectsDelete}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -54,10 +55,10 @@ const dm = StyleSheet.create({
 
 // ── Subject Card ──────────────────────────────────────────────────────────────
 function SubjectCard({
-  item, index, onPress, onLongPress, onEdit, progress,
+  item, index, onPress, onLongPress, onEdit, progress, t,
 }: {
   item: Subject; index: number; progress: number;
-  onPress: () => void; onLongPress: () => void; onEdit: () => void;
+  onPress: () => void; onLongPress: () => void; onEdit: () => void; t: any;
 }) {
   const { colors: c2 } = useTheme();
   const c = c2;
@@ -68,8 +69,8 @@ function SubjectCard({
   const doneChapters = item.chapters.filter(ch => ch.completed).length;
 
   const subInfo = topicBased
-    ? `${item.chapters.length} chapter${item.chapters.length !== 1 ? 's' : ''} · ${doneTopics}/${totalTopics} topics`
-    : `${doneChapters}/${item.chapters.length} chapter${item.chapters.length !== 1 ? 's' : ''}`;
+    ? `${t.subjectsChapter(item.chapters.length)} · ${t.subjectsTopics(doneTopics, totalTopics)}`
+    : t.subjectsChaptersProgress(doneChapters, item.chapters.length);
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
@@ -191,7 +192,7 @@ export default function SubjectsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: c.text }]}>Subjects</Text>
+          <Text style={[styles.title, { color: c.text }]}>{t.subjectsTitle}</Text>
           <Text style={[styles.subtitle, { color: c.textMuted }]}>Tap & hold to delete · Tap pencil to edit</Text>
         </View>
         <TouchableOpacity style={[styles.addBtn, { backgroundColor: c.accent }]}

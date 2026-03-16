@@ -13,14 +13,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, isSubjectTopicBased, type StudySession, type Subject, type Chapter, type Topic } from '@/types/study';
 import { scheduleTimerDoneNotification, cancelNotification } from '@/services/notifications';
+import { useT } from '@/contexts/LanguageContext';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function fmt(s: number) { return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`; }
 
 // ── Circular Progress ─────────────────────────────────────────────────────────
-function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text, muted }: {
+function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text, muted, modeLabel }: {
   progress: number; timeStr: string; mode: string; isRunning: boolean;
-  accent: string; bg: string; text: string; muted: string;
+  accent: string; bg: string; text: string; muted: string; modeLabel?: string;
 }) {
   const SIZE = 260, STROKE = 16;
   const pulsate = useSharedValue(1);
@@ -60,7 +61,7 @@ function CircularProgress({ progress, timeStr, mode, isRunning, accent, bg, text
       </View>
       <Text style={{ fontSize: 58, fontFamily: FONTS.bold, color: text, letterSpacing: -2 }}>{timeStr}</Text>
       <Text style={{ fontSize: 11, color: muted, fontFamily: FONTS.semibold, marginTop: 6, textTransform: 'uppercase', letterSpacing: 3 }}>
-        {mode === 'focus' ? 'Focus' : 'Break'}
+        {mode === 'focus' ? t.timerFocus : t.timerBreak}
       </Text>
     </Animated.View>
   );
@@ -105,7 +106,7 @@ function IconButton({ icon, onPress, bg, color }: { icon: string; onPress: () =>
 }
 
 // ── Time Badge Button ─────────────────────────────────────────────────────────
-function TimeBadgeButton({ label, onPress, accent }: { label: string; onPress: () => void; accent: string }) {
+function TimeBadgeButton({ label, onPress, accent, tapLabel = 'tap to edit' }: { label: string; onPress: () => void; accent: string; tapLabel?: string }) {
   const pressed = useSharedValue(0);
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: withTiming(pressed.value ? 2 : 0, { duration: 60 }) }] }));
   return (
@@ -116,7 +117,7 @@ function TimeBadgeButton({ label, onPress, accent }: { label: string; onPress: (
           onPress={onPress} activeOpacity={1}
           onPressIn={() => { pressed.value = 1; }} onPressOut={() => { pressed.value = 0; }}>
           <Text style={{ fontSize: 15, fontFamily: FONTS.bold, color: accent }}>{label}</Text>
-          <Text style={{ fontSize: 9, fontFamily: FONTS.medium, color: accent + 'AA', textTransform: 'uppercase', letterSpacing: 0.5 }}>tap to edit</Text>
+          <Text style={{ fontSize: 9, fontFamily: FONTS.medium, color: accent + 'AA', textTransform: 'uppercase', letterSpacing: 0.5 }}>{tapLabel}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -271,6 +272,7 @@ function SubjectPicker({ visible, subjects, onSelect, onClose, colors: c }: {
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function TimerScreen() {
   const { state, addSession, gainXp, completeTaskAndTopic, getActiveNowTask } = useStudy();
+  const t = useT();
   const { colors: c } = useTheme();
   const router = useRouter();
 
@@ -438,7 +440,7 @@ export default function TimerScreen() {
           <TouchableOpacity
             style={[styles.selectSubjectBtn, { backgroundColor: c.accentSoft }]}
             onPress={() => setShowSubjectPicker(true)}>
-            <Text style={[styles.selectSubjectTxt, { color: c.accent }]}>Select</Text>
+            <Text style={[styles.selectSubjectTxt, { color: c.accent }]}>{t.timerSelect}</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -455,7 +457,7 @@ export default function TimerScreen() {
             }]}
             onPress={() => switchMode(m)}>
             <Text style={[styles.modeTxt, { color: mode === m ? '#fff' : c.textMuted }]}>
-              {m === 'focus' ? 'Focus' : 'Break'}
+              {m === 'focus' ? t.timerFocus : t.timerBreak}
             </Text>
           </TouchableOpacity>
         ))}
@@ -467,6 +469,7 @@ export default function TimerScreen() {
           progress={progress} timeStr={fmt(secs)} mode={mode} isRunning={running}
           accent={mode === 'focus' ? accent : c.success}
           bg={c.bg} text={c.text} muted={c.textMuted}
+          modeLabel={mode === 'focus' ? t.timerFocus : t.timerBreak}
         />
       </Animated.View>
 
@@ -478,6 +481,7 @@ export default function TimerScreen() {
           label={mode === 'focus' ? `${customFocus}m` : `${customBreak}m`}
           onPress={() => setShowPicker(true)}
           accent={mode === 'focus' ? accent : c.success}
+          tapLabel={t.timerTapToEdit}
         />
       </Animated.View>
 
@@ -502,10 +506,10 @@ export default function TimerScreen() {
         <Pressable style={styles.modalBg} onPress={() => setShowPicker(false)}>
           <Pressable style={[styles.sheet, { backgroundColor: c.bgCard }]} onPress={e => e.stopPropagation()}>
             <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
-            <Text style={[styles.sheetTitle, { color: c.text }]}>Set Duration</Text>
+            <Text style={[styles.sheetTitle, { color: c.text }]}>{t.timerSetDuration}</Text>
             {[
-              { label: 'Focus', icon: 'timer-outline', val: customFocus, set: setCustomFocus, min: 5, max: 120, color: accent },
-              { label: 'Break', icon: 'cafe-outline', val: customBreak, set: setCustomBreak, min: 1, max: 30, color: c.success },
+              { label: t.timerFocusLabel, icon: 'timer-outline', val: customFocus, set: setCustomFocus, min: 5, max: 120, color: accent },
+              { label: t.timerBreakLabel, icon: 'cafe-outline', val: customBreak, set: setCustomBreak, min: 1, max: 30, color: c.success },
             ].map(item => (
               <View key={item.label} style={[styles.pickerRow, { backgroundColor: c.bgSecondary }]}>
                 <View style={styles.pickerLeft}>
@@ -530,7 +534,7 @@ export default function TimerScreen() {
             <TouchableOpacity style={[styles.applyBtn, { backgroundColor: accent }]}
               onPress={() => { reset(); setShowPicker(false); }}>
               <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={styles.applyTxt}>Apply</Text>
+              <Text style={styles.applyTxt}>{t.timerApply}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -542,7 +546,7 @@ export default function TimerScreen() {
           <Animated.View entering={FadeInUp.springify()}
             style={[styles.completeCard, { backgroundColor: c.bgCard }]}>
             <Text style={{ fontSize: 52 }}>🎉</Text>
-            <Text style={[styles.completeTitle, { color: c.text }]}>Session Complete!</Text>
+            <Text style={[styles.completeTitle, { color: c.text }]}>{t.timerComplete}</Text>
             {effectiveTopicName && (
               <View style={[styles.completeBadge, { backgroundColor: (effectiveColor ?? c.accent) + '18' }]}>
                 <Ionicons name="checkmark-circle" size={16} color={effectiveColor ?? c.accent} />
@@ -556,10 +560,10 @@ export default function TimerScreen() {
             </Text>
             <TouchableOpacity style={[styles.completeDoneBtn, { backgroundColor: accent }]}
               onPress={() => { setShowComplete(false); switchMode('break'); }}>
-              <Text style={styles.completeDoneTxt}>Take a Break</Text>
+              <Text style={styles.completeDoneTxt}>{t.timerTakeBreak}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowComplete(false)}>
-              <Text style={[styles.completeSkip, { color: c.textMuted }]}>Dismiss</Text>
+              <Text style={[styles.completeSkip, { color: c.textMuted }]}>{t.timerDismiss}</Text>
             </TouchableOpacity>
           </Animated.View>
         </View>

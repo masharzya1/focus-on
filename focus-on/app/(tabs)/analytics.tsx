@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import AppBlocking from '@/modules/AppBlocking';
 import { useFocusEffect } from 'expo-router';
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const h = useSharedValue(0);
@@ -40,6 +41,7 @@ function StatCard({ icon, label, value, color, bg }: { icon: any; label: string;
 export default function AnalyticsScreen() {
   const { state } = useStudy();
   const { colors: c } = useTheme();
+  const t = useT();
   const router = useRouter();
   const [usageStats, setUsageStats] = useState<{ packageName: string; name: string; minutes: number }[]>([]);
   const [hasUsagePerm, setHasUsagePerm] = useState(false);
@@ -69,7 +71,7 @@ export default function AnalyticsScreen() {
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const mins = state.sessions.filter(s => s.completed && s.startTime.startsWith(dateStr)).reduce((a, s) => a + s.durationMinutes, 0);
-      days.push({ label: DAY_LABELS[d.getDay()], mins });
+      days.push({ label: t.analyticsDayLabels[d.getDay()], mins });
     }
 
     const subjectStats = state.subjects.map(sub => {
@@ -101,7 +103,7 @@ export default function AnalyticsScreen() {
         {/* Stat cards */}
         <Animated.View entering={FadeInDown.delay(60).springify()} style={s.statRow}>
           <StatCard icon="time-outline" label="Total" value={`${Math.floor(stats.totalMins / 60)}h`} color="#6C63FF" bg={c.bgCard} />
-          <StatCard icon="calendar-outline" label="This Week" value={`${stats.weekMins}m`} color="#3B82F6" bg={c.bgCard} />
+          <StatCard icon="calendar-outline" label=t.analyticsThisWeek value={`${stats.weekMins}m`} color="#3B82F6" bg={c.bgCard} />
           <StatCard icon="trending-up-outline" label="Daily Avg" value={`${stats.avgDaily}m`} color="#10B981" bg={c.bgCard} />
           <StatCard icon="checkmark-circle-outline" label="Topics" value={String(stats.completedTopics)} color="#F59E0B" bg={c.bgCard} />
         </Animated.View>

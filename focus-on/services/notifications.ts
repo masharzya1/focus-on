@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
-
 import { Platform } from 'react-native';
+import { getLocale } from '@/contexts/LanguageContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -46,12 +46,11 @@ export async function scheduleTimerDoneNotification(
   mode: 'focus' | 'break',
   seconds: number
 ): Promise<string> {
+  const t = await getLocale();
   const id = await Notifications.scheduleNotificationAsync({
     content: {
-      title: mode === 'focus' ? '🎯 Focus session complete!' : '☕ Break time over!',
-      body: mode === 'focus'
-        ? 'Great work! Time for a break.'
-        : "Ready to focus again? Let's go!",
+      title: mode === 'focus' ? t.notifFocusDoneTitle : t.notifBreakDoneTitle,
+      body: mode === 'focus' ? t.notifFocusDoneBody : t.notifBreakDoneBody,
       sound: true,
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, repeats: false },
@@ -69,10 +68,11 @@ export async function cancelAllNotifications(): Promise<void> {
 
 // ── Daily study reminder ───────────────────────────────────────────────────
 export async function scheduleDailyReminder(hour = 19, minute = 0): Promise<void> {
+  const t = await getLocale();
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '📚 Time to study!',
-      body: 'Keep your streak going. Open Focus On and start a session.',
+      title: t.notifDailyTitle,
+      body: t.notifDailyBody,
       sound: true,
     },
     trigger: {
@@ -83,10 +83,11 @@ export async function scheduleDailyReminder(hour = 19, minute = 0): Promise<void
 }
 
 export async function scheduleStreakReminder(): Promise<void> {
+  const t = await getLocale();
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: "🔥 Don't break your streak!",
-      body: "You haven't studied today. Open Focus On to keep your streak alive.",
+      title: t.notifStreakTitle,
+      body: t.notifStreakBody,
       sound: true,
     },
     trigger: {
@@ -101,14 +102,15 @@ export async function scheduleExamReminder(
   examDate: string,
   daysBeforeList = [7, 3, 1]
 ): Promise<void> {
+  const t = await getLocale();
   const exam = new Date(examDate);
   for (const daysBefore of daysBeforeList) {
     const notifDate = new Date(exam.getTime() - daysBefore * 86400000);
     if (notifDate > new Date()) {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `📅 ${examName} in ${daysBefore} day${daysBefore > 1 ? 's' : ''}!`,
-          body: "Review your study plan and make sure you're on track.",
+          title: t.notifExamTitle(examName, daysBefore),
+          body: t.notifExamBody,
           sound: true,
         },
         trigger: {
@@ -155,10 +157,11 @@ export async function scheduleRoutineReminder(tasks: {
   const secsUntil = (notifyAt.getTime() - Date.now()) / 1000;
   if (secsUntil < 30) return; // too soon or already past
 
+  const t = await getLocale();
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: `📚 আর ১ ঘন্টা! Routine set করো`,
-      body: `${sorted.length}টা task আজকে আছে। ${earliest.topicName} শুরু ${earliest.startTime} এ।`,
+      title: t.notifRoutineTitle,
+      body: t.notifRoutineBody(sorted.length, earliest.topicName, earliest.startTime ?? ''),
       sound: true,
       data: { type: 'routine_reminder', screen: 'home' },
       ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
@@ -190,10 +193,11 @@ export async function scheduleTaskNotifications(tasks: {
     if (taskDate <= new Date(Date.now() - 60 * 1000)) continue;
 
     try {
+      const _t = await getLocale();
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `📖 Time to study: ${task.topicName}`,
-          body: `${task.subjectName} · Open Focus On to start!`,
+          title: _t.notifTaskTitle(task.topicName),
+          body: _t.notifTaskBody(task.subjectName),
           sound: 'default',
           data: { screen: 'timer', topicName: task.topicName },
           ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
@@ -264,10 +268,11 @@ export async function scheduleNewDayRoutineReminder(
   if (secsUntil < 10) return;
 
   const count = tomorrowTasks.length;
+  const t = await getLocale();
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '🌙 নতুন দিন শুরু!',
-      body: `আজকে ${count}টা task আছে। Home এ গিয়ে routine set করো।`,
+      title: t.notifNewDayTitle,
+      body: t.notifNewDayBody(count),
       sound: true,
       data: { type: 'daily_routine_set', screen: 'home' },
       ...(Platform.OS === 'android' ? { android: { channelId: 'study' } } : {}),
@@ -286,3 +291,19 @@ export async function scheduleDailyRoutineSetReminder(
   // No-op — replaced by scheduleNewDayRoutineReminder
   return;
     }
+
+// ── Plan reminder (stub used in setupAllNotifications) ───────────────────────
+export async function schedulePlanReminder(): Promise<void> {
+  const t = await getLocale();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: t.notifPlanReminderTitle,
+      body: t.notifPlanReminderBody,
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 8, minute: 0,
+    },
+  }).catch(() => {});
+}

@@ -5,12 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { StudyPlan } from '@/types/study';
 
 export default function PlanScreen() {
   const { state, deleteStudyPlan } = useStudy();
   const { colors: c } = useTheme();
+  const t = useT();
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
 
@@ -28,9 +30,9 @@ export default function PlanScreen() {
         <TouchableOpacity
           style={[styles.planCard, { backgroundColor: c.bgCard }]}
           onPress={() => router.push(`/plan/${item.id}`)}
-          onLongPress={() => Alert.alert('Delete Plan?', `"${item.examName}" will be permanently deleted.`, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => deleteStudyPlan(item.id) },
+          onLongPress={() => Alert.alert(t.plansDeleteTitle, t.plansDeleteMsg(item.examName), [
+            { text: t.plansCancel, style: 'cancel' },
+            { text: t.plansDelete, style: 'destructive', onPress: () => deleteStudyPlan(item.id) },
           ])}
           activeOpacity={0.85}
         >
@@ -59,7 +61,7 @@ export default function PlanScreen() {
             <View style={[styles.todayBadge, { backgroundColor: c.accentSoft }]}>
               <Ionicons name="today-outline" size={13} color={c.accent} />
               <Text style={[styles.todayTxt, { color: c.accent }]}>
-                Today: {doneToday}/{todayTasks.length} tasks
+                {t.plansTodayTasks(doneToday, todayTasks.length)}
               </Text>
             </View>
           )}
@@ -76,12 +78,12 @@ export default function PlanScreen() {
           <View style={styles.planMeta}>
             <View style={styles.metaLeft}>
               <Ionicons name="layers-outline" size={12} color={c.textFaint} />
-              <Text style={[styles.metaTxt, { color: c.textFaint }]}> {totalTasks} topics</Text>
+              <Text style={[styles.metaTxt, { color: c.textFaint }]}> {t.plansTopics(totalTasks)}</Text>
             </View>
             {item.blockApps && (
               <View style={styles.blockBadge}>
                 <Ionicons name="shield" size={12} color={c.destructive} />
-                <Text style={[styles.blockTxt, { color: c.destructive }]}> Block active</Text>
+                <Text style={[styles.blockTxt, { color: c.destructive }]}> {t.plansBlockActive}</Text>
               </View>
             )}
           </View>
@@ -94,7 +96,7 @@ export default function PlanScreen() {
     <View style={[styles.root, { backgroundColor: c.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: c.text }]}>Plans</Text>
+        <Text style={[styles.title, { color: c.text }]}>{t.plansTitle}</Text>
         <TouchableOpacity style={[styles.addBtn, { backgroundColor: c.accent }]}
           onPress={() => router.push('/plan/create')}>
           <Ionicons name="add" size={20} color="#fff" />

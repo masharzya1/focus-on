@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS, SPACING, HEADER_TOP } from '@/constants/theme';
 
 function getLevelProgress(xp: number) {
@@ -56,6 +57,7 @@ export default function ProfileScreen() {
   const { state } = useStudy();
   const { user, isPro, signOut } = useAuth();
   const { colors: c, isDark, toggleTheme } = useTheme();
+  const t = useT();
   const router = useRouter();
 
   const { lvl, earned, total } = getLevelProgress(state.xp);
@@ -71,9 +73,9 @@ export default function ProfileScreen() {
     ? user.displayName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
-  const handleSignOut = () => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Sign Out', style: 'destructive', onPress: signOut },
+  const handleSignOut = () => Alert.alert(t.profileSignOut, t.profileSignOutConfirm, [
+    { text: t.profileCancel, style: 'cancel' },
+    { text: t.profileSignOut, style: 'destructive', onPress: signOut },
   ]);
 
   return (
@@ -99,19 +101,19 @@ export default function ProfileScreen() {
               )}
             </View>
           </LinearGradient>
-          <Text style={[s.name, { color: c.text }]}>{user?.displayName ?? 'Student'}</Text>
+          <Text style={[s.name, { color: c.text }]}>{user?.displayName ?? t.profileStudent}</Text>
           {user?.email && <Text style={[s.email, { color: c.textMuted }]}>{user.email}</Text>}
           {!user && (
             <TouchableOpacity
               style={[s.signInBtn, { backgroundColor: c.accentSoft }]}
               onPress={() => router.push('/(tabs)/profile' as any)}>
               <Ionicons name="logo-google" size={16} color={c.accent} />
-              <Text style={[s.signInTxt, { color: c.accent }]}>Sign in to sync your data</Text>
+              <Text style={[s.signInTxt, { color: c.accent }]}>{t.profileSignIn}</Text>
             </TouchableOpacity>
           )}
           <View style={[s.levelBadge, { backgroundColor: c.accentSoft }]}>
             <Ionicons name="star" size={12} color={c.accent} />
-            <Text style={[s.levelTxt, { color: c.accent }]}>Level {lvl} · {state.xp} XP</Text>
+            <Text style={[s.levelTxt, { color: c.accent }]}>{t.profileLevel(lvl)} · {state.xp} XP</Text>
             {isPro && <>
               <View style={{ width: 1, height: 12, backgroundColor: c.accent + '40', marginHorizontal: 4 }} />
               <Text style={[s.levelTxt, { color: c.accent }]}>PRO</Text>

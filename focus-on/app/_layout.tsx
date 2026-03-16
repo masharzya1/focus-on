@@ -18,6 +18,7 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -102,6 +103,7 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
+      <LanguageProvider>
       <AuthProvider>
         <StudyProvider>
           <ThemeProvider>
@@ -109,6 +111,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </StudyProvider>
       </AuthProvider>
+      </LanguageProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );

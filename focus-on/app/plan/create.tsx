@@ -9,31 +9,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isSubjectTopicBased, type StudyPlan } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
 import { setupAllNotifications } from '@/services/notifications';
 import { generateSmartSchedule, type ScheduleItem } from '@/utils/smartSchedule';
 
-const STEPS = ['Setup', 'Topics', 'Blocking'];
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// STEPS, DAY_NAMES, MONTHS now come from t (locale)
+
+
 
 // Weight labels — user-friendly
-const WEIGHT_LABELS: Record<number, { label: string; color: string; desc: string }> = {
-  1: { label: 'Light',     color: '#10B981', desc: 'Quick read' },
-  2: { label: 'Medium',    color: '#6C63FF', desc: 'Normal'     },
-  3: { label: 'Heavy',     color: '#F59E0B', desc: 'Needs focus' },
-  4: { label: 'Very Heavy',color: '#EF4444', desc: 'Tough one'  },
+const WEIGHT_COLORS: Record<number, string> = {
+  1: '#10B981', 2: '#6C63FF', 3: '#F59E0B', 4: '#EF4444',
 };
 
 // Daily capacity labels
-const CAPACITY_LABELS: Record<number, { label: string; desc: string }> = {
-  3:  { label: 'Easy day',    desc: 'Light workload'   },
-  5:  { label: 'Normal day',  desc: 'Balanced'         },
-  8:  { label: 'Focus day',   desc: 'Push yourself'    },
-  12: { label: 'Grind day',   desc: 'Maximum effort'   },
-};
+
 
 function daysInMonth(m: number, y: number) { return new Date(y, m + 1, 0).getDate(); }
 
@@ -97,8 +90,8 @@ function WheelCol({ items, selectedIndex, onChange, width = 80, colors: c }: {
 }
 
 // ── Date Picker (wheel spinner) ────────────────────────────────────────────────
-function DatePicker({ value, onChange, colors: c }: {
-  value: string; onChange: (v: string) => void; colors: any;
+function DatePicker({ value, onChange, colors: c, months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], daysFromTodayLabel }: {
+  value: string; onChange: (v: string) => void; colors: any; months?: string[]; daysFromTodayLabel?: (n: number) => string;
 }) {
   const todayD = new Date();
   const parsed = value ? new Date(value) : todayD;
@@ -106,6 +99,7 @@ function DatePicker({ value, onChange, colors: c }: {
   const [mon, setMon] = useState(parsed.getMonth());
   const [yr,  setYr]  = useState(parsed.getFullYear() - todayD.getFullYear());
 
+  const MONTHS_ARR = months;
   const YEARS = Array.from({ length: 5 }, (_, i) => String(todayD.getFullYear() + i));
   const days  = Array.from({ length: daysInMonth(mon, todayD.getFullYear() + yr) }, (_, i) => String(i + 1).padStart(2, '0'));
 
@@ -120,13 +114,13 @@ function DatePicker({ value, onChange, colors: c }: {
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <WheelCol items={days}   selectedIndex={day} onChange={i => { setDay(i);  emit(i, mon, yr); }} width={64}  colors={c} />
-        <WheelCol items={MONTHS} selectedIndex={mon} onChange={i => { setMon(i);  emit(day, i, yr); }} width={80}  colors={c} />
+        <WheelCol items={days}      selectedIndex={day} onChange={i => { setDay(i);  emit(i, mon, yr); }} width={64}  colors={c} />
+        <WheelCol items={MONTHS_ARR}  selectedIndex={mon} onChange={i => { setMon(i);  emit(day, i, yr); }} width={80}  colors={c} />
         <WheelCol items={YEARS}  selectedIndex={yr}  onChange={i => { setYr(i);   emit(day, mon, i); }} width={80} colors={c} />
       </View>
       {daysLeft > 0 && (
         <Text style={{ fontSize: 12, fontFamily: FONTS.medium, color: c.textMuted, textAlign: 'center', marginTop: 8 }}>
-          {daysLeft} days from today
+          {daysFromTodayLabel ? daysFromTodayLabel(daysLeft) : `${daysLeft} days from today`}
         </Text>
       )}
     </View>
@@ -134,20 +128,23 @@ function DatePicker({ value, onChange, colors: c }: {
 }
 
 // ── Weight picker for each item ───────────────────────────────────────────────
-function WeightPicker({ value, onChange, colors: c }: {
+function WeightPicker({ value, onChange, colors: c, weightLabels }: {
   value: number; onChange: (v: number) => void; colors: any;
+  weightLabels?: Record<number, { label: string; desc: string; color?: string }>;
 }) {
+  const WEIGHT_COLORS_MAP: Record<number, string> = { 1: '#10B981', 2: '#6C63FF', 3: '#F59E0B', 4: '#EF4444' };
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
       {[1, 2, 3, 4].map(w => {
-        const info = WEIGHT_LABELS[w];
+        const info = weightLabels?.[w] ?? { label: String(w), desc: '' };
+        const wColor = WEIGHT_COLORS_MAP[w];
         const active = value === w;
         return (
           <TouchableOpacity key={w}
             style={{
               paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1.5,
-              backgroundColor: active ? info.color + '20' : 'transparent',
-              borderColor: active ? info.color : c.border,
+              backgroundColor: active ? wColor + '20' : 'transparent',
+              borderColor: active ? wColor : c.border,
             }}
             onPress={() => onChange(w)}>
             <Text style={{ fontSize: 11, fontFamily: FONTS.bold, color: active ? info.color : c.textFaint }}>
@@ -315,7 +312,7 @@ export default function CreatePlanScreen() {
             </View>
             <Text style={{ fontSize: 9, fontFamily: FONTS.bold, textTransform: 'uppercase', marginTop: 4, color: i === step ? c.accent : c.textFaint }}>{s}</Text>
           </View>
-          {i < STEPS.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < step ? c.accent : c.border, marginBottom: 14 }} />}
+          {i < t.planCreateSteps.length - 1 && <View style={{ flex: 1, height: 2, backgroundColor: i < step ? c.accent : c.border, marginBottom: 14 }} />}
         </React.Fragment>
       ))}
     </View>
@@ -354,7 +351,7 @@ export default function CreatePlanScreen() {
 
             <Text style={[styles.label, { color: c.textMuted }]}>Exam date</Text>
             <View style={[styles.card, { backgroundColor: c.bgCard }]}>
-              <DatePicker value={examDate} onChange={setExamDate} colors={c} />
+              <DatePicker value={examDate} onChange={setExamDate} colors={c} months={t.planCreateMonths} daysFromTodayLabel={t.planCreateDaysFromToday} />
             </View>
 
             <Text style={[styles.label, { color: c.textMuted }]}>How much can you study per day?</Text>
@@ -592,8 +589,8 @@ export default function CreatePlanScreen() {
 
                 {[
                   { icon: 'layers-outline', label: 'Items', value: `${scheduleItems.length}` },
-                  { icon: 'speedometer-outline', label: 'Daily capacity', value: CAPACITY_LABELS[dailyCapacity]?.label ?? `${dailyCapacity}` },
-                  { icon: 'calendar-outline', label: 'Study days', value: studyDays.length > 0 ? studyDays.map(d => DAY_NAMES[d]).join(', ') : 'Every day' },
+                  { icon: 'speedometer-outline', label: 'Daily capacity', value: t.planCreateCapacityLabels[dailyCapacity]?.label ?? `${dailyCapacity}` },
+                  { icon: 'calendar-outline', label: 'Study days', value: studyDays.length > 0 ? studyDays.map(d => t.planCreateDayNames[d]).join(', ') : 'Every day' },
                   { icon: 'time-outline', label: 'Days needed', value: `~${preview.daysNeeded} days` },
                   { icon: 'refresh-outline', label: 'Auto-reviews', value: preview.reviewCount > 0 ? `${preview.reviewCount} sessions` : 'None' },
                   { icon: 'flag-outline', label: 'Exam', value: examDate },
@@ -625,12 +622,12 @@ export default function CreatePlanScreen() {
       <View style={[styles.bottomNav, { backgroundColor: c.bgCard, borderTopColor: c.border }]}>
         <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: canNext() ? c.accent : c.border }]}
-          onPress={() => step < STEPS.length - 1 ? setStep(s => s + 1) : save()}
+          onPress={() => step < t.planCreateSteps.length - 1 ? setStep(s => s + 1) : save()}
           disabled={!canNext() || saving}>
           {saving
             ? <ActivityIndicator color="#fff" />
             : <Text style={[styles.nextTxt, { color: canNext() ? '#fff' : c.textFaint }]}>
-                {step === STEPS.length - 1 ? 'Create Plan 🚀' : 'Next →'}
+                {step === t.planCreateSteps.length - 1 ? 'Create Plan 🚀' : 'Next →'}
               </Text>}
         </TouchableOpacity>
       </View>

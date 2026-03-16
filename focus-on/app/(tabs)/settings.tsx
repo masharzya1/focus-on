@@ -4,6 +4,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
+import { useT, useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS, SPACING, HEADER_TOP, TYPE } from '@/constants/theme';
 import * as Notifications from 'expo-notifications';
@@ -107,6 +108,8 @@ function Card({ children, delay = 0 }: { children: React.ReactNode; delay?: numb
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function SettingsScreen() {
   const { state, updateSettings } = useStudy();
+  const t = useT();
+  const { language, setLanguage } = useLanguage();
   const { colors: c, toggleTheme, isDark } = useTheme();
   const router = useRouter();
   const { settings } = state;
@@ -119,15 +122,15 @@ export default function SettingsScreen() {
       if (perm.status !== 'granted') {
         const req = await Notifications.requestPermissionsAsync();
         if (req.status !== 'granted') {
-          Alert.alert('Permission denied', 'Enable notifications in device settings.'); return;
+          Alert.alert(t.settingsPermDenied, t.settingsEnableNotif); return;
         }
       }
       await Notifications.scheduleNotificationAsync({
         content: { title: testTitle || '📖 Study Time!', body: testBody || 'Time to focus.', sound: true },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3 },
       });
-      Alert.alert('✅ Sent!', 'Notification will arrive in 3 seconds.');
-    } catch (e: any) { Alert.alert('Error', e?.message ?? 'Failed'); }
+      Alert.alert(t.settingsNotifSent, t.settingsNotifArrives);
+    } catch (e: any) { Alert.alert(t.settingsError, e?.message ?? 'Failed'); }
   };
 
   return (
@@ -138,27 +141,27 @@ export default function SettingsScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={c.text} />
         </TouchableOpacity>
-        <Text style={[TYPE.title3, { color: c.text }]}>Settings</Text>
+        <Text style={[TYPE.title3, { color: c.text }]}>{t.settingsTitle}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={st.content} showsVerticalScrollIndicator={false}>
 
         {/* Timer */}
-        <SectionLabel title="Timer" />
+        <SectionLabel title={t.settingsTimer} />
         <Card delay={40}>
           <StepperRow
-            icon="timer-outline" label="Focus Duration"
+            icon="timer-outline" label={t.settingsFocusDuration}
             value={settings.pomodoroFocus} min={5} max={120} step={5} suffix="m"
             onChange={v => updateSettings({ pomodoroFocus: v })}
           />
           <StepperRow
-            icon="cafe-outline" label="Short Break"
+            icon="cafe-outline" label={t.settingsShortBreak}
             value={settings.pomodoroBreak} min={1} max={30} step={1} suffix="m"
             onChange={v => updateSettings({ pomodoroBreak: v })}
           />
           <StepperRow
-            icon="trophy-outline" label="Daily Goal"
+            icon="trophy-outline" label={t.settingsDailyGoal}
             iconBg="#FEF3C7" iconColor="#F59E0B"
             value={settings.dailyGoalMinutes} min={15} max={480} step={15} suffix="m"
             onChange={v => updateSettings({ dailyGoalMinutes: v })}
@@ -166,11 +169,11 @@ export default function SettingsScreen() {
         </Card>
 
         {/* Appearance */}
-        <SectionLabel title="Appearance" />
+        <SectionLabel title={t.settingsAppearance} />
         <Card delay={80}>
           <ToggleRow
             icon={isDark ? 'moon' : 'sunny-outline'}
-            label="Dark Mode"
+            label={t.settingsDarkMode}
             iconBg="#EDE9FE" iconColor="#6C63FF"
             value={isDark}
             onValueChange={toggleTheme}
@@ -178,10 +181,10 @@ export default function SettingsScreen() {
         </Card>
 
         {/* Sound & Notifications */}
-        <SectionLabel title="Sound & Notifications" />
+        <SectionLabel title={t.settingsSoundNotif} />
         <Card delay={120}>
           <ToggleRow
-            icon="volume-medium-outline" label="Timer Sounds"
+            icon="volume-medium-outline" label={t.settingsTimerSounds}
             iconBg="#D1FAE5" iconColor="#10B981"
             value={settings.soundEnabled}
             onValueChange={v => updateSettings({ soundEnabled: v })}
@@ -189,29 +192,57 @@ export default function SettingsScreen() {
         </Card>
 
         {/* Focus */}
-        <SectionLabel title="Focus" />
+        <SectionLabel title={t.settingsFocus} />
         <Card delay={160}>
           <ToggleRow
-            icon="shield-checkmark-outline" label="Focus Guard"
+            icon="shield-checkmark-outline" label={t.settingsFocusGuard}
             iconBg="#FEE2E2" iconColor="#EF4444"
             value={settings.focusGuardEnabled}
             onValueChange={v => updateSettings({ focusGuardEnabled: v })}
           />
           <NavRow
-            icon="apps-outline" label="Blocked Apps"
+            icon="apps-outline" label={t.settingsBlockedApps}
             iconBg="#FEE2E2" iconColor="#EF4444"
             onPress={() => router.push('/(tabs)/app-block' as any)}
           />
         </Card>
 
+
+        {/* Language */}
+        <SectionLabel title={t.settingsLanguage} />
+        <Card delay={180}>
+          <View style={[st.row, { borderBottomColor: c.border }]}>
+            <View style={[st.rowIcon, { backgroundColor: '#EDE9FE' }]}>
+              <Ionicons name="globe-outline" size={17} color="#6C63FF" />
+            </View>
+            <Text style={[TYPE.body, st.rowLabel, { color: c.text }]}>{t.settingsLanguage}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['en', 'bn'] as const).map(lang => (
+                <TouchableOpacity
+                  key={lang}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10,
+                    backgroundColor: language === lang ? c.accent : c.bgSecondary,
+                  }}
+                  onPress={() => setLanguage(lang)}
+                >
+                  <Text style={{ fontSize: 13, fontFamily: language === lang ? 'Inter_700Bold' : 'Inter_400Regular', color: language === lang ? '#fff' : c.textMuted }}>
+                    {lang === 'en' ? 'EN' : 'বাং'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </Card>
+
         {/* About */}
-        <SectionLabel title="About" />
+        <SectionLabel title={t.settingsAbout} />
         <Card delay={200}>
           <View style={[st.row, { borderBottomColor: c.border }]}>
             <View style={[st.rowIcon, { backgroundColor: c.accentSoft }]}>
               <Ionicons name="information-circle-outline" size={17} color={c.accent} />
             </View>
-            <Text style={[TYPE.body, st.rowLabel, { color: c.text }]}>Version</Text>
+            <Text style={[TYPE.body, st.rowLabel, { color: c.text }]}>{t.settingsVersion}</Text>
             <Text style={[TYPE.callout, { color: c.textMuted }]}>2.0.0</Text>
           </View>
         </Card>
