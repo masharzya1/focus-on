@@ -193,7 +193,7 @@ export default function SubjectsScreen() {
       {state.subjects.length === 0 ? (
         <View style={styles.empty}>
           <Image
-            source={require('@/assets/images/illus-cat-books.png')}
+            source={require('@/assets/images/illus-cat-books.webp')}
             style={styles.emptyImg}
             resizeMode="contain"
           />

@@ -105,7 +105,7 @@ export default function CalendarScreen() {
                   <Text style={[styles.dayNum, { color: isToday ? '#fff' : c.text }]}>{day}</Text>
                   {info?.mins > 0 && <View style={[styles.dot, { backgroundColor: isToday ? '#fff' : c.success }]} />}
                   {info?.tasks > 0 && !info?.mins && <View style={[styles.dot, { backgroundColor: isToday ? '#fff' : c.accent }]} />}
-                  {info?.examDay && <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />}
+                  {info?.examDay && <View style={[styles.dot, { backgroundColor: '#F87878' }]} />}
                 </TouchableOpacity>
               );
             })}
@@ -116,7 +116,7 @@ export default function CalendarScreen() {
             {[
               { color: c.success, label: 'Studied' },
               { color: c.accent, label: 'Planned' },
-              { color: '#EF4444', label: 'Exam' },
+              { color: '#F87878', label: 'Exam' },
             ].map(item => (
               <View key={item.label} style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: item.color }]} />

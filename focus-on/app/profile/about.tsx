@@ -71,7 +71,7 @@ export default function AboutScreen() {
   return (
     <View style={[st.root, { backgroundColor: c.bg }]}>
       {/* Header */}
-      <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={st.headerGrad}>
+      <LinearGradient colors={['#9B90FF', '#9C5FFF']} style={st.headerGrad}>
         <View style={st.headerRow}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}
             style={[st.backBtn, { backgroundColor: '#ffffff25' }]}>

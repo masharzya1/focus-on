@@ -17,12 +17,12 @@ import { FONTS } from '@/constants/theme';
 const { width } = Dimensions.get('window');
 
 const SLIDE_DATA = [
-  { id: 'welcome',  src: require('@/assets/images/illus-student-desk.png'),  bg: '#EAE8FF' },
-  { id: 'home',     src: require('@/assets/images/illus-hero-reading.png'),  bg: '#E4FAF3' },
-  { id: 'subjects', src: require('@/assets/images/illus-cat-books.png'),     bg: '#FFF0E6' },
-  { id: 'timer',    src: require('@/assets/images/illus-clock.png'),         bg: '#FFE8EE' },
-  { id: 'plan',     src: require('@/assets/images/illus-planner.png'),       bg: '#FFF8E0' },
-  { id: 'block',    src: require('@/assets/images/illus-shield.png'),        bg: '#E4F4FF' },
+  { id: 'welcome',  src: require('@/assets/images/illus-student-desk.webp'),  bg: '#EAE8FF' },
+  { id: 'home',     src: require('@/assets/images/illus-hero-reading.webp'),  bg: '#E4FAF3' },
+  { id: 'subjects', src: require('@/assets/images/illus-cat-books.webp'),     bg: '#FFF0E6' },
+  { id: 'timer',    src: require('@/assets/images/illus-clock.webp'),         bg: '#FFE8EE' },
+  { id: 'plan',     src: require('@/assets/images/illus-planner.webp'),       bg: '#FFF8E0' },
+  { id: 'block',    src: require('@/assets/images/illus-shield.webp'),        bg: '#E4F4FF' },
 ];
 
 function AnimatedIllustration({ src, bg }: { src: any; bg: string }) {

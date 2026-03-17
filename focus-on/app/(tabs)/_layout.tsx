@@ -11,7 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
 
 const TAB_ICONS: Record<string, { active: any; inactive: any; color: string }> = {
-  index:     { active: 'home',           inactive: 'home-outline',           color: '#7C6FF7' },
+  index:     { active: 'home',           inactive: 'home-outline',           color: '#9B90FF' },
   subjects:  { active: 'book',           inactive: 'book-outline',           color: '#30D9A4' },
   timer:     { active: 'timer',          inactive: 'timer-outline',          color: '#FFFFFF' },
   plan:      { active: 'calendar',       inactive: 'calendar-outline',       color: '#FF8C42' },
@@ -21,7 +21,7 @@ const TAB_ICONS: Record<string, { active: any; inactive: any; color: string }> =
 function TabIcon({ name, focused, tabName }: {
   name: string; focused: boolean; tabName: string;
 }) {
-  const cfg   = TAB_ICONS[tabName] ?? { active: name, inactive: name, color: '#7C6FF7' };
+  const cfg   = TAB_ICONS[tabName] ?? { active: name, inactive: name, color: '#9B90FF' };
   const scale = useSharedValue(1);
   const bg    = useSharedValue(0);
 
@@ -68,8 +68,8 @@ function CenterTabIcon({ focused }: { focused: boolean }) {
       <Animated.View style={[
         styles.centerBtn,
         {
-          backgroundColor: '#7C6FF7',
-          shadowColor: '#7C6FF7',
+          backgroundColor: '#9B90FF',
+          shadowColor: '#9B90FF',
           shadowOpacity: focused ? 0.55 : 0.28,
           shadowOffset: { width: 0, height: 6 },
           shadowRadius: 16,
@@ -101,36 +101,31 @@ export default function TabLayout() {
           bottom: floatBottom,
           left: 28,
           right: 28,
-          height: 64,
+          height: 68,
           borderRadius: 999,
           backgroundColor: colors.tabBg,
           borderTopWidth: 0,
-          elevation: 0,
-          shadowColor: '#5040B0',
+          elevation: 20,
+          shadowColor: '#7060C8',
           shadowOpacity: 0.18,
           shadowOffset: { width: 0, height: 8 },
           shadowRadius: 24,
           paddingBottom: 0,
           paddingTop: 0,
-          overflow: 'hidden',
-          alignItems: 'center',
+          overflow: 'visible',
         },
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          height: 64,
+          height: 68,
           paddingVertical: 0,
+          flex: 1,
         },
         tabBarBackground: () => (
           <View style={{
             flex: 1,
             borderRadius: 999,
             backgroundColor: colors.tabBg,
-            shadowColor: '#5040B0',
-            shadowOpacity: 0.14,
-            shadowOffset: { width: 0, height: 6 },
-            shadowRadius: 20,
-            elevation: 20,
             borderWidth: 1,
             borderColor: colors.border,
           }} />
@@ -178,11 +173,11 @@ const styles = StyleSheet.create({
   centerOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -14,
+    marginTop: -18,
   },
   centerBtn: {
-    width: 58,
-    height: 58,
+    width: 56,
+    height: 56,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',

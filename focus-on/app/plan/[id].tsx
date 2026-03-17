@@ -264,8 +264,8 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
 
           {(sh >= 24 || eh >= 24) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 14 }}>
-              <Ionicons name="information-circle" size={16} color="#D97706" />
-              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>
+              <Ionicons name="information-circle" size={16} color="#E89030" />
+              <Text style={{ flex: 1, fontSize: 12, color: '#A85C30' }}>
                 {sh >= 24
                   ? "This task will move to tomorrow's plan"
                   : `End time crosses midnight — saves as ${String((eh % 24)).padStart(2,'0')}:${String(em).padStart(2,'0')} (task stays today)`}
@@ -485,10 +485,10 @@ export default function PlanDetailScreen() {
             style={[styles.examDayBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
             <Text style={styles.examDayEmoji}>🎯</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.examDayTitle, { color: '#92400E' }]}>
+              <Text style={[styles.examDayTitle, { color: '#A85C30' }]}>
                 Exam day — you've got this!
               </Text>
-              <Text style={[styles.examDaySub, { color: '#B45309' }]}>
+              <Text style={[styles.examDaySub, { color: '#C87040' }]}>
                 Focus on what you know. Skip what you missed.
               </Text>
             </View>
@@ -524,15 +524,15 @@ export default function PlanDetailScreen() {
               borderColor: acceptanceRate >= 0.7 ? c.accent + '40' : '#FCD34D',
             }]}>
             <View style={styles.acceptanceLeft}>
-              <Text style={[styles.acceptanceRate, { color: acceptanceRate >= 0.7 ? c.accent : '#D97706' }]}>
+              <Text style={[styles.acceptanceRate, { color: acceptanceRate >= 0.7 ? c.accent : '#E89030' }]}>
                 {Math.round(acceptanceRate * 100)}%
               </Text>
-              <Text style={[styles.acceptanceLabel, { color: acceptanceRate >= 0.7 ? c.accent : '#92400E' }]}>
+              <Text style={[styles.acceptanceLabel, { color: acceptanceRate >= 0.7 ? c.accent : '#A85C30' }]}>
                 completion rate
               </Text>
             </View>
             {suggestion && (
-              <Text style={[styles.acceptanceSug, { color: acceptanceRate >= 0.7 ? c.accent : '#92400E' }]}>
+              <Text style={[styles.acceptanceSug, { color: acceptanceRate >= 0.7 ? c.accent : '#A85C30' }]}>
                 {suggestion}
               </Text>
             )}
@@ -608,7 +608,7 @@ export default function PlanDetailScreen() {
                     style={[styles.taskCard, {
                       backgroundColor: isToday ? c.bgCard : c.bgSecondary,
                       borderLeftColor: task.completed ? c.success
-                        : isReview ? '#8B5CF6'
+                        : isReview ? '#A585F5'
                         : isToday ? c.accent
                         : isPast ? c.destructive
                         : c.border,
@@ -639,8 +639,8 @@ export default function PlanDetailScreen() {
                           </>
                         )}
                         {isReview && (
-                          <View style={[styles.reviewBadge, { backgroundColor: '#8B5CF6' + '20' }]}>
-                            <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: '#8B5CF6' }}>{t.planIdReview}</Text>
+                          <View style={[styles.reviewBadge, { backgroundColor: '#A585F5' + '20' }]}>
+                            <Text style={{ fontSize: 10, fontFamily: FONTS.bold, color: '#A585F5' }}>{t.planIdReview}</Text>
                           </View>
                         )}
                         {task.startTime && (
@@ -701,7 +701,7 @@ export default function PlanDetailScreen() {
             style={[styles.rescheduleCard, { backgroundColor: c.bgCard }]}
             onStartShouldSetResponder={() => true}>
             <View style={[styles.rescheduleIcon, { backgroundColor: isExamDay ? '#FEE2E2' : '#FEF3C7' }]}>
-              <Ionicons name={isExamDay ? 'alert-circle' : 'calendar'} size={30} color={isExamDay ? '#DC2626' : '#D97706'} />
+              <Ionicons name={isExamDay ? 'alert-circle' : 'calendar'} size={30} color={isExamDay ? '#F06070' : '#E89030'} />
             </View>
             <Text style={[styles.rescheduleTitle, { color: c.text }]}>
               {missedCount} missed task{missedCount > 1 ? 's' : ''}

@@ -174,7 +174,7 @@ export default function SettingsScreen() {
           <ToggleRow
             icon={isDark ? 'moon' : 'sunny-outline'}
             label={t.settingsDarkMode}
-            iconBg="#EDE9FE" iconColor="#6C63FF"
+            iconBg="#EDE9FE" iconColor="#9B90FF"
             value={isDark}
             onValueChange={toggleTheme}
           />
@@ -196,13 +196,13 @@ export default function SettingsScreen() {
         <Card delay={160}>
           <ToggleRow
             icon="shield-checkmark-outline" label={t.settingsFocusGuard}
-            iconBg="#FEE2E2" iconColor="#EF4444"
+            iconBg="#FEE2E2" iconColor="#F87878"
             value={settings.focusGuardEnabled}
             onValueChange={v => updateSettings({ focusGuardEnabled: v })}
           />
           <NavRow
             icon="apps-outline" label={t.settingsBlockedApps}
-            iconBg="#FEE2E2" iconColor="#EF4444"
+            iconBg="#FEE2E2" iconColor="#F87878"
             onPress={() => router.push('/(tabs)/app-block' as any)}
           />
         </Card>
@@ -213,7 +213,7 @@ export default function SettingsScreen() {
         <Card delay={180}>
           <View style={[st.row, { borderBottomColor: c.border }]}>
             <View style={[st.rowIcon, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="globe-outline" size={17} color="#6C63FF" />
+              <Ionicons name="globe-outline" size={17} color="#9B90FF" />
             </View>
             <Text style={[TYPE.body, st.rowLabel, { color: c.text }]}>{t.settingsLanguage}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>

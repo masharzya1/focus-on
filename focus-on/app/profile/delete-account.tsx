@@ -57,11 +57,11 @@ export default function DeleteAccountScreen() {
   };
 
   const WARNINGS = [
-    { icon: 'warning-outline',          color: '#EF4444', text: 'All your study subjects, chapters and topics will be permanently deleted' },
+    { icon: 'warning-outline',          color: '#F87878', text: 'All your study subjects, chapters and topics will be permanently deleted' },
     { icon: 'calendar-outline',          color: '#F59E0B', text: 'All study plans and scheduled tasks will be lost' },
-    { icon: 'timer-outline',             color: '#8B5CF6', text: 'Your session history and progress data will be erased' },
-    { icon: 'shield-outline',            color: '#EF4444', text: 'Your app blocking routines will be removed' },
-    { icon: 'person-remove-outline',     color: '#EF4444', text: 'Your Google account will be unlinked and cannot be undone' },
+    { icon: 'timer-outline',             color: '#A585F5', text: 'Your session history and progress data will be erased' },
+    { icon: 'shield-outline',            color: '#F87878', text: 'Your app blocking routines will be removed' },
+    { icon: 'person-remove-outline',     color: '#F87878', text: 'Your Google account will be unlinked and cannot be undone' },
   ];
 
   return (
@@ -79,7 +79,7 @@ export default function DeleteAccountScreen() {
           <Animated.View entering={FadeInDown.springify()} style={{ gap: 16 }}>
             {/* Danger icon */}
             <View style={[st.dangerIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="trash-outline" size={36} color="#EF4444" />
+              <Ionicons name="trash-outline" size={36} color="#F87878" />
             </View>
             <Text style={[st.title, { color: c.text }]}>Delete Your Account</Text>
             <Text style={[st.subtitle, { color: c.textMuted }]}>
@@ -99,10 +99,10 @@ export default function DeleteAccountScreen() {
             </View>
 
             <TouchableOpacity
-              style={[st.nextBtn, { backgroundColor: '#FEE2E2', borderColor: '#EF4444', borderWidth: 1.5 }]}
+              style={[st.nextBtn, { backgroundColor: '#FEE2E2', borderColor: '#F87878', borderWidth: 1.5 }]}
               onPress={() => setStep(1)}>
-              <Text style={[st.nextTxt, { color: '#EF4444' }]}>I Understand, Continue</Text>
-              <Ionicons name="arrow-forward" size={16} color="#EF4444" />
+              <Text style={[st.nextTxt, { color: '#F87878' }]}>I Understand, Continue</Text>
+              <Ionicons name="arrow-forward" size={16} color="#F87878" />
             </TouchableOpacity>
 
             <TouchableOpacity style={st.cancelBtn} onPress={() => router.back()}>
@@ -114,7 +114,7 @@ export default function DeleteAccountScreen() {
         {step === 1 && (
           <Animated.View entering={FadeInDown.springify()} style={{ gap: 16 }}>
             <View style={[st.dangerIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="alert-circle-outline" size={36} color="#EF4444" />
+              <Ionicons name="alert-circle-outline" size={36} color="#F87878" />
             </View>
             <Text style={[st.title, { color: c.text }]}>Final Confirmation</Text>
             <Text style={[st.subtitle, { color: c.textMuted }]}>
@@ -133,7 +133,7 @@ export default function DeleteAccountScreen() {
               autoCorrect={false}
               style={[st.input, {
                 backgroundColor: c.inputBg,
-                borderColor: input && input.toLowerCase().trim() !== CONFIRM_PHRASE ? '#EF4444' : c.border,
+                borderColor: input && input.toLowerCase().trim() !== CONFIRM_PHRASE ? '#F87878' : c.border,
                 color: c.text,
               }]}
             />
@@ -176,6 +176,6 @@ const st = StyleSheet.create({
   phraseBox: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, alignSelf: 'flex-start' },
   phrase: { fontSize: 15, fontFamily: FONTS.bold },
   input: { width: '100%', height: 52, borderRadius: 14, paddingHorizontal: 16, fontSize: 15, fontFamily: FONTS.regular, borderWidth: 1.5 },
-  deleteBtn: { height: 52, borderRadius: 14, backgroundColor: '#EF4444', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%' },
+  deleteBtn: { height: 52, borderRadius: 14, backgroundColor: '#F87878', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%' },
   deleteTxt: { color: '#fff', fontSize: 15, fontFamily: FONTS.bold },
 });

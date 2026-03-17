@@ -40,7 +40,7 @@ export default function UpgradeScreen() {
           <View style={{ width: 24 }} />
         </View>
         <View style={st.proActive}>
-          <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={st.proIcon}>
+          <LinearGradient colors={['#9B90FF', '#9C5FFF']} style={st.proIcon}>
             <Ionicons name="shield-checkmark" size={40} color="#fff" />
           </LinearGradient>
           <Text style={[st.proTitle, { color: c.text }]}>{t.upgradeProTitle}</Text>
@@ -54,7 +54,7 @@ export default function UpgradeScreen() {
     <View style={[st.root, { backgroundColor: c.bg }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 0 }}>
         {/* ── Hero ── */}
-        <LinearGradient colors={['#1a1040', '#6C63FF', '#9C5FFF']} start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }} style={st.hero}>
+        <LinearGradient colors={['#1a1040', '#9B90FF', '#9C5FFF']} start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }} style={st.hero}>
           {/* Back button inside hero */}
           <TouchableOpacity onPress={() => router.back()} hitSlop={12}
             style={[st.backBtn, { backgroundColor: '#ffffff25', alignSelf: 'flex-start', marginBottom: 16 }]}>
@@ -93,7 +93,7 @@ export default function UpgradeScreen() {
 
           {/* ── CTA ── */}
           <TouchableOpacity onPress={() => setShowPayment(true)} activeOpacity={0.9} style={{ marginTop: 8 }}>
-            <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={st.ctaBtn}>
+            <LinearGradient colors={['#9B90FF', '#9C5FFF']} style={st.ctaBtn}>
               <Text style={st.ctaTxt}>Upgrade Now · ৳{PRO_PRICE_BDT}</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </LinearGradient>

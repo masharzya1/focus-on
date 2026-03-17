@@ -109,7 +109,7 @@ export default function PersonalInfoScreen() {
               <View style={[st.settingRow, { borderBottomColor: c.border }]}>
                 <View style={st.settingLeft}>
                   <View style={[st.settingIcon, { backgroundColor: '#EDE9FF' }]}>
-                    <Ionicons name="trophy-outline" size={17} color="#6C63FF" />
+                    <Ionicons name="trophy-outline" size={17} color="#9B90FF" />
                   </View>
                   <View>
                     <Text style={[st.settingLabel, { color: c.text }]}>Daily Goal</Text>

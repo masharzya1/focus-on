@@ -22,7 +22,7 @@ import { generateSmartSchedule, type ScheduleItem } from '@/utils/smartSchedule'
 
 // Weight labels — user-friendly
 const WEIGHT_COLORS: Record<number, string> = {
-  1: '#10B981', 2: '#6C63FF', 3: '#F59E0B', 4: '#EF4444',
+  1: '#10B981', 2: '#9B90FF', 3: '#F59E0B', 4: '#F87878',
 };
 
 // Daily capacity labels
@@ -132,7 +132,7 @@ function WeightPicker({ value, onChange, colors: c, weightLabels }: {
   value: number; onChange: (v: number) => void; colors: any;
   weightLabels?: Record<number, { label: string; desc: string; color?: string }>;
 }) {
-  const WEIGHT_COLORS_MAP: Record<number, string> = { 1: '#10B981', 2: '#6C63FF', 3: '#F59E0B', 4: '#EF4444' };
+  const WEIGHT_COLORS_MAP: Record<number, string> = { 1: '#10B981', 2: '#9B90FF', 3: '#F59E0B', 4: '#F87878' };
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
       {[1, 2, 3, 4].map(w => {
@@ -455,13 +455,13 @@ export default function CreatePlanScreen() {
                 <Ionicons
                   name={preview.willFinish ? 'checkmark-circle' : 'warning'}
                   size={16}
-                  color={preview.willFinish ? c.accent : '#D97706'}
+                  color={preview.willFinish ? c.accent : '#E89030'}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: preview.willFinish ? c.accent : '#92400E' }}>
+                  <Text style={{ fontSize: 13, fontFamily: FONTS.bold, color: preview.willFinish ? c.accent : '#A85C30' }}>
                     {preview.willFinish ? 'Looks good!' : 'Tight schedule'}
                   </Text>
-                  <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: preview.willFinish ? c.accent : '#92400E' }}>
+                  <Text style={{ fontSize: 12, fontFamily: FONTS.regular, color: preview.willFinish ? c.accent : '#A85C30' }}>
                     {scheduleItems.length} items · {preview.daysNeeded} days needed · {preview.daysAvailable} available
                     {preview.reviewCount > 0 ? ` · ${preview.reviewCount} auto-reviews` : ''}
                   </Text>
@@ -635,8 +635,8 @@ export default function CreatePlanScreen() {
 
                 {!preview.willFinish && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: '#FEF3C7', borderRadius: 10 }}>
-                    <Ionicons name="warning" size={16} color="#D97706" />
-                    <Text style={{ flex: 1, fontFamily: FONTS.regular, fontSize: 12, color: '#92400E' }}>
+                    <Ionicons name="warning" size={16} color="#E89030" />
+                    <Text style={{ flex: 1, fontFamily: FONTS.regular, fontSize: 12, color: '#A85C30' }}>
                       Schedule is tight. Try increasing daily capacity or reducing revision days.
                     </Text>
                   </View>

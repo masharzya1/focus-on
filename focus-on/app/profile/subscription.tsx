@@ -27,7 +27,7 @@ export default function SubscriptionScreen() {
 
       <View style={s.content}>
         {isPro ? (
-          <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={s.proCard}>
+          <LinearGradient colors={['#9B90FF', '#9C5FFF']} style={s.proCard}>
             <View style={s.proIconWrap}>
               <Ionicons name="shield-checkmark" size={36} color="#fff" />
             </View>

@@ -560,7 +560,7 @@ export default function TimerScreen() {
           <Animated.View entering={FadeInUp.springify()}
             style={[styles.completeCard, { backgroundColor: c.bgCard }]}>
             <Image
-              source={require('@/assets/images/illus-clock.png')}
+              source={require('@/assets/images/illus-clock.webp')}
               style={{ width: 110, height: 110 }}
               resizeMode="contain"
             />

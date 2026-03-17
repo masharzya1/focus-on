@@ -105,7 +105,7 @@ export default function AnalyticsScreen() {
 
         {/* Stat cards */}
         <Animated.View entering={FadeInDown.delay(60).springify()} style={s.statRow}>
-          <StatCard icon="time-outline"             label={t.analyticsTotalTime}  value={stats.timeStr}                      color="#6C63FF" bg={c.bgCard} />
+          <StatCard icon="time-outline"             label={t.analyticsTotalTime}  value={stats.timeStr}                      color="#9B90FF" bg={c.bgCard} />
           <StatCard icon="calendar-outline"         label={t.analyticsThisWeek}   value={`${stats.weekMins}m`}               color="#3B82F6" bg={c.bgCard} />
           <StatCard icon="trending-up-outline"      label={t.analyticsAvgDay}     value={`${stats.avgDaily}m`}               color="#10B981" bg={c.bgCard} />
           <StatCard icon="checkmark-circle-outline" label={t.analyticsSessions}   value={String(stats.completedTopics)}      color="#F59E0B" bg={c.bgCard} />
@@ -170,9 +170,9 @@ export default function AnalyticsScreen() {
               <TouchableOpacity
                 onPress={() => AppBlocking.openUsageSettings()}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
-                  backgroundColor: '#7C3AED18', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 }}>
-                <Ionicons name="lock-closed" size={12} color="#7C3AED" />
-                <Text style={{ fontSize: 11, color: '#7C3AED', fontFamily: FONTS.bold }}>Grant Access</Text>
+                  backgroundColor: '#9B70F018', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 }}>
+                <Ionicons name="lock-closed" size={12} color="#9B70F0" />
+                <Text style={{ fontSize: 11, color: '#9B70F0', fontFamily: FONTS.bold }}>Grant Access</Text>
               </TouchableOpacity>
             )}
           </View>

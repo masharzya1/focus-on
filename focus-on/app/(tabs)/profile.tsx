@@ -111,7 +111,7 @@ export default function ProfileScreen() {
 
           {/* Chart illustration top-right */}
           <Image
-            source={require('@/assets/images/illus-chart.png')}
+            source={require('@/assets/images/illus-chart.webp')}
             style={s.headerIllus}
             resizeMode="contain"
           />

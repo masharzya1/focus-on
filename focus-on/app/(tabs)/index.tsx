@@ -100,7 +100,7 @@ function ActiveTaskBanner({ task, onPress, t }: { task: ActiveTask; onPress: () 
               </Text>
             )}
           </View>
-          <Text style={[S.bannerTopic, { color: '#1A1240' }]} numberOfLines={1}>{task.topicName}</Text>
+          <Text style={[S.bannerTopic, { color: '#2D2860' }]} numberOfLines={1}>{task.topicName}</Text>
           <Text style={[S.bannerSubject, { color: task.subjectColor }]}>{task.subjectName}</Text>
         </View>
         <View style={[S.bannerBtn, { backgroundColor: task.subjectColor }]}>
@@ -415,7 +415,7 @@ export default function HomeScreen() {
       {/* ── Hero Card ── */}
       <Animated.View entering={FadeInDown.delay(40).springify()}>
         <LinearGradient
-          colors={['#7C6FF7', '#9B90FF']}
+          colors={['#B0A8FF', '#CCC8FF']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={S.heroCard}
         >
@@ -450,7 +450,7 @@ export default function HomeScreen() {
           {/* Hero illustration */}
           <View style={S.heroIllustrationSlot}>
             <Image
-              source={require('@/assets/images/illus-hero-reading.png')}
+              source={require('@/assets/images/illus-hero-reading.webp')}
               style={S.heroIllustrationImg}
               resizeMode="contain"
             />
@@ -485,10 +485,10 @@ export default function HomeScreen() {
             style={[S.alertCard, { backgroundColor: '#FFE8EE', borderColor: '#FF5F6D' + '40' }]}
             onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })}>
             <View style={[S.alertIcon, { backgroundColor: '#FFD0D8' }]}>
-              <Ionicons name="warning" size={18} color="#9B1239" />
+              <Ionicons name="warning" size={18} color="#C05080" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#9B1239' }]}>Exam tomorrow — {p.examName}!</Text>
+              <Text style={[S.alertTitle, { color: '#C05080' }]}>Exam tomorrow — {p.examName}!</Text>
               <Text style={[S.alertSub, { color: '#B42040' }]}>Last day to revise. Make it count.</Text>
             </View>
             <Ionicons name="chevron-forward" size={15} color="#B42040" />
@@ -501,10 +501,10 @@ export default function HomeScreen() {
             style={[S.alertCard, { backgroundColor: '#FFE8EE', borderColor: '#FF5F6D' + '40' }]}
             onPress={() => router.push('/(tabs)/plan')}>
             <View style={[S.alertIcon, { backgroundColor: '#FFD0D8' }]}>
-              <Ionicons name="alert-circle" size={18} color="#9B1239" />
+              <Ionicons name="alert-circle" size={18} color="#C05080" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#9B1239' }]}>{missedCount} missed task{missedCount > 1 ? 's' : ''}</Text>
+              <Text style={[S.alertTitle, { color: '#C05080' }]}>{missedCount} missed task{missedCount > 1 ? 's' : ''}</Text>
               <Text style={[S.alertSub, { color: '#B42040' }]}>Tap to reschedule from your plan</Text>
             </View>
             <Ionicons name="chevron-forward" size={15} color="#B42040" />
@@ -553,7 +553,7 @@ export default function HomeScreen() {
         </View>
         <View style={[S.statCard, { backgroundColor: '#EAE8FF' }]}>
           <Ionicons name="checkmark-circle-outline" size={18} color="#7C6FF7" />
-          <Text style={[S.statNum, { color: '#3730A3' }]}>{completedToday}</Text>
+          <Text style={[S.statNum, { color: '#6058D8' }]}>{completedToday}</Text>
           <Text style={[S.statLabel, { color: '#7C6FF7' }]}>Done</Text>
         </View>
         <View style={[S.statCard, { backgroundColor: '#FFF0E6' }]}>
@@ -665,7 +665,7 @@ export default function HomeScreen() {
       {todayTasks.length === 0 && (
         <Animated.View entering={FadeInDown.delay(160).springify()} style={[S.emptyCard, { backgroundColor: c.bgCard }]}>
           <Image
-            source={require('@/assets/images/illus-cat-books.png')}
+            source={require('@/assets/images/illus-cat-books.webp')}
             style={S.emptyIllustrationImg}
             resizeMode="contain"
           />

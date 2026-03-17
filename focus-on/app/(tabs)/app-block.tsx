@@ -506,13 +506,13 @@ export default function AppBlockScreen() {
         <TouchableOpacity style={[styles.warnCard, { backgroundColor: '#FEF3C7' }]}
           onPress={() => AppBlocking.openAccessibilitySettings()}>
           <View style={[styles.warnIconBox, { backgroundColor: '#FDE68A' }]}>
-            <Ionicons name="warning" size={18} color="#D97706" />
+            <Ionicons name="warning" size={18} color="#E89030" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.warnTitle, { color: '#92400E' }]}>{t.appBlockAccessTitle}</Text>
-            <Text style={[styles.warnSub, { color: '#B45309' }]}>{t.appBlockAccessDesc}</Text>
+            <Text style={[styles.warnTitle, { color: '#A85C30' }]}>{t.appBlockAccessTitle}</Text>
+            <Text style={[styles.warnSub, { color: '#C87040' }]}>{t.appBlockAccessDesc}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#D97706" />
+          <Ionicons name="chevron-forward" size={16} color="#E89030" />
         </TouchableOpacity>
       )}
 
@@ -596,9 +596,9 @@ export default function AppBlockScreen() {
                               <Text style={[styles.badgeTxt, { color: c.destructive }]}>{r.blockedApps.length} apps</Text>
                             </View>
                             {r.blockShorts && (
-                              <View style={[styles.badge, { backgroundColor: '#8B5CF6' + '18' }]}>
-                                <Ionicons name="videocam-off" size={10} color="#8B5CF6" />
-                                <Text style={[styles.badgeTxt, { color: '#8B5CF6' }]}>Shorts/Reels</Text>
+                              <View style={[styles.badge, { backgroundColor: '#A585F5' + '18' }]}>
+                                <Ionicons name="videocam-off" size={10} color="#A585F5" />
+                                <Text style={[styles.badgeTxt, { color: '#A585F5' }]}>Shorts/Reels</Text>
                               </View>
                             )}
                             {r.hardBlock && (
@@ -608,9 +608,9 @@ export default function AppBlockScreen() {
                               </View>
                             )}
                             {r.deviceAdmin && (
-                              <View style={[styles.badge, { backgroundColor: '#DC2626' + '15' }]}>
-                                <Ionicons name="shield-checkmark" size={10} color="#DC2626" />
-                                <Text style={[styles.badgeTxt, { color: '#DC2626' }]}>{t.appBlockAdmin}</Text>
+                              <View style={[styles.badge, { backgroundColor: '#F06070' + '15' }]}>
+                                <Ionicons name="shield-checkmark" size={10} color="#F06070" />
+                                <Text style={[styles.badgeTxt, { color: '#F06070' }]}>{t.appBlockAdmin}</Text>
                               </View>
                             )}
                           </View>
@@ -712,9 +712,9 @@ export default function AppBlockScreen() {
           };
           return (
             <>
-              <View style={[styles.webInfoCard, { backgroundColor: '#8B5CF615', borderColor: '#8B5CF640' }]}>
-                <Ionicons name="videocam-off" size={18} color="#8B5CF6" />
-                <Text style={[styles.webInfoTxt, { color: '#8B5CF6' }]}>{t.appBlockReelsInfoNote}</Text>
+              <View style={[styles.webInfoCard, { backgroundColor: '#A585F515', borderColor: '#A585F540' }]}>
+                <Ionicons name="videocam-off" size={18} color="#A585F5" />
+                <Text style={[styles.webInfoTxt, { color: '#A585F5' }]}>{t.appBlockReelsInfoNote}</Text>
               </View>
               {REELS_APPS.map((app, i) => {
                 const isOn = reelsBlocked.includes(app.pkg);
@@ -795,13 +795,13 @@ export default function AppBlockScreen() {
               <TouchableOpacity style={[styles.warnCard, { backgroundColor: '#EDE9FE', marginBottom: 12 }]}
                 onPress={() => AppBlocking.openUsageSettings()}>
                 <View style={[styles.warnIconBox, { backgroundColor: '#DDD6FE' }]}>
-                  <Ionicons name="time" size={18} color="#7C3AED" />
+                  <Ionicons name="time" size={18} color="#9B70F0" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.warnTitle, { color: '#4C1D95' }]}>{t.appBlockUsageTitle}</Text>
                   <Text style={[styles.warnSub, { color: '#6D28D9' }]}>{t.appBlockUsageDesc}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#7C3AED" />
+                <Ionicons name="chevron-forward" size={16} color="#9B70F0" />
               </TouchableOpacity>
             )}
 
@@ -908,9 +908,9 @@ export default function AppBlockScreen() {
 
               {/* Options */}
               {[
-                { icon: 'videocam-off' as const, iconColor: '#8B5CF6', label: 'Block Shorts / Reels', sub: 'YouTube Shorts, Instagram Reels, Snapchat Spotlight', val: rShorts, set: setRShorts, color: '#8B5CF6' },
+                { icon: 'videocam-off' as const, iconColor: '#A585F5', label: 'Block Shorts / Reels', sub: 'YouTube Shorts, Instagram Reels, Snapchat Spotlight', val: rShorts, set: setRShorts, color: '#A585F5' },
                 { icon: 'lock-closed' as const, iconColor: c.destructive, label: 'Hard Block', sub: 'Overlay cannot be dismissed — only ends when time is up', val: rHard, set: setRHard, color: c.destructive },
-                { icon: 'shield-checkmark' as const, iconColor: '#DC2626', label: 'Device Admin', sub: 'Strongest — Focus On cannot be uninstalled during block', val: rAdmin, set: handleAdminToggle, color: '#DC2626' },
+                { icon: 'shield-checkmark' as const, iconColor: '#F06070', label: 'Device Admin', sub: 'Strongest — Focus On cannot be uninstalled during block', val: rAdmin, set: handleAdminToggle, color: '#F06070' },
               ].map((opt, i) => (
                 <View key={i} style={[styles.optRow, { borderColor: c.border, backgroundColor: c.bg }]}>
                   <View style={[styles.optIconBox, { backgroundColor: opt.iconColor + '18' }]}>
@@ -1114,7 +1114,7 @@ export default function AppBlockScreen() {
               {/* Header */}
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                  <Ionicons name="warning" size={28} color="#EF4444" />
+                  <Ionicons name="warning" size={28} color="#F87878" />
                 </View>
                 <Text style={[styles.sheetTitle, { color: c.text, textAlign: 'center', marginBottom: 4 }]}>Emergency Override</Text>
                 <Text style={{ fontSize: 13, fontFamily: FONTS.regular, color: c.textMuted, textAlign: 'center', lineHeight: 18 }}>
@@ -1133,7 +1133,7 @@ export default function AppBlockScreen() {
               {emergencyRoutine?.emergencyPassword && (
                 <>
                   <Text style={[styles.lbl, { color: c.textMuted }]}>{t.appBlockEnterPassword}</Text>
-                  <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: emergencyError ? '#EF4444' : c.border }]}>
+                  <View style={[styles.searchBar, { backgroundColor: c.inputBg, borderColor: emergencyError ? '#F87878' : c.border }]}>
                     <Ionicons name="key-outline" size={16} color={c.textMuted} />
                     <TextInput
                       style={{ color: c.text, flex: 1, marginLeft: 8, fontFamily: FONTS.regular }}
@@ -1143,13 +1143,13 @@ export default function AppBlockScreen() {
                     />
                   </View>
                   {emergencyError ? (
-                    <Text style={{ color: '#EF4444', fontSize: 12, fontFamily: FONTS.regular, marginBottom: 8 }}>{emergencyError}</Text>
+                    <Text style={{ color: '#F87878', fontSize: 12, fontFamily: FONTS.regular, marginBottom: 8 }}>{emergencyError}</Text>
                   ) : null}
                 </>
               )}
 
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#EF4444', marginTop: 8 }]}
+                style={[styles.saveBtn, { backgroundColor: '#F87878', marginTop: 8 }]}
                 onPress={() => {
                   if (!emergencyRoutine) return;
                   // Check password
