@@ -404,6 +404,11 @@ export default function HomeScreen() {
             onPress={() => router.push('/(tabs)/profile')}>
             <Text style={[S.xpNum, { color: '#8A5C00' }]}>{state.xp} XP</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[S.avatarBtn, { backgroundColor: c.accentSoft }]}
+            onPress={() => router.push('/(tabs)/profile')}>
+            <Ionicons name="person" size={18} color={c.accent} />
+          </TouchableOpacity>
         </View>
       </Animated.View>
 
@@ -704,6 +709,7 @@ const S = StyleSheet.create({
   streakNum: { fontSize: 14, fontFamily: FONTS.bold },
   xpPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADIUS.full },
   xpNum: { fontSize: 13, fontFamily: FONTS.bold },
+  avatarBtn: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
 
   // Hero
   heroCard: { borderRadius: RADIUS.xxl, padding: 24, minHeight: 185, flexDirection: 'row', overflow: 'hidden' },

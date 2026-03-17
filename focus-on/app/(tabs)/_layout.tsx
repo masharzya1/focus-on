@@ -101,7 +101,7 @@ export default function TabLayout() {
           bottom: floatBottom,
           left: 28,
           right: 28,
-          height: 68,
+          height: 64,
           borderRadius: 999,
           backgroundColor: colors.tabBg,
           borderTopWidth: 0,
@@ -113,6 +113,13 @@ export default function TabLayout() {
           paddingBottom: 0,
           paddingTop: 0,
           overflow: 'hidden',
+          alignItems: 'center',
+        },
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 64,
+          paddingVertical: 0,
         },
         tabBarBackground: () => (
           <View style={{

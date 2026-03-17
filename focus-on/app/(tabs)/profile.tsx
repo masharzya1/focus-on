@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, Platform,
+  TouchableOpacity, Alert, Platform, Image,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +11,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
-import { RADIUS, FONTS, SPACING, HEADER_TOP } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
 
 function getLevelProgress(xp: number) {
   let remaining = xp, lvl = 1;
@@ -35,14 +35,14 @@ function MenuRow({
       <View style={[s.menuIcon, { backgroundColor: iconBg }]}>
         <Ionicons name={icon as any} size={18} color={iconColor} />
       </View>
-      <Text style={[s.menuLabel, { color: danger ? c.destructive : c.text }]}>{label}</Text>
+      <Text style={[s.menuLabel, { color: danger ? '#FF5F6D' : c.text }]}>{label}</Text>
       <View style={s.menuRight}>
         {badge !== undefined && (
           <View style={[s.badge, { backgroundColor: c.accentSoft }]}>
             <Text style={[s.badgeTxt, { color: c.accent }]}>{badge}</Text>
           </View>
         )}
-        <Ionicons name="chevron-forward" size={16} color={danger ? c.destructive + '80' : c.textFaint} />
+        <Ionicons name="chevron-forward" size={16} color={danger ? '#FF5F6D50' : c.textFaint} />
       </View>
     </TouchableOpacity>
   );
@@ -78,80 +78,108 @@ export default function ProfileScreen() {
     { text: t.profileSignOut, style: 'destructive', onPress: signOut },
   ]);
 
+  const STATS = [
+    { icon: 'flame',            color: '#FF8C42', bg: '#FFF0E6', val: String(state.streak),              lbl: 'Streak'   },
+    { icon: 'timer-outline',    color: '#7C6FF7', bg: '#EAE8FF', val: String(completedSessions.length),  lbl: 'Sessions' },
+    { icon: 'time-outline',     color: '#40AEFF', bg: '#E4F4FF', val: studiedStr,                        lbl: 'Studied'  },
+    { icon: 'checkmark-circle', color: '#30D9A4', bg: '#E4FAF3', val: String(state.totalTopicsCompleted), lbl: 'Done'    },
+  ];
+
   return (
     <View style={[s.root, { backgroundColor: c.bg }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
 
-        {/* ── Top bar ── */}
-        <View style={s.topBar}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={c.text} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={toggleTheme} hitSlop={12}>
-            <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={22} color={c.textMuted} />
-          </TouchableOpacity>
-        </View>
+        {/* ── Gradient Header ── */}
+        <LinearGradient
+          colors={['#7C6FF7', '#A888FF']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={s.headerBanner}
+        >
+          {/* Top controls */}
+          <View style={s.headerControls}>
+            <TouchableOpacity
+              style={[s.headerBtn, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
+              onPress={() => router.back()} hitSlop={12}>
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.headerBtn, { backgroundColor: 'rgba(255,255,255,0.18)' }]}
+              onPress={toggleTheme} hitSlop={12}>
+              <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
 
-        {/* ── Hero ── */}
-        <Animated.View entering={FadeInDown.delay(0).springify()} style={s.hero}>
+          {/* Chart illustration top-right */}
+          <Image
+            source={require('@/assets/images/illus-chart.png')}
+            style={s.headerIllus}
+            resizeMode="contain"
+          />
+
+          {/* Decorative circles */}
+          <View style={s.heroDeco1} />
+          <View style={s.heroDeco2} />
+        </LinearGradient>
+
+        {/* ── Avatar (overlapping header) ── */}
+        <Animated.View entering={FadeInDown.delay(0).springify()} style={s.avatarWrap}>
           <LinearGradient colors={['#7C6FF7', '#A888FF']} style={s.avatarRing}>
             <View style={[s.avatar, { backgroundColor: c.bgCard }]}>
-              {user?.photoURL ? null : (
-                <Text style={[s.avatarTxt, { color: c.accent }]}>{initials}</Text>
-              )}
+              <Text style={[s.avatarTxt, { color: c.accent }]}>{initials}</Text>
             </View>
           </LinearGradient>
-          <Text style={[s.name, { color: c.text }]}>{user?.displayName ?? t.profileStudent}</Text>
+          <Text style={[s.name, { color: c.text }]}>{user?.displayName ?? 'Champion'}</Text>
           {user?.email && <Text style={[s.email, { color: c.textMuted }]}>{user.email}</Text>}
+
+          <View style={s.badgeRow}>
+            <View style={[s.levelBadge, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="star" size={12} color={c.accent} />
+              <Text style={[s.levelTxt, { color: c.accent }]}>Level {lvl} · {state.xp} XP</Text>
+            </View>
+            {isPro && (
+              <View style={[s.proBadge, { backgroundColor: '#FFD700' }]}>
+                <Text style={s.proTxt}>PRO</Text>
+              </View>
+            )}
+          </View>
+
           {!user && (
             <TouchableOpacity
               style={[s.signInBtn, { backgroundColor: c.accentSoft }]}
               onPress={signInWithGoogle}>
               <Ionicons name="logo-google" size={16} color={c.accent} />
-              <Text style={[s.signInTxt, { color: c.accent }]}>{t.profileSignIn}</Text>
+              <Text style={[s.signInTxt, { color: c.accent }]}>Sign in with Google</Text>
             </TouchableOpacity>
           )}
-          <View style={[s.levelBadge, { backgroundColor: c.accentSoft }]}>
-            <Ionicons name="star" size={12} color={c.accent} />
-            <Text style={[s.levelTxt, { color: c.accent }]}>{t.profileLevel(lvl)} · {state.xp} XP</Text>
-            {isPro && <>
-              <View style={{ width: 1, height: 12, backgroundColor: c.accent + '40', marginHorizontal: 4 }} />
-              <Text style={[s.levelTxt, { color: c.accent }]}>PRO</Text>
-            </>}
-          </View>
         </Animated.View>
 
-        {/* ── XP bar ── */}
+        {/* ── XP Progress ── */}
         <Animated.View entering={FadeInDown.delay(40).springify()}
           style={[s.xpCard, { backgroundColor: c.bgCard }]}>
           <View style={s.xpTop}>
-            <Text style={[s.xpLbl, { color: c.textMuted }]}>{t.profileLevel(lvl)}</Text>
-            <Text style={[s.xpLbl, { color: c.textMuted }]}>{earned}/{total} XP</Text>
+            <Text style={[s.xpLbl, { color: c.textMuted }]}>Level {lvl}</Text>
+            <Text style={[s.xpLbl, { color: c.accent }]}>{earned} / {total} XP</Text>
           </View>
           <View style={[s.xpBg, { backgroundColor: c.border }]}>
-            <View style={[s.xpFill, { width: `${xpPct}%`, backgroundColor: c.accent }]} />
+            <LinearGradient
+              colors={['#7C6FF7', '#A888FF']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={[s.xpFill, { width: `${xpPct}%` }]}
+            />
           </View>
+          <Text style={[s.xpHint, { color: c.textFaint }]}>{total - earned} XP to Level {lvl + 1}</Text>
         </Animated.View>
 
         {/* ── Stats ── */}
-        <Animated.View entering={FadeInDown.delay(60).springify()}
-          style={[s.statsCard, { backgroundColor: c.bgCard }]}>
-          {[
-            { icon: 'flame',            color: '#FF9500', val: String(state.streak),              lbl: t.profileStreak   },
-            { icon: 'time-outline',     color: c.accent,  val: String(completedSessions.length),  lbl: t.profileSessions },
-            { icon: 'hourglass',        color: '#3B82F6', val: studiedStr,                        lbl: t.profileStudied  },
-            { icon: 'checkmark-circle', color: '#10B981', val: String(state.totalTopicsCompleted), lbl: t.profileDone    },
-          ].map((item, i, arr) => (
-            <React.Fragment key={item.lbl}>
-              <View style={s.statItem}>
-                <Text style={[s.statVal, { color: c.text }]}>{item.val}</Text>
-                <View style={s.statRow}>
-                  <Ionicons name={item.icon as any} size={11} color={item.color} />
-                  <Text style={[s.statLbl, { color: c.textMuted }]}> {item.lbl}</Text>
-                </View>
+        <Animated.View entering={FadeInDown.delay(60).springify()} style={s.statsRow}>
+          {STATS.map(item => (
+            <View key={item.lbl} style={[s.statCard, { backgroundColor: item.bg }]}>
+              <View style={[s.statIconCircle, { backgroundColor: item.color + '20' }]}>
+                <Ionicons name={item.icon as any} size={18} color={item.color} />
               </View>
-              {i < arr.length - 1 && <View style={[s.statDiv, { backgroundColor: c.border }]} />}
-            </React.Fragment>
+              <Text style={[s.statVal, { color: item.color }]}>{item.val}</Text>
+              <Text style={[s.statLbl, { color: item.color + 'AA' }]}>{item.lbl}</Text>
+            </View>
           ))}
         </Animated.View>
 
@@ -159,14 +187,14 @@ export default function ProfileScreen() {
         {!isPro && (
           <Animated.View entering={FadeInDown.delay(80).springify()}>
             <TouchableOpacity onPress={() => router.push('/profile/upgrade' as any)} activeOpacity={0.9}>
-              <LinearGradient colors={['#7C6FF7', '#A888FF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upgradeBanner}>
+              <LinearGradient colors={['#FF8C42', '#FFCB47']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upgradeBanner}>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.upgradeTitle}>{t.profileUpgradeTitle}</Text>
+                  <Text style={s.upgradeTitle}>✨ {t.profileUpgradeTitle}</Text>
                   <Text style={s.upgradeSub}>{t.profileUpgradeSub}</Text>
                 </View>
                 <View style={s.upgradeBtn}>
                   <Text style={s.upgradeBtnTxt}>{t.profileUpgradeBtn}</Text>
-                  <Ionicons name="arrow-forward" size={14} color="#6C63FF" />
+                  <Ionicons name="arrow-forward" size={14} color="#FF8C42" />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -175,91 +203,109 @@ export default function ProfileScreen() {
 
         {/* ── Study ── */}
         <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileStudy}</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>STUDY</Text>
           <Section>
-            <MenuRow icon="bar-chart-outline"   label={t.profileProgress}         iconBg="#EDE9FF" iconColor="#6C63FF"  onPress={() => router.push('/profile/progress' as any)} />
-            <MenuRow icon="checkmark-done-outline" label={t.profileCompletedTasks} iconBg="#D1FAE5" iconColor="#10B981" onPress={() => router.push('/profile/completed-tasks' as any)} />
-            <MenuRow icon="timer-outline"        label={t.profileSessionHistory}  iconBg="#DBEAFE" iconColor="#3B82F6" onPress={() => router.push('/profile/session-history' as any)} isLast />
+            <MenuRow icon="bar-chart-outline"      label={t.profileProgress}        iconBg="#EAE8FF" iconColor="#7C6FF7" onPress={() => router.push('/profile/progress' as any)} />
+            <MenuRow icon="checkmark-done-outline" label={t.profileCompletedTasks}  iconBg="#E4FAF3" iconColor="#30D9A4" onPress={() => router.push('/profile/completed-tasks' as any)} />
+            <MenuRow icon="timer-outline"          label={t.profileSessionHistory}  iconBg="#E4F4FF" iconColor="#40AEFF" onPress={() => router.push('/profile/session-history' as any)} isLast />
           </Section>
         </Animated.View>
 
         {/* ── Account ── */}
         <Animated.View entering={FadeInDown.delay(120).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileAccount}</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>ACCOUNT</Text>
           <Section>
-            <MenuRow icon="person-outline"       label={t.profilePersonalInfo} iconBg="#FEF3C7" iconColor="#D97706" onPress={() => router.push('/profile/personal-info' as any)} />
-            <MenuRow icon="diamond-outline"      label={t.profileSubscription}         iconBg="#EDE9FF" iconColor="#6C63FF" onPress={() => router.push('/profile/subscription' as any)} badge={isPro ? 'PRO' : undefined} />
-            <MenuRow icon="settings-outline"     label={t.profileAppSettings}         iconBg="#F0FDF4" iconColor="#10B981" onPress={() => router.push('/(tabs)/settings' as any)} isLast />
+            <MenuRow icon="person-outline"   label={t.profilePersonalInfo}  iconBg="#FFF0E6" iconColor="#FF8C42" onPress={() => router.push('/profile/personal-info' as any)} />
+            <MenuRow icon="diamond-outline"  label={t.profileSubscription}  iconBg="#EAE8FF" iconColor="#7C6FF7" onPress={() => router.push('/profile/subscription' as any)} badge={isPro ? 'PRO' : undefined} />
+            <MenuRow icon="settings-outline" label={t.profileAppSettings}   iconBg="#E4FAF3" iconColor="#30D9A4" onPress={() => router.push('/(tabs)/settings' as any)} isLast />
           </Section>
         </Animated.View>
 
         {/* ── Info ── */}
         <Animated.View entering={FadeInDown.delay(140).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileInfo}</Text>
+          <Text style={[s.sectionTitle, { color: c.textMuted }]}>INFO</Text>
           <Section>
-            <MenuRow icon="information-circle-outline" label={t.profileAboutUs}           iconBg="#EFF6FF" iconColor="#3B82F6" onPress={() => router.push('/profile/about' as any)} />
-            <MenuRow icon="document-text-outline"      label={t.profilePrivacyPolicy}     iconBg="#F5F3FF" iconColor="#8B5CF6" onPress={() => router.push('/profile/privacy-policy' as any)} />
-            <MenuRow icon="reader-outline"             label={t.profileTerms} iconBg="#FFF7ED" iconColor="#EA580C" onPress={() => router.push('/profile/terms-conditions' as any)} isLast />
+            <MenuRow icon="information-circle-outline" label={t.profileAboutUs}       iconBg="#E4F4FF" iconColor="#40AEFF" onPress={() => router.push('/profile/about' as any)} />
+            <MenuRow icon="document-text-outline"      label={t.profilePrivacyPolicy} iconBg="#EAE8FF" iconColor="#7C6FF7" onPress={() => router.push('/profile/privacy-policy' as any)} />
+            <MenuRow icon="reader-outline"             label={t.profileTerms}         iconBg="#FFF0E6" iconColor="#FF8C42" onPress={() => router.push('/profile/terms-conditions' as any)} isLast />
           </Section>
         </Animated.View>
 
-        {/* ── Danger zone ── */}
+        {/* ── Sign out / Danger ── */}
         <Animated.View entering={FadeInDown.delay(160).springify()}>
-          <Text style={[s.sectionTitle, { color: c.textMuted }]}>{t.profileAccount}</Text>
           <Section>
             {user ? (
               <>
-                <MenuRow icon="person-outline"  label={t.profilePersonalInfo}   iconBg="#F0F0F0" iconColor="#6B7280" onPress={() => router.push('/profile/personal-info' as any)} />
-                <MenuRow icon="trash-outline"   label={t.profileDeleteAccount} iconBg="#FEE2E2" iconColor="#EF4444" onPress={() => router.push('/profile/delete-account' as any)} danger />
-                <MenuRow icon="log-out-outline" label={t.profileLogout}         iconBg="#FEE2E2" iconColor="#EF4444" onPress={handleSignOut} isLast danger />
+                <MenuRow icon="trash-outline"   label={t.profileDeleteAccount} iconBg="#FFE8EE" iconColor="#FF5F6D" onPress={() => router.push('/profile/delete-account' as any)} danger />
+                <MenuRow icon="log-out-outline" label={t.profileLogout}        iconBg="#FFE8EE" iconColor="#FF5F6D" onPress={handleSignOut} isLast danger />
               </>
             ) : (
-              <MenuRow icon="logo-google" label={t.profileSignInGoogle} iconBg="#EDE9FF" iconColor="#6C63FF"
-                onPress={signInWithGoogle} isLast />
+              <MenuRow icon="logo-google" label={t.profileSignInGoogle} iconBg="#EAE8FF" iconColor="#7C6FF7" onPress={signInWithGoogle} isLast />
             )}
           </Section>
         </Animated.View>
 
-        <View style={{ height: 80 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
     </View>
   );
 }
 
+const HEADER_H = Platform.OS === 'ios' ? 200 : 185;
+
 const s = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingTop: Platform.OS === 'ios' ? 56 : 44, paddingHorizontal: 16, gap: 10 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  hero: { alignItems: 'center', gap: 6, paddingVertical: 8 },
-  avatarRing: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', padding: 3 },
-  avatar: { width: 84, height: 84, borderRadius: 42, alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { fontSize: 28, fontFamily: FONTS.bold },
-  name: { fontSize: 20, fontFamily: FONTS.bold, marginTop: 4 },
+  content: { gap: 12 },
+
+  headerBanner: {
+    height: HEADER_H,
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    paddingHorizontal: 20,
+    overflow: 'hidden',
+  },
+  headerControls: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerBtn: { width: 38, height: 38, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  headerIllus: { position: 'absolute', right: -10, bottom: -10, width: 160, height: 160, opacity: 0.85 },
+  heroDeco1: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.07)', right: -40, top: -40 },
+  heroDeco2: { position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.06)', left: 30, bottom: -30 },
+
+  avatarWrap: { alignItems: 'center', marginTop: -52, paddingHorizontal: 20, gap: 4 },
+  avatarRing: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', padding: 3, shadowColor: '#7C6FF7', shadowOpacity: 0.3, shadowRadius: 16, elevation: 10 },
+  avatar: { width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { fontSize: 30, fontFamily: FONTS.bold },
+  name: { fontSize: 22, fontFamily: FONTS.bold, marginTop: 8 },
   email: { fontSize: 13, fontFamily: FONTS.regular },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  levelBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999 },
+  levelTxt: { fontSize: 13, fontFamily: FONTS.bold },
+  proBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  proTxt: { fontSize: 11, fontFamily: FONTS.bold, color: '#7A4800' },
   signInBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginTop: 4 },
   signInTxt: { fontSize: 14, fontFamily: FONTS.semibold },
-  levelBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
-  levelTxt: { fontSize: 13, fontFamily: FONTS.bold },
-  xpCard: { borderRadius: 16, padding: 16, gap: 8 },
+
+  xpCard: { borderRadius: RADIUS.xl, padding: 16, gap: 8, marginHorizontal: 16 },
   xpTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  xpLbl: { fontSize: 12, fontFamily: FONTS.medium },
-  xpBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  xpFill: { height: '100%', borderRadius: 4 },
-  statsCard: { borderRadius: 16, flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 8 },
-  statItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statVal: { fontSize: 18, fontFamily: FONTS.bold },
-  statRow: { flexDirection: 'row', alignItems: 'center' },
-  statLbl: { fontSize: 11, fontFamily: FONTS.regular },
-  statDiv: { width: 1, alignSelf: 'stretch', marginVertical: 4 },
-  upgradeBanner: { borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  xpLbl: { fontSize: 13, fontFamily: FONTS.semibold },
+  xpBg: { height: 10, borderRadius: 5, overflow: 'hidden' },
+  xpFill: { height: '100%', borderRadius: 5 },
+  xpHint: { fontSize: 11, fontFamily: FONTS.regular },
+
+  statsRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16 },
+  statCard: { flex: 1, borderRadius: RADIUS.lg, paddingVertical: 14, alignItems: 'center', gap: 4 },
+  statIconCircle: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  statVal: { fontSize: 16, fontFamily: FONTS.bold },
+  statLbl: { fontSize: 10, fontFamily: FONTS.semibold },
+
+  upgradeBanner: { borderRadius: RADIUS.xl, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16 },
   upgradeTitle: { color: '#fff', fontSize: 16, fontFamily: FONTS.bold },
-  upgradeSub: { color: '#ffffffAA', fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
+  upgradeSub: { color: '#ffffffCC', fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
   upgradeBtn: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
-  upgradeBtnTxt: { color: '#7C6FF7', fontFamily: FONTS.bold, fontSize: 14 },
-  sectionTitle: { fontSize: 11, fontFamily: FONTS.bold, letterSpacing: 1, paddingHorizontal: 4, paddingTop: 4 },
-  section: { borderRadius: 16, overflow: 'hidden' },
-  menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
-  menuIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  upgradeBtnTxt: { color: '#FF8C42', fontFamily: FONTS.bold, fontSize: 14 },
+
+  sectionTitle: { fontSize: 10, fontFamily: FONTS.bold, letterSpacing: 1.2, paddingHorizontal: 20, paddingTop: 4 },
+  section: { borderRadius: RADIUS.xl, overflow: 'hidden', marginHorizontal: 16 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 14 },
+  menuIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   menuLabel: { flex: 1, fontSize: 15, fontFamily: FONTS.medium },
   menuRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
