@@ -59,6 +59,15 @@ Configured as a static site:
 - Bilingual support (English + Bengali)
 - Dark/light theme
 
+## UI Redesign (Completed)
+- **Theme**: New softer palette in `constants/theme.ts`, accent `#7C6FF7`, pastel `SOFT_COLORS` map, richer dark mode.
+- **Tab bar** (`app/(tabs)/_layout.tsx`): Animated pill on active tab, floating square Focus button, labels.
+- **Home** (`app/(tabs)/index.tsx`): LinearGradient hero card, quick stats row, soft pastel task cards, Ionicons (no emoji).
+- **Subjects** (`app/(tabs)/subjects.tsx`): Colored left strip + pastel icon circles, topic-type badge, live modal preview, empty-state illustration placeholder.
+- **Profile** (`app/(tabs)/profile.tsx`): Updated all hardcoded colors to new accent, avatar ring + upgrade banner gradients refreshed.
+- **Onboarding** (`app/onboarding.tsx`): All slide icon colors updated to new soft pastel palette.
+- Timer screen design is solid; illustration slots pending Icons8 assets from user.
+
 ## Firebase Configuration
 Firebase config is in `focus-on/services/firebase.ts`. The project uses:
 - Firebase Auth (Google sign-in)

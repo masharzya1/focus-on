@@ -17,12 +17,12 @@ import { FONTS } from '@/constants/theme';
 const { width } = Dimensions.get('window');
 
 const SLIDE_ICONS = [
-  { id: 'welcome',  icon: 'sparkles'         as const, iconColor: '#6C63FF', bg: '#EDE9FF' },
-  { id: 'home',     icon: 'home'             as const, iconColor: '#3B82F6', bg: '#DBEAFE' },
-  { id: 'subjects', icon: 'book'             as const, iconColor: '#10B981', bg: '#D1FAE5' },
-  { id: 'timer',    icon: 'timer'            as const, iconColor: '#6C63FF', bg: '#EDE9FF' },
-  { id: 'plan',     icon: 'calendar'         as const, iconColor: '#F59E0B', bg: '#FEF3C7' },
-  { id: 'block',    icon: 'shield-checkmark' as const, iconColor: '#EF4444', bg: '#FEE2E2' },
+  { id: 'welcome',  icon: 'sparkles'         as const, iconColor: '#7C6FF7', bg: '#EAE8FF' },
+  { id: 'home',     icon: 'home'             as const, iconColor: '#40AEFF', bg: '#E4F4FF' },
+  { id: 'subjects', icon: 'book'             as const, iconColor: '#30D9A4', bg: '#E4FAF3' },
+  { id: 'timer',    icon: 'timer'            as const, iconColor: '#7C6FF7', bg: '#EAE8FF' },
+  { id: 'plan',     icon: 'calendar'         as const, iconColor: '#FF8C42', bg: '#FFF0E6' },
+  { id: 'block',    icon: 'shield-checkmark' as const, iconColor: '#FF5F6D', bg: '#FFE8EE' },
 ];
 
 function AnimatedIcon({ icon, color, bg }: { icon: any; color: string; bg: string }) {
@@ -63,8 +63,8 @@ function LangPickerSlide({ colors: c, onPick }: {
 
   return (
     <View style={[styles.slide, { width }]}>
-      <View style={[styles.iconContainer, { backgroundColor: '#EDE9FF', marginBottom: 40 }]}>
-        <Ionicons name="globe-outline" size={72} color="#6C63FF" />
+      <View style={[styles.iconContainer, { backgroundColor: '#EAE8FF', marginBottom: 40 }]}>
+        <Ionicons name="globe-outline" size={72} color="#7C6FF7" />
       </View>
 
       <Text style={[styles.title, { color: c.text }]}>Choose Your Language</Text>
@@ -74,7 +74,7 @@ function LangPickerSlide({ colors: c, onPick }: {
         <TouchableOpacity
           style={[
             styles.langCard,
-            { backgroundColor: c.bgCard, borderColor: selected === 'en' ? '#6C63FF' : c.border },
+            { backgroundColor: c.bgCard, borderColor: selected === 'en' ? '#7C6FF7' : c.border },
             selected === 'en' && styles.langCardActive,
           ]}
           onPress={() => pick('en')}
@@ -87,7 +87,7 @@ function LangPickerSlide({ colors: c, onPick }: {
           <Text style={[styles.langSub, { color: c.textMuted }]}>English</Text>
           {selected === 'en' && (
             <View style={styles.langCheck}>
-              <Ionicons name="checkmark-circle" size={22} color="#6C63FF" />
+              <Ionicons name="checkmark-circle" size={22} color="#7C6FF7" />
             </View>
           )}
         </TouchableOpacity>
@@ -95,7 +95,7 @@ function LangPickerSlide({ colors: c, onPick }: {
         <TouchableOpacity
           style={[
             styles.langCard,
-            { backgroundColor: c.bgCard, borderColor: selected === 'bn' ? '#6C63FF' : c.border },
+            { backgroundColor: c.bgCard, borderColor: selected === 'bn' ? '#7C6FF7' : c.border },
             selected === 'bn' && styles.langCardActive,
           ]}
           onPress={() => pick('bn')}
@@ -108,7 +108,7 @@ function LangPickerSlide({ colors: c, onPick }: {
           <Text style={[styles.langSub, { color: c.textMuted }]}>Bengali</Text>
           {selected === 'bn' && (
             <View style={styles.langCheck}>
-              <Ionicons name="checkmark-circle" size={22} color="#6C63FF" />
+              <Ionicons name="checkmark-circle" size={22} color="#7C6FF7" />
             </View>
           )}
         </TouchableOpacity>
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
   },
   langCardActive: {
-    shadowColor: '#6C63FF', shadowOpacity: 0.18, shadowRadius: 12, elevation: 6,
+    shadowColor: '#7C6FF7', shadowOpacity: 0.18, shadowRadius: 12, elevation: 6,
   },
   langIconCircle: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   langFlagText: { fontSize: 22, fontFamily: FONTS.bold, color: '#1E40AF' },

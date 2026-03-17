@@ -1,6 +1,3 @@
-// constants/theme.ts
-// Design system — consistent spacing, typography, colors
-
 export interface ThemeColors {
   bg: string;
   bgCard: string;
@@ -26,65 +23,63 @@ export interface ThemeColors {
 }
 
 export const LightTheme: ThemeColors = {
-  bg:              '#FAFAFF',
+  bg:              '#F5F4FF',
   bgCard:          '#FFFFFF',
-  bgSecondary:     '#F0EFFF',
-  border:          '#E4E2FF',
-  text:            '#1E1B4B',
-  textMuted:       '#6B7280',
-  textFaint:       '#C4BEFF',
-  accent:          '#6C63FF',
-  accentDark:      '#4B42D6',
+  bgSecondary:     '#EEF0FF',
+  border:          '#E8E6FF',
+  text:            '#1A1240',
+  textMuted:       '#6E6A90',
+  textFaint:       '#B8B4D8',
+  accent:          '#7C6FF7',
+  accentDark:      '#5B50D6',
   accentFg:        '#FFFFFF',
-  accentSoft:      '#EDEAFF',
+  accentSoft:      '#EAE8FF',
   tabBg:           '#FFFFFF',
-  tabBorder:       '#E4E2FF',
-  inputBg:         '#F0EFFF',
-  destructive:     '#FF4757',
-  destructiveDark: '#CC2233',
-  success:         '#2DD4BF',
-  successDark:     '#0F9B8E',
-  streakColor:     '#FF9500',
-  xpColor:         '#FFD700',
-  xpDark:          '#E6B800',
+  tabBorder:       '#EAE8FF',
+  inputBg:         '#F0EFFE',
+  destructive:     '#FF5F6D',
+  destructiveDark: '#D63A47',
+  success:         '#30D9A4',
+  successDark:     '#14B888',
+  streakColor:     '#FF8C42',
+  xpColor:         '#FFCB47',
+  xpDark:          '#E8A800',
 };
 
 export const DarkTheme: ThemeColors = {
-  bg:              '#12102A',
-  bgCard:          '#1C1A3E',
-  bgSecondary:     '#252347',
-  border:          '#2D2B5A',
-  text:            '#F0EFFF',
-  textMuted:       '#8B85C1',
-  textFaint:       '#3D3B70',
-  accent:          '#8C85FF',
-  accentDark:      '#6C63FF',
+  bg:              '#100D26',
+  bgCard:          '#1A1740',
+  bgSecondary:     '#232050',
+  border:          '#2C2860',
+  text:            '#EDEAFF',
+  textMuted:       '#8A84C0',
+  textFaint:       '#3E3A70',
+  accent:          '#9B90FF',
+  accentDark:      '#7C6FF7',
   accentFg:        '#FFFFFF',
-  accentSoft:      '#2A2860',
-  tabBg:           '#1C1A3E',
-  tabBorder:       '#2D2B5A',
-  inputBg:         '#1A1835',
-  destructive:     '#FF6B7A',
+  accentSoft:      '#28245A',
+  tabBg:           '#1A1740',
+  tabBorder:       '#2C2860',
+  inputBg:         '#1A1738',
+  destructive:     '#FF7080',
   destructiveDark: '#CC3344',
-  success:         '#2DD4BF',
-  successDark:     '#0F9B8E',
-  streakColor:     '#FF9500',
-  xpColor:         '#FFD700',
-  xpDark:          '#E6B800',
+  success:         '#30D9A4',
+  successDark:     '#14B888',
+  streakColor:     '#FF8C42',
+  xpColor:         '#FFCB47',
+  xpDark:          '#E8A800',
 };
 
-// ── Border radius ────────────────────────────────────────────────────────────
 export const RADIUS = {
   xs:   6,
   sm:   10,
   md:   14,
   lg:   18,
-  xl:   20,
+  xl:   22,
   xxl:  28,
   full: 999,
 };
 
-// ── Spacing ──────────────────────────────────────────────────────────────────
 export const SPACING = {
   xs:  4,
   sm:  8,
@@ -95,14 +90,11 @@ export const SPACING = {
   xxxl: 32,
 };
 
-// ── Safe area top ────────────────────────────────────────────────────────────
 import { Platform } from 'react-native';
 export const HEADER_TOP = Platform.OS === 'ios' ? 56 : 44;
 
-// ── Progress bar ─────────────────────────────────────────────────────────────
 export const PROGRESS_HEIGHT = 6;
 
-// ── Typography — Comfortaa ───────────────────────────────────────────────────
 export const FONTS = {
   light:     'HindSiliguri_300Light',
   regular:   'HindSiliguri_400Regular',
@@ -113,7 +105,6 @@ export const FONTS = {
   black:     'HindSiliguri_700Bold',
 };
 
-// ── Type scale ───────────────────────────────────────────────────────────────
 export const TYPE = {
   largeTitle: { fontSize: 30, fontFamily: FONTS.bold,     letterSpacing: -0.5 },
   title1:     { fontSize: 24, fontFamily: FONTS.bold,     letterSpacing: -0.3 },
@@ -128,7 +119,6 @@ export const TYPE = {
   label:      { fontSize: 11, fontFamily: FONTS.bold,     letterSpacing: 1,   textTransform: 'uppercase' as const },
 };
 
-// ── Bengali fonts (Hind Siliguri) ────────────────────────────────────────────
 export const BN_FONTS = {
   light:     'HindSiliguri_300Light',
   regular:   'HindSiliguri_400Regular',
@@ -137,4 +127,13 @@ export const BN_FONTS = {
   bold:      'HindSiliguri_700Bold',
   extrabold: 'HindSiliguri_700Bold',
   black:     'HindSiliguri_700Bold',
+};
+
+export const SOFT_COLORS = {
+  mint:    { bg: '#E4FAF3', text: '#0C6E4E', dot: '#30D9A4' },
+  lavender:{ bg: '#EAE8FF', text: '#3730A3', dot: '#7C6FF7' },
+  peach:   { bg: '#FFF0E6', text: '#954A00', dot: '#FF8C42' },
+  rose:    { bg: '#FFE8EE', text: '#9B1239', dot: '#FF5F6D' },
+  sky:     { bg: '#E4F4FF', text: '#1A4E7B', dot: '#40AEFF' },
+  amber:   { bg: '#FFF8E0', text: '#8A5C00', dot: '#FFCB47' },
 };

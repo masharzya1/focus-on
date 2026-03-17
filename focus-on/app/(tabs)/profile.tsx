@@ -94,7 +94,7 @@ export default function ProfileScreen() {
 
         {/* ── Hero ── */}
         <Animated.View entering={FadeInDown.delay(0).springify()} style={s.hero}>
-          <LinearGradient colors={['#6C63FF', '#9C5FFF']} style={s.avatarRing}>
+          <LinearGradient colors={['#7C6FF7', '#A888FF']} style={s.avatarRing}>
             <View style={[s.avatar, { backgroundColor: c.bgCard }]}>
               {user?.photoURL ? null : (
                 <Text style={[s.avatarTxt, { color: c.accent }]}>{initials}</Text>
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
         {!isPro && (
           <Animated.View entering={FadeInDown.delay(80).springify()}>
             <TouchableOpacity onPress={() => router.push('/profile/upgrade' as any)} activeOpacity={0.9}>
-              <LinearGradient colors={['#6C63FF', '#9C5FFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upgradeBanner}>
+              <LinearGradient colors={['#7C6FF7', '#A888FF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.upgradeBanner}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.upgradeTitle}>{t.profileUpgradeTitle}</Text>
                   <Text style={s.upgradeSub}>{t.profileUpgradeSub}</Text>
@@ -255,7 +255,7 @@ const s = StyleSheet.create({
   upgradeTitle: { color: '#fff', fontSize: 16, fontFamily: FONTS.bold },
   upgradeSub: { color: '#ffffffAA', fontSize: 12, fontFamily: FONTS.regular, marginTop: 2 },
   upgradeBtn: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
-  upgradeBtnTxt: { color: '#6C63FF', fontFamily: FONTS.bold, fontSize: 14 },
+  upgradeBtnTxt: { color: '#7C6FF7', fontFamily: FONTS.bold, fontSize: 14 },
   sectionTitle: { fontSize: 11, fontFamily: FONTS.bold, letterSpacing: 1, paddingHorizontal: 4, paddingTop: 4 },
   section: { borderRadius: 16, overflow: 'hidden' },
   menuRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 14 },
