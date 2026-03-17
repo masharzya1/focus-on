@@ -206,6 +206,11 @@ const en = {
   notifRoutineTitle: '📚 1 hour to go!',
   notifRoutineBody: (count: number, topic: string, time: string) =>
     `${count} task${count > 1 ? 's' : ''} today. ${topic} starts at ${time}.`,
+  notifPreTaskTitle: (topic: string) => `⏰ Starting soon: ${topic}`,
+  notifPreTaskBody: (subject: string, time: string) => `${subject} · Starts at ${time}. Get ready!`,
+  notifMorningSummaryTitle: '📅 Your study day',
+  notifMorningSummaryBody: (count: number, first: string) =>
+    `${count} task${count > 1 ? 's' : ''} today. First up: ${first}`,
   notifNewDayTitle: '🌙 New day begins!',
   notifNewDayBody: (count: number) =>
     `You have ${count} task${count > 1 ? 's' : ''} today. Go to Home to set your routine.`,
@@ -317,6 +322,18 @@ const en = {
   appBlockCancel: 'Cancel',
   appBlockSelectApp: 'Select App',
   appBlockMin: 'min',
+  // Reels Block tab
+  appBlockReelsTab: 'Reels',
+  appBlockReelsTitle: 'Reels Block',
+  appBlockReelsSubtitle: 'Block short-video sections only — apps stay open',
+  appBlockReelsEmpty: 'No reels blocked',
+  appBlockReelsEmptyDesc: 'Toggle the apps below to block their short-video sections',
+  appBlockReelsTikTok: 'TikTok',
+  appBlockReelsInstagram: 'Instagram Reels',
+  appBlockReelsYouTube: 'YouTube Shorts',
+  appBlockReelsFacebook: 'Facebook Reels',
+  appBlockReelsSnapchat: 'Snapchat Spotlight',
+  appBlockReelsInfoNote: 'Blocks Reels/Shorts inside each app. The rest of the app stays accessible.',
   // ── Plan [id] ─────────────────────────────────────────────────────────────────
   planIdMoveToDate: 'Move to date',
   planIdSetTime: 'Set start & end time',

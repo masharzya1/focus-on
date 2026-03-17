@@ -247,6 +247,20 @@ class AppBlockingModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ── Reels Block (always-on per-app reels blocking) ────────────────────────
+
+    @ReactMethod
+    fun saveReelsBlock(packagesJson: String) {
+        try { prefs.edit().putString(AppBlockerAccessibilityService.KEY_REELS_BLOCK, packagesJson).apply() }
+        catch (e: Exception) { Log.e(TAG, "saveReelsBlock: ${e.message}") }
+    }
+
+    @ReactMethod
+    fun getReelsBlock(promise: Promise) {
+        try { promise.resolve(prefs.getString(AppBlockerAccessibilityService.KEY_REELS_BLOCK, "[]") ?: "[]") }
+        catch (e: Exception) { promise.resolve("[]") }
+    }
+
     // ── Device Admin ──────────────────────────────────────────────────────────
 
     @ReactMethod

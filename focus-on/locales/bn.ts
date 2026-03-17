@@ -208,6 +208,11 @@ const bn: Locale = {
   notifRoutineTitle: '📚 আর ১ ঘন্টা!',
   notifRoutineBody: (count: number, topic: string, time: string) =>
     `${count}টা task আজকে আছে। ${topic} শুরু ${time} এ।`,
+  notifPreTaskTitle: (topic: string) => `⏰ শুরু হচ্ছে: ${topic}`,
+  notifPreTaskBody: (subject: string, time: string) => `${subject} · ${time} এ শুরু। প্রস্তুত হও!`,
+  notifMorningSummaryTitle: '📅 আজকের পড়ার plan',
+  notifMorningSummaryBody: (count: number, first: string) =>
+    `আজকে ${count}টা task আছে। প্রথমটা: ${first}`,
   notifNewDayTitle: '🌙 নতুন দিন শুরু!',
   notifNewDayBody: (count: number) =>
     `আজকে ${count}টা task আছে। Home এ গিয়ে routine set করো।`,
@@ -317,8 +322,20 @@ const bn: Locale = {
   appBlockWebsiteUrl: 'ওয়েবসাইট URL বা ডোমেইন',
   appBlockBlockWebsiteBtn: 'ব্লক করো',
   appBlockCancel: 'বাতিল',
-  appBlockSelectApp: 'অ্যাপ বেছে নাও',
+  appBlockSelectApp: 'অ্যাপ বেছে নিন',
   appBlockMin: 'মিনিট',
+  // Reels Block tab
+  appBlockReelsTab: 'রিলস',
+  appBlockReelsTitle: 'রিলস ব্লক',
+  appBlockReelsSubtitle: 'শুধু শর্ট ভিডিও অংশ ব্লক করুন — বাকি অ্যাপ চলবে',
+  appBlockReelsEmpty: 'কোনো রিলস ব্লক নেই',
+  appBlockReelsEmptyDesc: 'নিচের অ্যাপগুলো টগল করে শর্ট ভিডিও ব্লক করুন',
+  appBlockReelsTikTok: 'TikTok',
+  appBlockReelsInstagram: 'Instagram Reels',
+  appBlockReelsYouTube: 'YouTube Shorts',
+  appBlockReelsFacebook: 'Facebook Reels',
+  appBlockReelsSnapchat: 'Snapchat Spotlight',
+  appBlockReelsInfoNote: 'প্রতিটি অ্যাপের Reels/Shorts অংশ ব্লক হবে। বাকি অ্যাপ ব্যবহার করা যাবে।',
   // ── Plan [id] ─────────────────────────────────────────────────────────────────
   planIdMoveToDate: 'তারিখ পরিবর্তন করো',
   planIdSetTime: 'শুরু ও শেষ সময় দাও',

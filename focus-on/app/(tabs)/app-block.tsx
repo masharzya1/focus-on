@@ -40,7 +40,7 @@ const DISTRACTION_PACKAGES = new Set([
 ]);
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-type Tab = 'apps' | 'websites' | 'limits';
+type Tab = 'apps' | 'websites' | 'limits' | 'reels';
 
 function getCurrentTime() {
   const n = new Date();
@@ -240,6 +240,8 @@ export default function AppBlockScreen() {
   const [usageEnabled, setUsageEnabled] = useState(false);
   const [installedApps, setInstalledApps] = useState<{ name: string; packageName: string; icon: string }[]>([]);
   const [blockedWebsites, setBlockedWebsites] = useState<string[]>([]);
+  // Reels Block state — per-app always-on reels blocking
+  const [reelsBlocked, setReelsBlocked] = useState<string[]>([]);
 
   // Routine modal
   const [showCreate, setShowCreate]     = useState(false);
@@ -284,6 +286,7 @@ export default function AppBlockScreen() {
       AppBlocking.isAccessibilityEnabled().then(setAccessEnabled).catch(() => {});
       AppBlocking.hasUsagePermission().then(setUsageEnabled).catch(() => {});
       AppBlocking.getBlockedWebsites().then(setBlockedWebsites).catch(() => {});
+      AppBlocking.getReelsBlock().then(setReelsBlocked).catch(() => {});
       if (installedApps.length === 0) {
         setLoadingApps(true);
         AppBlocking.getInstalledApps()
@@ -460,9 +463,10 @@ export default function AppBlockScreen() {
 
   // Tab labels
   const tabInfo: { key: Tab; icon: string; label: string }[] = [
-    { key: 'apps', icon: 'shield', label: `Routines${state.blockRoutines.length > 0 ? ` (${state.blockRoutines.length})` : ''}` },
-    { key: 'websites', icon: 'globe', label: `Websites${blockedWebsites.length > 0 ? ` (${blockedWebsites.length})` : ''}` },
-    { key: 'limits', icon: 'timer', label: `Limits${timeLimits.length > 0 ? ` (${timeLimits.length})` : ''}` },
+    { key: 'apps',     icon: 'shield',    label: `Routines${state.blockRoutines.length > 0 ? ` (${state.blockRoutines.length})` : ''}` },
+    { key: 'reels',    icon: 'videocam-off', label: `Reels${reelsBlocked.length > 0 ? ` (${reelsBlocked.length})` : ''}` },
+    { key: 'websites', icon: 'globe',     label: `Websites${blockedWebsites.length > 0 ? ` (${blockedWebsites.length})` : ''}` },
+    { key: 'limits',   icon: 'timer',     label: `Limits${timeLimits.length > 0 ? ` (${timeLimits.length})` : ''}` },
   ];
 
   return (
@@ -475,7 +479,8 @@ export default function AppBlockScreen() {
           <Text style={[styles.subtitle, { color: c.textMuted }]}>{t.appBlockSubtitle}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: c.accent }]}
+          style={[styles.addBtn, { backgroundColor: c.accent, opacity: activeTab === 'reels' ? 0 : 1 }]}
+          disabled={activeTab === 'reels'}
           onPress={() => {
             if (activeTab === 'websites') { setShowAddWebsite(true); return; }
             if (activeTab === 'limits') { loadApps('limit'); return; }
@@ -681,6 +686,68 @@ export default function AppBlockScreen() {
             )}
           </>
         )}
+
+        {/* ── REELS BLOCK ── */}
+        {activeTab === 'reels' && (() => {
+          const REELS_APPS = [
+            { pkg: 'com.zhiliaoapp.musically', label: t.appBlockReelsTikTok,    emoji: '🎵', color: '#010101' },
+            { pkg: 'com.instagram.android',    label: t.appBlockReelsInstagram, emoji: '📸', color: '#C13584' },
+            { pkg: 'com.google.android.youtube', label: t.appBlockReelsYouTube, emoji: '▶️', color: '#FF0000' },
+            { pkg: 'com.facebook.katana',      label: t.appBlockReelsFacebook,  emoji: '👍', color: '#1877F2' },
+            { pkg: 'com.snapchat.android',     label: t.appBlockReelsSnapchat,  emoji: '👻', color: '#FFFC00' },
+          ];
+          const toggleReels = (pkg: string) => {
+            if (!accessEnabled) {
+              Alert.alert('Permission needed',
+                'Enable Accessibility permission so Focus On can block reels.',
+                [{ text: 'Open Settings', onPress: () => AppBlocking.openAccessibilitySettings() },
+                 { text: t.appBlockCancel, style: 'cancel' }]);
+              return;
+            }
+            const updated = reelsBlocked.includes(pkg)
+              ? reelsBlocked.filter(p => p !== pkg)
+              : [...reelsBlocked, pkg];
+            setReelsBlocked(updated);
+            AppBlocking.saveReelsBlock(updated);
+          };
+          return (
+            <>
+              <View style={[styles.webInfoCard, { backgroundColor: '#8B5CF615', borderColor: '#8B5CF640' }]}>
+                <Ionicons name="videocam-off" size={18} color="#8B5CF6" />
+                <Text style={[styles.webInfoTxt, { color: '#8B5CF6' }]}>{t.appBlockReelsInfoNote}</Text>
+              </View>
+              {REELS_APPS.map((app, i) => {
+                const isOn = reelsBlocked.includes(app.pkg);
+                return (
+                  <Animated.View key={app.pkg} entering={FadeInDown.delay(i * 60).springify()}>
+                    <View style={[styles.webCard, {
+                      backgroundColor: c.bgCard,
+                      borderColor: isOn ? app.color + '60' : c.border,
+                      borderWidth: isOn ? 1.5 : 1,
+                      paddingVertical: 14,
+                    }]}>
+                      <View style={[styles.webIconBox, { backgroundColor: app.color + '18', width: 42, height: 42 }]}>
+                        <Text style={{ fontSize: 20 }}>{app.emoji}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.webDomain, { color: c.text }]}>{app.label}</Text>
+                        <Text style={{ fontSize: 11, color: isOn ? app.color : c.textFaint, fontWeight: '600' }}>
+                          {isOn ? '🔴 Reels blocked' : 'Not blocked'}
+                        </Text>
+                      </View>
+                      <Switch
+                        value={isOn}
+                        onValueChange={() => toggleReels(app.pkg)}
+                        trackColor={{ false: c.border, true: app.color + '80' }}
+                        thumbColor={isOn ? app.color : c.textFaint}
+                      />
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            </>
+          );
+        })()}
 
         {/* ── WEBSITES ── */}
         {activeTab === 'websites' && (

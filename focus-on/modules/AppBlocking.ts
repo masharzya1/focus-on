@@ -93,6 +93,18 @@ const AppBlocking = {
     try { return JSON.parse(await mod().getTimeLimits()); } catch { return []; }
   },
 
+  // ── Reels Block (always-on per-app reels blocking) ───────────────────────
+
+  saveReelsBlock(packages: string[]): void {
+    if (Platform.OS !== 'android' || !mod()) return;
+    try { mod().saveReelsBlock(JSON.stringify(packages)); } catch {}
+  },
+
+  async getReelsBlock(): Promise<string[]> {
+    if (Platform.OS !== 'android' || !mod()) return [];
+    try { return JSON.parse(await mod().getReelsBlock()); } catch { return []; }
+  },
+
   // ── Usage stats ───────────────────────────────────────────────────────────
 
   async hasUsagePermission(): Promise<boolean> {

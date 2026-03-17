@@ -77,7 +77,11 @@ export function useAutoBlocking() {
           const finalApps = [...allApps];
           if (blockShorts) {
             ['com.instagram.android','com.google.android.youtube',
-             'com.facebook.katana','com.facebook.orca'].forEach(pkg => {
+             'com.facebook.katana','com.facebook.orca',
+             'com.snapchat.android',
+             'com.zhiliaoapp.musically',
+             'com.ss.android.ugc.trill',
+            ].forEach(pkg => {
               if (!allApps.includes(pkg)) finalApps.push(`reels:${pkg}`);
             });
           }
@@ -101,8 +105,8 @@ export function useAutoBlocking() {
 
   useEffect(() => {
     mountedRef.current = true;
-    const initTimer = setTimeout(() => checkAndSync(), 1000); // faster: 1s not 2s
-    const interval  = setInterval(checkAndSync, 15_000);      // check every 15s
+    const initTimer = setTimeout(() => checkAndSync(), 1000);
+    const interval  = setInterval(checkAndSync, 10_000);      // check every 10s for tighter task boundaries
     const sub = AppState.addEventListener('change', s => { if (s === 'active') checkAndSync(); });
     return () => {
       mountedRef.current = false;

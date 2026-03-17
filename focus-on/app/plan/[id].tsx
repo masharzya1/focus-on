@@ -229,12 +229,17 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
               onMinus={() => adjustStart(-15)}
               onPlus={() => adjustStart(15)}
               onToggleAmPm={() => {
-                const timeTotal = sh * 60 + sm;
-                const newT = timeTotal + (sh < 12 ? 12 * 60 : -12 * 60);
+                // Normalize to 0–23 range first (handles overflow state like 25h)
+                const normalH = sh % 24;
                 const dur = (eh * 60 + em) - (sh * 60 + sm);
-                setSh(Math.floor(Math.max(0, newT) / 60)); setSm(newT % 60);
-                const ne = Math.max(0, newT) + Math.max(15, dur);
-                setEh(Math.floor(ne / 60)); setEm(ne % 60);
+                // Flip AM↔PM on the normalized hour, then re-apply any overflow offset
+                const overflowDays = Math.floor(sh / 24);
+                const flippedH = normalH < 12 ? normalH + 12 : normalH - 12;
+                const newSh = overflowDays * 24 + flippedH;
+                const newEh = Math.floor((newSh * 60 + sm + Math.max(15, dur)) / 60);
+                const newEm = (newSh * 60 + sm + Math.max(15, dur)) % 60;
+                setSh(newSh); setSm(sm);
+                setEh(newEh); setEm(newEm);
               }}
             />
             <Text style={{ color: c.textFaint, fontSize: 16 }}>→</Text>
@@ -243,9 +248,16 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
               onMinus={() => adjustEnd(-15)}
               onPlus={() => adjustEnd(15)}
               onToggleAmPm={() => {
-                const cur = eh * 60 + em;
-                const newT = cur + (eh < 12 ? 12 * 60 : -12 * 60);
-                setEh(Math.floor(Math.max(sh * 60 + sm + 15, newT) / 60)); setEm(newT % 60);
+                // Normalize end hour to 0–23, flip AM/PM, keep any overflow
+                const normalH = eh % 24;
+                const overflowDays = Math.floor(eh / 24);
+                const flippedH = normalH < 12 ? normalH + 12 : normalH - 12;
+                const newEh = overflowDays * 24 + flippedH;
+                // Ensure end is always at least 15 min after start
+                const minEnd = sh * 60 + sm + 15;
+                const proposed = newEh * 60 + em;
+                setEh(Math.floor(Math.max(minEnd, proposed) / 60));
+                setEm(proposed >= minEnd ? em : (minEnd % 60));
               }}
             />
           </View>
@@ -253,7 +265,11 @@ function TimeEditModal({ visible, task, taskName, subjectColor, onClose, onSave,
           {(sh >= 24 || eh >= 24) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10, marginTop: 14 }}>
               <Ionicons name="information-circle" size={16} color="#D97706" />
-              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>{sh >= 24 ? "This task will move to tomorrow's plan" : 'End time clamped to 11:59 PM'}</Text>
+              <Text style={{ flex: 1, fontSize: 12, color: '#92400E' }}>
+                {sh >= 24
+                  ? "This task will move to tomorrow's plan"
+                  : `End time crosses midnight — saves as ${String((eh % 24)).padStart(2,'0')}:${String(em).padStart(2,'0')} (task stays today)`}
+              </Text>
             </View>
           )}
 
@@ -423,6 +439,23 @@ export default function PlanDetailScreen() {
     return topic?.name ?? chapter.name;
   };
 
+  const isExamDay    = daysLeft <= 0;
+  const isExamSoon   = daysLeft === 1;
+
+  // Mark all incomplete past tasks as complete (exam day shortcut)
+  const markAllPastDone = () => {
+    const updated = {
+      ...plan,
+      tasks: plan.tasks.map(task =>
+        (!task.completed && task.date < todayStr)
+          ? { ...task, completed: true }
+          : task
+      ),
+    };
+    updateStudyPlan(updated);
+    setShowRescheduleConfirm(false);
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
       {/* Header */}
@@ -432,8 +465,8 @@ export default function PlanDetailScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[styles.planName, { color: c.text }]}>{plan.examName}</Text>
-          <Text style={[styles.planSub, { color: daysLeft <= 7 ? c.destructive : c.textMuted }]}>
-            {daysLeft > 0 ? `${daysLeft} days left` : 'Exam day!'} · {prog}% done
+          <Text style={[styles.planSub, { color: daysLeft <= 3 ? c.destructive : c.textMuted }]}>
+            {isExamDay ? '🎯 Exam day!' : isExamSoon ? '⚠️ Exam tomorrow!' : `${daysLeft} days left`} · {prog}% done
           </Text>
         </View>
         {plan.blockApps && <Ionicons name="shield-checkmark" size={20} color={c.destructive} />}
@@ -445,6 +478,43 @@ export default function PlanDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Exam Day Banner ── */}
+        {isExamDay && (
+          <Animated.View entering={FadeInDown.springify()}
+            style={[styles.examDayBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+            <Text style={styles.examDayEmoji}>🎯</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.examDayTitle, { color: '#92400E' }]}>
+                Exam day — you've got this!
+              </Text>
+              <Text style={[styles.examDaySub, { color: '#B45309' }]}>
+                Focus on what you know. Skip what you missed.
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── Missed tasks quick action (exam day) ── */}
+        {isExamDay && missedCount > 0 && (
+          <Animated.View entering={FadeInDown.delay(60).springify()}
+            style={[styles.missedBanner, { backgroundColor: c.destructive + '12', borderColor: c.destructive + '30' }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.missedTitle, { color: c.destructive }]}>
+                {missedCount} incomplete task{missedCount > 1 ? 's' : ''} from before today
+              </Text>
+              <Text style={[styles.missedSub, { color: c.textMuted }]}>
+                It's exam day — tick them off and move forward.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.missedBtn, { backgroundColor: c.destructive }]}
+              onPress={markAllPastDone}>
+              <Ionicons name="checkmark-done" size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 12 }}>Mark done</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
 
         {/* ── Acceptance rate card ── */}
         {(state as any).acceptanceRecords?.length >= 3 && (
@@ -630,26 +700,47 @@ export default function PlanDetailScreen() {
           <Animated.View entering={FadeInUp.springify()}
             style={[styles.rescheduleCard, { backgroundColor: c.bgCard }]}
             onStartShouldSetResponder={() => true}>
-            <View style={[styles.rescheduleIcon, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="calendar" size={30} color="#D97706" />
+            <View style={[styles.rescheduleIcon, { backgroundColor: isExamDay ? '#FEE2E2' : '#FEF3C7' }]}>
+              <Ionicons name={isExamDay ? 'alert-circle' : 'calendar'} size={30} color={isExamDay ? '#DC2626' : '#D97706'} />
             </View>
             <Text style={[styles.rescheduleTitle, { color: c.text }]}>
               {missedCount} missed task{missedCount > 1 ? 's' : ''}
             </Text>
             <Text style={[styles.rescheduleDesc, { color: c.textMuted }]}>
-              You have incomplete tasks from previous days. Move them to upcoming study days?
+              {isExamDay
+                ? "It's exam day — these tasks won't be rescheduled. You can mark them done or just ignore them."
+                : 'You have incomplete tasks from previous days. Move them to upcoming study days?'}
             </Text>
-            <TouchableOpacity
-              style={[styles.rescheduleBtn, { backgroundColor: c.accent }]}
-              onPress={handleReschedule}>
-              <Ionicons name="calendar-outline" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>{t.planIdReschedule}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.rescheduleBtn, { backgroundColor: c.bgSecondary }]}
-              onPress={() => setShowRescheduleConfirm(false)}>
-              <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>{t.planIdKeepAsIs}</Text>
-            </TouchableOpacity>
+
+            {isExamDay ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.rescheduleBtn, { backgroundColor: c.destructive }]}
+                  onPress={markAllPastDone}>
+                  <Ionicons name="checkmark-done" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>Mark all done</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.rescheduleBtn, { backgroundColor: c.bgSecondary }]}
+                  onPress={() => setShowRescheduleConfirm(false)}>
+                  <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>Ignore</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.rescheduleBtn, { backgroundColor: c.accent }]}
+                  onPress={handleReschedule}>
+                  <Ionicons name="calendar-outline" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontFamily: FONTS.bold, fontSize: 15 }}>{t.planIdReschedule}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.rescheduleBtn, { backgroundColor: c.bgSecondary }]}
+                  onPress={() => setShowRescheduleConfirm(false)}>
+                  <Text style={{ color: c.textMuted, fontFamily: FONTS.medium, fontSize: 14 }}>{t.planIdKeepAsIs}</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </Animated.View>
         </Pressable>
       </Modal>
@@ -720,6 +811,14 @@ const styles = StyleSheet.create({
   reviewBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   moveBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   revisionBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderRadius: RADIUS.xl, marginTop: 16 },
+  examDayBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, marginBottom: 12, borderWidth: 1 },
+  examDayEmoji: { fontSize: 28 },
+  examDayTitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 2 },
+  examDaySub: { fontSize: 12, fontFamily: FONTS.regular },
+  missedBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, marginBottom: 12, borderWidth: 1 },
+  missedTitle: { fontSize: 13, fontFamily: FONTS.semibold, marginBottom: 2 },
+  missedSub: { fontSize: 11, fontFamily: FONTS.regular },
+  missedBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10 },
   // Reschedule modal
   rescheduleCard: { borderRadius: 28, padding: 28, alignItems: 'center', width: '100%', gap: 12 },
   rescheduleIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },

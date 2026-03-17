@@ -43,19 +43,34 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             "com.instagram.igtv.igtv_gui.IgtvActivity",
             "com.google.android.apps.youtube.app.watchwhile.WatchWhileActivity",
             "com.facebook.reels.player.container.ReelsPlayerContainerActivity",
-            "com.zhiliaoapp.musically.app.MainActivity",
+            "com.zhiliaoapp.musically.app.MainActivity",   // TikTok — whole app is short video
+            "com.ss.android.ugc.trill.main.MainActivity",
         )
 
         private val REEL_VIEW_IDS = setOf(
+            // Instagram
             "com.instagram.android:id/clips_viewer_view_pager",
             "com.instagram.android:id/reel_viewer_root",
             "com.instagram.android:id/clips_swipe_refresh_container",
+            // YouTube
             "com.google.android.youtube:id/reel_player_page_container",
             "com.google.android.youtube:id/shorts_container",
             "com.google.android.youtube:id/reel_recycler",
+            // Facebook
             "com.facebook.katana:id/reels_container",
+            "com.facebook.katana:id/reels_video_container",
+            "com.facebook.katana:id/video_reels_root_view",
+            // Snapchat
             "com.snapchat.android:id/spotlight_feed_container",
+            // TikTok global & Trill (regional) — entire feed is short-video
+            "com.zhiliaoapp.musically:id/feed_video_container",
+            "com.zhiliaoapp.musically:id/video_player_container",
+            "com.ss.android.ugc.trill:id/feed_video_container",
+            "com.ss.android.ugc.trill:id/video_player_container",
         )
+
+        // Key for always-on per-app reels block (Reels Block tab)
+        const val KEY_REELS_BLOCK = "reels_block_apps"
 
         private val REEL_CONTENT_DESCS = setOf(
             "Reels", "Reel", "Shorts", "Short",
@@ -175,6 +190,39 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         }
 
         val isBlocking = prefs.getBoolean(KEY_IS_BLOCKING, false)
+
+        // ── Always-on Reels Block (Reels Block tab — runs even if isBlocking=false) ──
+        if (pkg in REEL_PACKAGES) {
+            val reelsBlockJson = prefs.getString(KEY_REELS_BLOCK, "[]") ?: "[]"
+            val reelsBlockSet = try {
+                val arr = org.json.JSONArray(reelsBlockJson)
+                (0 until arr.length()).map { arr.getString(it) }.toSet()
+            } catch (_: Exception) { emptySet<String>() }
+
+            if (reelsBlockSet.contains(pkg)) {
+                when (event.eventType) {
+                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                        val cls = event.className?.toString() ?: ""
+                        val shortCls = cls.substringAfterLast('.')
+                        if (REEL_ACTIVITY_CLASSES.any { it.endsWith(shortCls) || cls == it }) {
+                            Log.d(TAG, "Reels-block tab: activity block $pkg/$cls")
+                            showOverlay(pkg); return
+                        }
+                    }
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                        if (!(pkg == lastContentCheckPackage && now - lastContentCheckTime < CONTENT_CHECK_DEBOUNCE_MS)) {
+                            lastContentCheckPackage = pkg
+                            lastContentCheckTime = now
+                            if (isReelViewVisible()) {
+                                Log.d(TAG, "Reels-block tab: view block $pkg")
+                                showOverlay(pkg); return
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (!isBlocking) return
 
         val blockedApps = parseBlockedApps(prefs.getString(KEY_BLOCKED_APPS, "[]") ?: "[]")
@@ -428,8 +476,13 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
             if (anyActive && allApps.isNotEmpty()) {
                 val reelPackages = setOf(
-                    "com.instagram.android", "com.google.android.youtube",
-                    "com.facebook.katana", "com.facebook.orca"
+                    "com.instagram.android",
+                    "com.google.android.youtube",
+                    "com.facebook.katana",
+                    "com.facebook.orca",
+                    "com.snapchat.android",
+                    "com.zhiliaoapp.musically",  // TikTok global
+                    "com.ss.android.ugc.trill",  // TikTok regional
                 )
                 val finalApps = allApps.toMutableSet()
                 if (blockShorts) {

@@ -13,7 +13,7 @@ import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isSubjectTopicBased, type StudyPlan } from '@/types/study';
 import AppBlocking from '@/modules/AppBlocking';
-import { setupAllNotifications } from '@/services/notifications';
+import { setupAllNotifications, scheduleNewDayRoutineReminder, scheduleAllTaskNotifications } from '@/services/notifications';
 import { generateSmartSchedule, type ScheduleItem } from '@/utils/smartSchedule';
 
 // STEPS, DAY_NAMES, MONTHS now come from t (locale)
@@ -295,6 +295,36 @@ export default function CreatePlanScreen() {
       await setupAllNotifications(
         [...state.studyPlans, plan].map(p => ({ examName: p.examName, examDate: p.examDate }))
       );
+
+      // Build flat task list with display names for notification scheduling
+      const today    = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split('T')[0];
+
+      const allTaskNotifs = (plan.tasks as any[]).map((task: any) => {
+        const subject = state.subjects.find((s: any) => s.id === task.subjectId);
+        const chapter = subject?.chapters.find((ch: any) => ch.id === task.chapterId);
+        const topic   = chapter?.topics?.find((t: any) => t.id === task.topicId);
+        const name    = topic?.name ?? chapter?.name ?? 'Study task';
+        return {
+          id: task.id,
+          date: task.date as string,
+          startTime: task.startTime as string | undefined,
+          endTime: task.endTime as string | undefined,
+          topicName: name,
+          subjectName: subject?.name ?? '',
+          estimatedMinutes: task.estimatedMinutes ?? 40,
+        };
+      });
+
+      // Schedule today's full chain (if tasks exist for today with times set)
+      const todayTimed = allTaskNotifs.filter(t => t.date === today && t.startTime);
+      if (todayTimed.length > 0) {
+        await scheduleAllTaskNotifications(allTaskNotifs.filter(t => t.date === today || t.date === tomorrow));
+      }
+
+      // Always schedule midnight nudge for tomorrow's tasks
+      const tomorrowTasks = allTaskNotifs.filter(t => t.date === tomorrow);
+      await scheduleNewDayRoutineReminder(tomorrowTasks);
     } catch {}
     setSaving(false);
     router.replace('/(tabs)/plan');
@@ -489,7 +519,7 @@ export default function CreatePlanScreen() {
                         </TouchableOpacity>
                         {sel && (
                           <View style={{ paddingLeft: 34, paddingBottom: 6 }}>
-                            <WeightPicker value={selectedItems[ch.id]} onChange={w => setSelectedItems(p => ({ ...p, [ch.id]: w }))} colors={c} />
+                            <WeightPicker value={selectedItems[ch.id]} onChange={w => setSelectedItems(p => ({ ...p, [ch.id]: w }))} colors={c} weightLabels={t.planCreateWeightLabels} />
                           </View>
                         )}
                       </View>
@@ -502,27 +532,27 @@ export default function CreatePlanScreen() {
                       {ch.topics.length > 0 && (
                         <Text style={[styles.chLabel, { color: c.textFaint }]}>{ch.name}</Text>
                       )}
-                      {ch.topics.map(t => {
-                        const sel = selectedItems[t.id] !== undefined;
+                      {ch.topics.map(topic => {
+                        const sel = selectedItems[topic.id] !== undefined;
                         return (
-                          <View key={t.id}>
+                          <View key={topic.id}>
                             <TouchableOpacity
                               style={[styles.selectItem, {
                                 backgroundColor: sel ? color + '10' : 'transparent',
                                 borderColor: sel ? color : c.border,
                               }]}
-                              onPress={() => toggleItem(t.id)}>
+                              onPress={() => toggleItem(topic.id)}>
                               <View style={[styles.selCheck, {
                                 borderColor: sel ? color : c.border,
                                 backgroundColor: sel ? color : 'transparent',
                               }]}>
                                 {sel && <Ionicons name="checkmark" size={12} color="#fff" />}
                               </View>
-                              <Text style={[styles.selectItemName, { color: sel ? color : c.text }]}>{t.name}</Text>
+                              <Text style={[styles.selectItemName, { color: sel ? color : c.text }]}>{topic.name}</Text>
                             </TouchableOpacity>
                             {sel && (
                               <View style={{ paddingLeft: 34, paddingBottom: 6 }}>
-                                <WeightPicker value={selectedItems[t.id]} onChange={w => setSelectedItems(p => ({ ...p, [t.id]: w }))} colors={c} />
+                                <WeightPicker value={selectedItems[topic.id]} onChange={w => setSelectedItems(p => ({ ...p, [topic.id]: w }))} colors={c} weightLabels={t.planCreateWeightLabels} />
                               </View>
                             )}
                           </View>
