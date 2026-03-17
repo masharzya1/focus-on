@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Dimensions, TouchableOpacity,
-  ScrollView, Platform,
+  ScrollView, Platform, Image,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming,
@@ -16,25 +16,25 @@ import { FONTS } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
-const SLIDE_ICONS = [
-  { id: 'welcome',  icon: 'sparkles'         as const, iconColor: '#7C6FF7', bg: '#EAE8FF' },
-  { id: 'home',     icon: 'home'             as const, iconColor: '#40AEFF', bg: '#E4F4FF' },
-  { id: 'subjects', icon: 'book'             as const, iconColor: '#30D9A4', bg: '#E4FAF3' },
-  { id: 'timer',    icon: 'timer'            as const, iconColor: '#7C6FF7', bg: '#EAE8FF' },
-  { id: 'plan',     icon: 'calendar'         as const, iconColor: '#FF8C42', bg: '#FFF0E6' },
-  { id: 'block',    icon: 'shield-checkmark' as const, iconColor: '#FF5F6D', bg: '#FFE8EE' },
+const SLIDE_DATA = [
+  { id: 'welcome',  src: require('@/assets/images/illus-student-desk.png'),  bg: '#EAE8FF' },
+  { id: 'home',     src: require('@/assets/images/illus-hero-reading.png'),  bg: '#E4FAF3' },
+  { id: 'subjects', src: require('@/assets/images/illus-cat-books.png'),     bg: '#FFF0E6' },
+  { id: 'timer',    src: require('@/assets/images/illus-clock.png'),         bg: '#FFE8EE' },
+  { id: 'plan',     src: require('@/assets/images/illus-planner.png'),       bg: '#FFF8E0' },
+  { id: 'block',    src: require('@/assets/images/illus-shield.png'),        bg: '#E4F4FF' },
 ];
 
-function AnimatedIcon({ icon, color, bg }: { icon: any; color: string; bg: string }) {
-  const scale = useSharedValue(0.8);
+function AnimatedIllustration({ src, bg }: { src: any; bg: string }) {
   const translateY = useSharedValue(0);
+  const scale      = useSharedValue(0.85);
 
   React.useEffect(() => {
-    scale.value = withSpring(1, { damping: 10, stiffness: 100 });
+    scale.value = withSpring(1, { damping: 10, stiffness: 90 });
     translateY.value = withRepeat(
       withSequence(
-        withTiming(-10, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0,   { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-12, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0,   { duration: 1600, easing: Easing.inOut(Easing.sin) }),
       ), -1, true
     );
   }, []);
@@ -44,8 +44,8 @@ function AnimatedIcon({ icon, color, bg }: { icon: any; color: string; bg: strin
   }));
 
   return (
-    <Animated.View style={[styles.iconContainer, { backgroundColor: bg }, anim]}>
-      <Ionicons name={icon} size={72} color={color} />
+    <Animated.View style={[styles.illustrationWrap, { backgroundColor: bg }, anim]}>
+      <Image source={src} style={styles.illustrationImg} resizeMode="contain" />
     </Animated.View>
   );
 }
@@ -63,7 +63,7 @@ function LangPickerSlide({ colors: c, onPick }: {
 
   return (
     <View style={[styles.slide, { width }]}>
-      <View style={[styles.iconContainer, { backgroundColor: '#EAE8FF', marginBottom: 40 }]}>
+      <View style={[styles.illustrationWrap, { backgroundColor: '#EAE8FF', marginBottom: 40 }]}>
         <Ionicons name="globe-outline" size={72} color="#7C6FF7" />
       </View>
 
@@ -127,7 +127,7 @@ export default function OnboardingScreen() {
   const { setLanguage, t } = useLanguage();
   const router = useRouter();
   const [current, setCurrent] = useState(0);
-  const TOTAL = 1 + SLIDE_ICONS.length;
+  const TOTAL = 1 + SLIDE_DATA.length;
   const scrollRef = useRef<ScrollView>(null);
 
   const goTo = (index: number) => {
@@ -158,11 +158,11 @@ export default function OnboardingScreen() {
       >
         <LangPickerSlide colors={colors} onPick={handleLangPick} />
 
-        {SLIDE_ICONS.map((slide, i) => {
+        {SLIDE_DATA.map((slide, i) => {
           const content = t.onboarding[i];
           return (
             <View key={slide.id} style={[styles.slide, { width }]}>
-              <AnimatedIcon icon={slide.icon} color={slide.iconColor} bg={slide.bg} />
+              <AnimatedIllustration src={slide.src} bg={slide.bg} />
               <Text style={[styles.title, { color: colors.text }]}>{content.title}</Text>
               <Text style={[styles.desc, { color: colors.textMuted }]}>{content.desc}</Text>
             </View>
@@ -172,7 +172,7 @@ export default function OnboardingScreen() {
 
       {!isLangSlide && (
         <View style={styles.dotsRow}>
-          {SLIDE_ICONS.map((_, i) => (
+          {SLIDE_DATA.map((_, i) => (
             <TouchableOpacity key={i} onPress={() => goTo(i + 1)}>
               <View style={[styles.dot,
                 { backgroundColor: i + 1 === current ? colors.accent : colors.border,
@@ -208,12 +208,13 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 40, paddingBottom: 80,
   },
-  iconContainer: {
-    width: 160, height: 160, borderRadius: 48,
+  illustrationWrap: {
+    width: 180, height: 180, borderRadius: 52,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 40,
-    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 20, elevation: 6,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 24, elevation: 8,
   },
+  illustrationImg: { width: 150, height: 150 },
   title: {
     fontSize: 28, fontFamily: FONTS.bold,
     textAlign: 'center', letterSpacing: -0.5, marginBottom: 16,
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     fontSize: 22, fontFamily: FONTS.bold,
     textAlign: 'center', marginTop: -8, marginBottom: 36,
   },
-  desc: { fontSize: 16, textAlign: 'center', lineHeight: 26 },
+  desc: { fontSize: 16, textAlign: 'center', lineHeight: 26, fontFamily: FONTS.regular },
   langRow: { flexDirection: 'row', gap: 16, marginBottom: 28, width: '100%' },
   langCard: {
     flex: 1, alignItems: 'center', padding: 24, borderRadius: 20,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Modal, TextInput, Pressable, Platform, KeyboardAvoidingView,
+  Modal, TextInput, Pressable, Platform, KeyboardAvoidingView, Image,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -192,9 +192,11 @@ export default function SubjectsScreen() {
 
       {state.subjects.length === 0 ? (
         <View style={styles.empty}>
-          <View style={[styles.emptyIllustration, { backgroundColor: c.accentSoft }]}>
-            <Ionicons name="book-outline" size={48} color={c.accent} />
-          </View>
+          <Image
+            source={require('@/assets/images/illus-cat-books.png')}
+            style={styles.emptyImg}
+            resizeMode="contain"
+          />
           <Text style={[styles.emptyTitle, { color: c.text }]}>No subjects yet</Text>
           <Text style={[styles.emptySub, { color: c.textMuted }]}>Add your first subject to start tracking progress</Text>
           <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: c.accent }]} onPress={() => setShowCreate(true)}>
@@ -296,7 +298,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, fontFamily: FONTS.regular, marginTop: 3 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 10, borderRadius: RADIUS.lg },
   addTxt: { color: '#fff', fontFamily: FONTS.bold, fontSize: 14 },
-  list: { paddingHorizontal: 20, paddingBottom: 100 },
+  list: { paddingHorizontal: 20, paddingBottom: 130 },
 
   card: {
     borderRadius: RADIUS.xl, marginBottom: 12,
@@ -317,7 +319,7 @@ const styles = StyleSheet.create({
   editBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  emptyIllustration: { width: 100, height: 100, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyImg: { width: 180, height: 160, marginBottom: 4 },
   emptyTitle: { fontSize: 20, fontFamily: FONTS.bold },
   emptySub: { fontSize: 14, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 22 },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.lg, marginTop: 8 },

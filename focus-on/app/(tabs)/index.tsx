@@ -442,11 +442,13 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Illustration placeholder — replace with Icons8 3D image */}
+          {/* Hero illustration */}
           <View style={S.heroIllustrationSlot}>
-            <View style={S.heroIllustrationPlaceholder}>
-              <Ionicons name="book" size={48} color="rgba(255,255,255,0.5)" />
-            </View>
+            <Image
+              source={require('@/assets/images/illus-hero-reading.png')}
+              style={S.heroIllustrationImg}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Decorative circles */}
@@ -657,10 +659,11 @@ export default function HomeScreen() {
       {/* ── Empty State ── */}
       {todayTasks.length === 0 && (
         <Animated.View entering={FadeInDown.delay(160).springify()} style={[S.emptyCard, { backgroundColor: c.bgCard }]}>
-          {/* Illustration placeholder — replace with Icons8 3D empty state image */}
-          <View style={S.emptyIllustration}>
-            <Ionicons name="calendar-outline" size={56} color={c.accent + '60'} />
-          </View>
+          <Image
+            source={require('@/assets/images/illus-cat-books.png')}
+            style={S.emptyIllustrationImg}
+            resizeMode="contain"
+          />
           <Text style={[S.emptyTitle, { color: c.text }]}>{t.homeNoPlan}</Text>
           <Text style={[S.emptySub, { color: c.textMuted }]}>Create your first study plan to get started</Text>
           <TouchableOpacity
@@ -689,7 +692,7 @@ export default function HomeScreen() {
 
 const S = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 50, paddingBottom: 32, gap: 14 },
+  content: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 50, paddingBottom: 110, gap: 14 },
 
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 },
@@ -703,7 +706,7 @@ const S = StyleSheet.create({
   xpNum: { fontSize: 13, fontFamily: FONTS.bold },
 
   // Hero
-  heroCard: { borderRadius: RADIUS.xxl, padding: 24, minHeight: 170, flexDirection: 'row', overflow: 'hidden' },
+  heroCard: { borderRadius: RADIUS.xxl, padding: 24, minHeight: 185, flexDirection: 'row', overflow: 'hidden' },
   heroLabel: { fontSize: 10, fontFamily: FONTS.bold, color: 'rgba(255,255,255,0.65)', letterSpacing: 1.5, marginBottom: 6, textTransform: 'uppercase' },
   heroTitle: { fontSize: 24, fontFamily: FONTS.bold, color: '#fff', letterSpacing: -0.5, marginBottom: 12 },
   heroProgBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
@@ -711,8 +714,8 @@ const S = StyleSheet.create({
   heroSub: { fontSize: 12, fontFamily: FONTS.regular, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
   heroBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full },
   heroBtnTxt: { fontSize: 13, fontFamily: FONTS.bold, color: '#7C6FF7' },
-  heroIllustrationSlot: { width: 90, alignItems: 'flex-end', justifyContent: 'flex-end' },
-  heroIllustrationPlaceholder: { width: 80, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  heroIllustrationSlot: { width: 110, alignItems: 'center', justifyContent: 'flex-end' },
+  heroIllustrationImg: { width: 115, height: 155, marginBottom: -24, marginRight: -12 },
   heroDeco1: { position: 'absolute', width: 120, height: 120, borderRadius: 60, right: -30, top: -30 },
   heroDeco2: { position: 'absolute', width: 80, height: 80, borderRadius: 40, right: 60, bottom: -20 },
 
@@ -764,7 +767,7 @@ const S = StyleSheet.create({
 
   // Empty
   emptyCard: { borderRadius: RADIUS.xxl, padding: 36, alignItems: 'center', gap: 10 },
-  emptyIllustration: { width: 100, height: 100, borderRadius: 24, backgroundColor: '#EAE8FF', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyIllustrationImg: { width: 150, height: 140, marginBottom: 4 },
   emptyTitle: { fontSize: 18, fontFamily: FONTS.bold, textAlign: 'center' },
   emptySub: { fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.lg },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Pressable,
-  Platform, ScrollView,
+  Platform, ScrollView, Image,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, FadeInDown, FadeInUp,
@@ -499,7 +499,7 @@ export default function TimerScreen() {
         />
       </Animated.View>
 
-      <View style={{ height: Platform.OS === 'ios' ? 40 : 24 }} />
+      <View style={{ height: Platform.OS === 'ios' ? 110 : 100 }} />
 
       {/* Subject Picker */}
       <SubjectPicker
@@ -559,7 +559,11 @@ export default function TimerScreen() {
         <View style={styles.completeBg}>
           <Animated.View entering={FadeInUp.springify()}
             style={[styles.completeCard, { backgroundColor: c.bgCard }]}>
-            <Text style={{ fontSize: 52 }}>🎉</Text>
+            <Image
+              source={require('@/assets/images/illus-clock.png')}
+              style={{ width: 110, height: 110 }}
+              resizeMode="contain"
+            />
             <Text style={[styles.completeTitle, { color: c.text }]}>{t.timerComplete}</Text>
             {effectiveTopicName && (
               <View style={[styles.completeBadge, { backgroundColor: (effectiveColor ?? c.accent) + '18' }]}>
