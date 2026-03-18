@@ -736,8 +736,61 @@ export default function HomeScreen() {
                 Welcome, {firstName}!
               </Text>
               <Text style={[S.heroSub, { textAlign: 'center', opacity: 0.9 }]}>
-                Let's get your first study session set up. It only takes a minute.
+                Your smart study companion — from planning to focus.
               </Text>
+            </View>
+          </Animated.View>
+
+          {/* App intro — what Focus On does */}
+          <Animated.View entering={FadeInDown.delay(60).springify()}>
+            <View style={[S.introCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Text style={[S.introHeading, { color: c.text }]}>Focus On কী করে?</Text>
+              {([
+                {
+                  icon: 'calendar-outline' as const,
+                  color: '#7B83E0',
+                  bg: '#7B83E018',
+                  title: 'স্মার্ট স্টাডি প্ল্যান',
+                  sub: 'পরীক্ষার তারিখ দিলে অটো-শিডিউল তৈরি করে দেয়',
+                },
+                {
+                  icon: 'timer-outline' as const,
+                  color: '#F97316',
+                  bg: '#F9731618',
+                  title: 'পোমোডোরো ফোকাস টাইমার',
+                  sub: 'মনোযোগ দিয়ে পড়ো, XP ও স্ট্রিক আর্ন করো',
+                },
+                {
+                  icon: 'bar-chart-outline' as const,
+                  color: '#22C55E',
+                  bg: '#22C55E18',
+                  title: 'প্রোগ্রেস ট্র্যাকিং',
+                  sub: 'কতটুকু পড়লে, কতটা বাকি — সব দেখা যায়',
+                },
+                {
+                  icon: 'shield-outline' as const,
+                  color: '#EC4899',
+                  bg: '#EC489918',
+                  title: 'অ্যাপ ব্লকার (Android)',
+                  sub: 'পড়ার সময় বিরক্তিকর অ্যাপ ব্লক করে রাখে',
+                },
+              ] as const).map((feat, i) => (
+                <View
+                  key={feat.title}
+                  style={[
+                    S.introRow,
+                    { borderTopColor: c.border, borderTopWidth: i > 0 ? StyleSheet.hairlineWidth : 0 },
+                  ]}
+                >
+                  <View style={[S.introIcon, { backgroundColor: feat.bg }]}>
+                    <Ionicons name={feat.icon} size={18} color={feat.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.introTitle, { color: c.text }]}>{feat.title}</Text>
+                    <Text style={[S.introSub, { color: c.textMuted }]}>{feat.sub}</Text>
+                  </View>
+                </View>
+              ))}
             </View>
           </Animated.View>
 
