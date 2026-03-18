@@ -145,11 +145,10 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   iconOuter: {
     width: 44,
-    height: 44,
+    height: 62,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    marginTop: -8,
   },
   dot: {
     width: 4,
@@ -159,7 +158,7 @@ const styles = StyleSheet.create({
   centerOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
+    marginTop: -20,
   },
   centerBtn: {
     width: 52,
