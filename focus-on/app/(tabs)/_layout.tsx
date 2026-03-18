@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+    marginTop: -8,
   },
   dot: {
     width: 4,
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   centerOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -20,
+    marginTop: -24,
   },
   centerBtn: {
     width: 52,
