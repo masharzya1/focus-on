@@ -1,4 +1,4 @@
-import { Tabs, usePathname } from 'expo-router';
+import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,74 +10,64 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
 
-const TAB_ICONS: Record<string, { active: any; inactive: any; color: string }> = {
-  index:     { active: 'home',           inactive: 'home-outline',           color: '#9B90FF' },
-  subjects:  { active: 'book',           inactive: 'book-outline',           color: '#30D9A4' },
-  timer:     { active: 'timer',          inactive: 'timer-outline',          color: '#FFFFFF' },
-  plan:      { active: 'calendar',       inactive: 'calendar-outline',       color: '#FF8C42' },
-  'app-block':{ active: 'shield',        inactive: 'shield-outline',         color: '#FF5F6D' },
+const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
+  index:      { active: 'home',     inactive: 'home-outline'     },
+  subjects:   { active: 'book',     inactive: 'book-outline'     },
+  timer:      { active: 'timer',    inactive: 'timer-outline'    },
+  plan:       { active: 'calendar', inactive: 'calendar-outline' },
+  'app-block':{ active: 'shield',   inactive: 'shield-outline'   },
 };
 
 function TabIcon({ name, focused, tabName }: {
   name: string; focused: boolean; tabName: string;
 }) {
-  const cfg   = TAB_ICONS[tabName] ?? { active: name, inactive: name, color: '#9B90FF' };
+  const { colors } = useTheme();
+  const cfg   = TAB_ICONS[tabName] ?? { active: name, inactive: name };
   const scale = useSharedValue(1);
-  const bg    = useSharedValue(0);
 
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.12 : 1, { damping: 12, stiffness: 220 });
-    bg.value    = withTiming(focused ? 1 : 0, { duration: 180 });
+    scale.value = withSpring(focused ? 1.1 : 1, { damping: 14, stiffness: 240 });
   }, [focused]);
 
-  const animWrap = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const animBg = useAnimatedStyle(() => ({
-    opacity: bg.value,
-  }));
+  const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <View style={styles.iconOuter}>
-      <Animated.View style={[
-        styles.iconBg,
-        { backgroundColor: cfg.color + '20' },
-        animBg,
-      ]} />
-      <Animated.View style={animWrap}>
+      <Animated.View style={anim}>
         <Ionicons
           name={focused ? cfg.active : cfg.inactive}
-          size={24}
-          color={focused ? cfg.color : '#B0A8D0'}
+          size={22}
+          color={focused ? colors.accent : colors.textFaint}
         />
       </Animated.View>
+      {focused && (
+        <Animated.View
+          style={[styles.dot, { backgroundColor: colors.accent }]}
+          entering={undefined}
+        />
+      )}
     </View>
   );
 }
 
 function CenterTabIcon({ focused }: { focused: boolean }) {
+  const { colors } = useTheme();
   const scale = useSharedValue(1);
   useEffect(() => {
-    scale.value = withSpring(focused ? 1.08 : 1, { damping: 10, stiffness: 200 });
+    scale.value = withSpring(focused ? 1.08 : 1, { damping: 12, stiffness: 220 });
   }, [focused]);
   const anim = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { translateY: withTiming(focused ? -2 : 0, { duration: 200 }) }],
+    transform: [{ scale: scale.value }],
+    shadowOpacity: withTiming(focused ? 0.4 : 0.2, { duration: 180 }),
   }));
   return (
     <View style={styles.centerOuter}>
       <Animated.View style={[
         styles.centerBtn,
-        {
-          backgroundColor: '#9B90FF',
-          shadowColor: '#9B90FF',
-          shadowOpacity: focused ? 0.55 : 0.28,
-          shadowOffset: { width: 0, height: 6 },
-          shadowRadius: 16,
-          elevation: 14,
-        },
+        { backgroundColor: colors.accent, shadowColor: colors.accent },
         anim,
       ]}>
-        <Ionicons name="timer" size={26} color="#fff" />
+        <Ionicons name="timer" size={24} color="#fff" />
       </Animated.View>
     </View>
   );
@@ -87,8 +77,7 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const t = useT();
   const { bottom: bottomInset } = useSafeAreaInsets();
-
-  const floatBottom = (bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 20 : 16) + 8;
+  const floatBottom = (bottomInset > 0 ? bottomInset : Platform.OS === 'ios' ? 20 : 14) + 6;
 
   return (
     <Tabs
@@ -99,17 +88,19 @@ export default function TabLayout() {
         tabBarStyle: {
           position: 'absolute',
           bottom: floatBottom,
-          left: 28,
-          right: 28,
-          height: 68,
+          left: 24,
+          right: 24,
+          height: 62,
           borderRadius: 999,
           backgroundColor: colors.tabBg,
           borderTopWidth: 0,
-          elevation: 20,
-          shadowColor: '#7060C8',
-          shadowOpacity: 0.18,
-          shadowOffset: { width: 0, height: 8 },
-          shadowRadius: 24,
+          borderWidth: 1,
+          borderColor: colors.tabBorder,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.08,
+          shadowOffset: { width: 0, height: 4 },
+          shadowRadius: 16,
           paddingBottom: 0,
           paddingTop: 0,
           overflow: 'visible',
@@ -117,19 +108,10 @@ export default function TabLayout() {
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          height: 68,
+          height: 62,
           paddingVertical: 0,
           flex: 1,
         },
-        tabBarBackground: () => (
-          <View style={{
-            flex: 1,
-            borderRadius: 999,
-            backgroundColor: colors.tabBg,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }} />
-        ),
       }}
     >
       <Tabs.Screen name="index" options={{ title: t.tabHome,
@@ -159,27 +141,30 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   iconOuter: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBg: {
-    position: 'absolute',
     width: 44,
     height: 44,
-    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   centerOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -18,
+    marginTop: -20,
   },
   centerBtn: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 14,
+    elevation: 12,
   },
 });

@@ -7,7 +7,6 @@ import Animated, {
   FadeInDown, useSharedValue, useAnimatedStyle,
   withTiming, withRepeat, withSequence, withSpring,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -100,7 +99,7 @@ function ActiveTaskBanner({ task, onPress, t }: { task: ActiveTask; onPress: () 
               </Text>
             )}
           </View>
-          <Text style={[S.bannerTopic, { color: '#2D2860' }]} numberOfLines={1}>{task.topicName}</Text>
+          <Text style={[S.bannerTopic, { color: '#111318' }]} numberOfLines={1}>{task.topicName}</Text>
           <Text style={[S.bannerSubject, { color: task.subjectColor }]}>{task.subjectName}</Text>
         </View>
         <View style={[S.bannerBtn, { backgroundColor: task.subjectColor }]}>
@@ -394,31 +393,27 @@ export default function HomeScreen() {
         </View>
         <View style={S.headerRight}>
           <TouchableOpacity
-            style={[S.streakPill, { backgroundColor: '#FFF0E6' }]}
+            style={[S.streakPill, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push('/(tabs)/profile')}>
-            <Ionicons name="flame" size={16} color="#FF8C42" />
-            <Text style={[S.streakNum, { color: '#CC5500' }]}>{state.streak}</Text>
+            <Ionicons name="flame" size={14} color={c.streakColor} />
+            <Text style={[S.streakNum, { color: c.text }]}>{state.streak}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[S.xpPill, { backgroundColor: '#FFF8E0' }]}
+            style={[S.xpPill, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push('/(tabs)/profile')}>
-            <Text style={[S.xpNum, { color: '#8A5C00' }]}>{state.xp} XP</Text>
+            <Text style={[S.xpNum, { color: c.text }]}>{state.xp} XP</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[S.avatarBtn, { backgroundColor: c.accentSoft }]}
+            style={[S.avatarBtn, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push('/(tabs)/profile')}>
-            <Ionicons name="person" size={18} color={c.accent} />
+            <Ionicons name="person" size={16} color={c.textMuted} />
           </TouchableOpacity>
         </View>
       </Animated.View>
 
       {/* ── Hero Card ── */}
       <Animated.View entering={FadeInDown.delay(40).springify()}>
-        <LinearGradient
-          colors={['#B0A8FF', '#CCC8FF']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={S.heroCard}
-        >
+        <View style={[S.heroCard, { backgroundColor: c.accent }]}>
           <View style={{ flex: 1 }}>
             <Text style={S.heroLabel}>TODAY'S GOAL</Text>
             <Text style={S.heroTitle}>
@@ -429,101 +424,88 @@ export default function HomeScreen() {
             <View style={S.heroProgBg}>
               <View style={[S.heroProgFill, {
                 width: `${Math.round(progress * 100)}%`,
-                backgroundColor: progress >= 1 ? '#30D9A4' : '#fff',
+                backgroundColor: progress >= 1 ? '#fff' : 'rgba(255,255,255,0.9)',
               }]} />
             </View>
             <Text style={S.heroSub}>
-              {Math.round(progress * 100)}% complete · {todayMin}m studied
+              {Math.round(progress * 100)}% · {todayMin}m studied today
             </Text>
             <TouchableOpacity
               style={S.heroBtn}
               onPress={() => router.push('/(tabs)/plan')}
               activeOpacity={0.85}
             >
-              <Text style={S.heroBtnTxt}>
+              <Text style={[S.heroBtnTxt, { color: c.accent }]}>
                 {todayTasks.length > 0 ? 'View plan' : 'Create plan'}
               </Text>
-              <Ionicons name="arrow-forward" size={13} color="#7C6FF7" />
+              <Ionicons name="arrow-forward" size={13} color={c.accent} />
             </TouchableOpacity>
           </View>
-
-          {/* Hero illustration */}
-          <View style={S.heroIllustrationSlot}>
-            <Image
-              source={require('@/assets/images/illus-hero-reading.webp')}
-              style={S.heroIllustrationImg}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Decorative circles */}
-          <View style={[S.heroDeco1, { backgroundColor: 'rgba(255,255,255,0.07)' }]} />
-          <View style={[S.heroDeco2, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
-        </LinearGradient>
+        </View>
       </Animated.View>
 
       {/* ── Alert banners ── */}
       {examDayPlans.map((p, i) => (
         <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
           <TouchableOpacity
-            style={[S.alertCard, { backgroundColor: '#FFF8E0', borderColor: '#FFCB47' + '60' }]}
+            style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })}>
-            <View style={[S.alertIcon, { backgroundColor: '#FFF0B3' }]}>
-              <Ionicons name="flag" size={18} color="#8A5C00" />
+            <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="flag" size={18} color={c.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#8A5C00' }]}>Exam day — {p.examName}!</Text>
-              <Text style={[S.alertSub, { color: '#A07000' }]}>Focus on what you know. You've got this!</Text>
+              <Text style={[S.alertTitle, { color: c.text }]}>Exam day — {p.examName}!</Text>
+              <Text style={[S.alertSub, { color: c.textMuted }]}>Focus on what you know. You've got this!</Text>
             </View>
-            <Ionicons name="chevron-forward" size={15} color="#A07000" />
+            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
           </TouchableOpacity>
         </Animated.View>
       ))}
       {examSoonPlans.map((p, i) => (
         <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
           <TouchableOpacity
-            style={[S.alertCard, { backgroundColor: '#FFE8EE', borderColor: '#FF5F6D' + '40' }]}
+            style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push({ pathname: '/plan/[id]', params: { id: p.id } })}>
-            <View style={[S.alertIcon, { backgroundColor: '#FFD0D8' }]}>
-              <Ionicons name="warning" size={18} color="#C05080" />
+            <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
+              <Ionicons name="warning" size={18} color={c.destructive} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#C05080' }]}>Exam tomorrow — {p.examName}!</Text>
-              <Text style={[S.alertSub, { color: '#B42040' }]}>Last day to revise. Make it count.</Text>
+              <Text style={[S.alertTitle, { color: c.text }]}>Exam tomorrow — {p.examName}!</Text>
+              <Text style={[S.alertSub, { color: c.textMuted }]}>Last day to revise. Make it count.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={15} color="#B42040" />
+            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
           </TouchableOpacity>
         </Animated.View>
       ))}
       {missedCount > 0 && examDayPlans.length === 0 && (
         <Animated.View entering={FadeInDown.delay(60).springify()}>
           <TouchableOpacity
-            style={[S.alertCard, { backgroundColor: '#FFE8EE', borderColor: '#FF5F6D' + '40' }]}
+            style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => router.push('/(tabs)/plan')}>
-            <View style={[S.alertIcon, { backgroundColor: '#FFD0D8' }]}>
-              <Ionicons name="alert-circle" size={18} color="#C05080" />
+            <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
+              <Ionicons name="alert-circle" size={18} color={c.destructive} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#C05080' }]}>{missedCount} missed task{missedCount > 1 ? 's' : ''}</Text>
-              <Text style={[S.alertSub, { color: '#B42040' }]}>Tap to reschedule from your plan</Text>
+              <Text style={[S.alertTitle, { color: c.text }]}>{missedCount} missed task{missedCount > 1 ? 's' : ''}</Text>
+              <Text style={[S.alertSub, { color: c.textMuted }]}>Tap to reschedule from your plan</Text>
             </View>
-            <Ionicons name="chevron-forward" size={15} color="#B42040" />
+            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
           </TouchableOpacity>
         </Animated.View>
       )}
       {needsRoutine && (
         <Animated.View entering={FadeInDown.delay(70).springify()}>
           <TouchableOpacity
-            style={[S.alertCard, { backgroundColor: '#FFF8E0', borderColor: '#FFCB47' + '50' }]}
+            style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
             onPress={() => setShowRoutine(true)}>
-            <View style={[S.alertIcon, { backgroundColor: '#FFF0B3' }]}>
-              <Ionicons name="time" size={18} color="#8A5C00" />
+            <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
+              <Ionicons name="time" size={18} color={c.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: '#8A5C00' }]}>{t.homeRoutineBannerTitle}</Text>
-              <Text style={[S.alertSub, { color: '#A07000' }]}>{t.homeRoutineBannerSub(unscheduledTasks.length)}</Text>
+              <Text style={[S.alertTitle, { color: c.text }]}>{t.homeRoutineBannerTitle}</Text>
+              <Text style={[S.alertSub, { color: c.textMuted }]}>{t.homeRoutineBannerSub(unscheduledTasks.length)}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={15} color="#A07000" />
+            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -546,20 +528,20 @@ export default function HomeScreen() {
 
       {/* ── Quick Stats Row ── */}
       <Animated.View entering={FadeInDown.delay(120).springify()} style={S.statsRow}>
-        <View style={[S.statCard, { backgroundColor: '#E4FAF3' }]}>
-          <Ionicons name="time-outline" size={18} color="#14B888" />
-          <Text style={[S.statNum, { color: '#0C6E4E' }]}>{todayMin}m</Text>
-          <Text style={[S.statLabel, { color: '#14B888' }]}>Studied</Text>
+        <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+          <Ionicons name="time-outline" size={18} color={c.accent} />
+          <Text style={[S.statNum, { color: c.text }]}>{todayMin}m</Text>
+          <Text style={[S.statLabel, { color: c.textMuted }]}>Studied</Text>
         </View>
-        <View style={[S.statCard, { backgroundColor: '#EAE8FF' }]}>
-          <Ionicons name="checkmark-circle-outline" size={18} color="#7C6FF7" />
-          <Text style={[S.statNum, { color: '#6058D8' }]}>{completedToday}</Text>
-          <Text style={[S.statLabel, { color: '#7C6FF7' }]}>Done</Text>
+        <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+          <Ionicons name="checkmark-circle-outline" size={18} color={c.accent} />
+          <Text style={[S.statNum, { color: c.text }]}>{completedToday}</Text>
+          <Text style={[S.statLabel, { color: c.textMuted }]}>Done</Text>
         </View>
-        <View style={[S.statCard, { backgroundColor: '#FFF0E6' }]}>
-          <Ionicons name="flame-outline" size={18} color="#FF8C42" />
-          <Text style={[S.statNum, { color: '#954A00' }]}>{state.streak}d</Text>
-          <Text style={[S.statLabel, { color: '#FF8C42' }]}>Streak</Text>
+        <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+          <Ionicons name="flame-outline" size={18} color={c.streakColor} />
+          <Text style={[S.statNum, { color: c.text }]}>{state.streak}d</Text>
+          <Text style={[S.statLabel, { color: c.textMuted }]}>Streak</Text>
         </View>
       </Animated.View>
 
@@ -586,13 +568,14 @@ export default function HomeScreen() {
             const isActive    = activeTask?.taskId === task.id;
             const p           = pastelFor(i);
 
+            const subjectColor = subject?.color ?? c.accent;
             return (
               <Animated.View key={task.id} entering={FadeInDown.delay(150 + i * 35).springify()}>
                 <TouchableOpacity
                   style={[
                     S.taskCard,
-                    { backgroundColor: task.completed ? c.bgSecondary : p.bg },
-                    isActive && { shadowColor: p.dot, shadowOpacity: 0.2, shadowRadius: 10, elevation: 4 },
+                    { backgroundColor: c.bgCard, borderColor: c.border },
+                    task.completed && { opacity: 0.55 },
                   ]}
                   onPress={() => {
                     if (!task.completed && subject) {
@@ -609,11 +592,12 @@ export default function HomeScreen() {
                     }
                   }}
                   activeOpacity={0.82}>
+                  <View style={[S.taskStrip, { backgroundColor: subjectColor }]} />
                   <View style={[
                     S.taskCheck,
                     task.completed
-                      ? { backgroundColor: '#30D9A4', borderColor: '#30D9A4' }
-                      : { backgroundColor: 'transparent', borderColor: p.dot },
+                      ? { backgroundColor: c.success, borderColor: c.success }
+                      : { backgroundColor: 'transparent', borderColor: c.border },
                   ]}>
                     {task.completed && <Ionicons name="checkmark" size={11} color="#fff" />}
                   </View>
@@ -621,31 +605,31 @@ export default function HomeScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[
                       S.taskName,
-                      { color: task.completed ? c.textFaint : p.text },
-                      task.completed && { textDecorationLine: 'line-through', opacity: 0.5 },
+                      { color: task.completed ? c.textMuted : c.text },
+                      task.completed && { textDecorationLine: 'line-through' },
                     ]} numberOfLines={1}>
                       {displayName}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                      <View style={[S.subjectChip, { backgroundColor: p.dot + '22' }]}>
-                        <View style={[S.subjectDot, { backgroundColor: p.dot }]} />
-                        <Text style={[S.subjectName, { color: p.text }]} numberOfLines={1}>
+                      <View style={[S.subjectChip, { backgroundColor: c.bgSecondary }]}>
+                        <View style={[S.subjectDot, { backgroundColor: subjectColor }]} />
+                        <Text style={[S.subjectName, { color: c.textMuted }]} numberOfLines={1}>
                           {subject?.name}
                         </Text>
                       </View>
                       {task.startTime && (
-                        <Text style={[S.taskTime, { color: p.dot }]}>{task.startTime}</Text>
+                        <Text style={[S.taskTime, { color: c.textFaint }]}>{task.startTime}</Text>
                       )}
                     </View>
                   </View>
 
                   {isActive && !task.completed && (
-                    <View style={[S.playBtn, { backgroundColor: p.dot }]}>
-                      <Ionicons name="play" size={11} color="#fff" />
+                    <View style={[S.playBtn, { backgroundColor: c.accentSoft }]}>
+                      <Ionicons name="play" size={11} color={c.accent} />
                     </View>
                   )}
                   {task.completed && (
-                    <Ionicons name="checkmark-circle" size={18} color="#30D9A4" />
+                    <Ionicons name="checkmark-circle" size={18} color={c.success} />
                   )}
                 </TouchableOpacity>
               </Animated.View>
@@ -700,83 +684,80 @@ const S = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 64 : 50, paddingBottom: 110, gap: 14 },
 
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 },
-  greetRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  greetTxt: { fontSize: 13, fontFamily: FONTS.regular },
-  titleName: { fontSize: 30, fontFamily: FONTS.bold, letterSpacing: -0.8 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8 },
-  streakPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADIUS.full },
-  streakNum: { fontSize: 14, fontFamily: FONTS.bold },
-  xpPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADIUS.full },
-  xpNum: { fontSize: 13, fontFamily: FONTS.bold },
-  avatarBtn: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  greetRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  greetTxt: { fontSize: 12, fontFamily: FONTS.regular },
+  titleName: { fontSize: 26, fontFamily: FONTS.bold, letterSpacing: -0.5 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  streakPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, borderWidth: 1 },
+  streakNum: { fontSize: 13, fontFamily: FONTS.bold },
+  xpPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, borderWidth: 1 },
+  xpNum: { fontSize: 12, fontFamily: FONTS.bold },
+  avatarBtn: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 
   // Hero
-  heroCard: { borderRadius: RADIUS.xxl, padding: 24, minHeight: 185, flexDirection: 'row', overflow: 'hidden' },
-  heroLabel: { fontSize: 10, fontFamily: FONTS.bold, color: 'rgba(255,255,255,0.65)', letterSpacing: 1.5, marginBottom: 6, textTransform: 'uppercase' },
-  heroTitle: { fontSize: 24, fontFamily: FONTS.bold, color: '#fff', letterSpacing: -0.5, marginBottom: 12 },
-  heroProgBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
-  heroProgFill: { height: '100%', borderRadius: 3 },
+  heroCard: { borderRadius: RADIUS.xl, padding: 22, minHeight: 140, overflow: 'hidden' },
+  heroLabel: { fontSize: 10, fontFamily: FONTS.bold, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.5, marginBottom: 6, textTransform: 'uppercase' },
+  heroTitle: { fontSize: 22, fontFamily: FONTS.bold, color: '#fff', letterSpacing: -0.4, marginBottom: 12 },
+  heroProgBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 2, overflow: 'hidden', marginBottom: 8 },
+  heroProgFill: { height: '100%', borderRadius: 2 },
   heroSub: { fontSize: 12, fontFamily: FONTS.regular, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
-  heroBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full },
-  heroBtnTxt: { fontSize: 13, fontFamily: FONTS.bold, color: '#7C6FF7' },
-  heroIllustrationSlot: { width: 110, alignItems: 'center', justifyContent: 'flex-end' },
-  heroIllustrationImg: { width: 115, height: 155, marginBottom: -24, marginRight: -12 },
-  heroDeco1: { position: 'absolute', width: 120, height: 120, borderRadius: 60, right: -30, top: -30 },
-  heroDeco2: { position: 'absolute', width: 80, height: 80, borderRadius: 40, right: 60, bottom: -20 },
+  heroBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full },
+  heroBtnTxt: { fontSize: 13, fontFamily: FONTS.bold },
 
   // Alerts
-  alertCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: RADIUS.xl, borderWidth: 1.5 },
-  alertIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  alertTitle: { fontSize: 13, fontFamily: FONTS.bold, marginBottom: 2 },
+  alertCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: RADIUS.lg, borderWidth: 1 },
+  alertIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  alertTitle: { fontSize: 13, fontFamily: FONTS.semibold, marginBottom: 1 },
   alertSub: { fontSize: 12, fontFamily: FONTS.regular },
 
   // Active banner
-  activeBanner: { borderRadius: RADIUS.xl, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14, overflow: 'hidden' },
-  bannerAccent: { width: 4, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
-  bannerIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
-  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  activeBanner: { borderRadius: RADIUS.lg, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingRight: 12, overflow: 'hidden' },
+  bannerAccent: { width: 3, height: '100%', position: 'absolute', left: 0, top: 0, bottom: 0 },
+  bannerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginLeft: 14 },
+  liveDot: { width: 5, height: 5, borderRadius: 3 },
   bannerLive: { fontSize: 10, fontFamily: FONTS.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  bannerTopic: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 1 },
-  bannerSubject: { fontSize: 11, fontFamily: FONTS.medium },
-  bannerBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  bannerTopic: { fontSize: 14, fontFamily: FONTS.semibold, marginBottom: 1 },
+  bannerSubject: { fontSize: 11, fontFamily: FONTS.regular },
+  bannerBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 
   // Start button
-  startOuter: { borderRadius: RADIUS.xl, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, elevation: 10 },
-  startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 62, borderRadius: RADIUS.xl },
-  startIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  startTxt: { color: '#fff', fontSize: 17, fontFamily: FONTS.bold, letterSpacing: 0.2 },
+  startOuter: { borderRadius: RADIUS.lg, shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 6 },
+  startInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 58, borderRadius: RADIUS.lg },
+  startIconCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  startTxt: { color: '#fff', fontSize: 16, fontFamily: FONTS.bold },
 
   // Stats row
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: RADIUS.lg, gap: 3 },
-  statNum: { fontSize: 18, fontFamily: FONTS.bold },
-  statLabel: { fontSize: 10, fontFamily: FONTS.semibold },
+  statCard: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: RADIUS.lg, gap: 3, borderWidth: 1 },
+  statNum: { fontSize: 17, fontFamily: FONTS.bold },
+  statLabel: { fontSize: 10, fontFamily: FONTS.medium },
 
   // Section
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  sectionTitle: { fontSize: 18, fontFamily: FONTS.bold },
-  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  seeAllTxt: { fontSize: 11, fontFamily: FONTS.bold },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontSize: 16, fontFamily: FONTS.bold },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  seeAllTxt: { fontSize: 11, fontFamily: FONTS.semibold },
 
   // Task cards
-  taskCard: { borderRadius: RADIUS.lg, padding: 14, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  taskCheck: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  taskName: { fontSize: 14, fontFamily: FONTS.semibold },
-  subjectChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  taskCard: { borderRadius: RADIUS.md, paddingVertical: 13, paddingHorizontal: 14, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, overflow: 'hidden' },
+  taskStrip: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  taskCheck: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  taskName: { fontSize: 14, fontFamily: FONTS.medium },
+  subjectChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
   subjectDot: { width: 5, height: 5, borderRadius: 3 },
-  subjectName: { fontSize: 11, fontFamily: FONTS.medium },
-  taskTime: { fontSize: 11, fontFamily: FONTS.semibold },
+  subjectName: { fontSize: 11, fontFamily: FONTS.regular },
+  taskTime: { fontSize: 11, fontFamily: FONTS.regular },
   playBtn: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 13, borderRadius: RADIUS.md, borderWidth: 1.5 },
-  viewAllTxt: { fontSize: 13, fontFamily: FONTS.bold },
+  viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 12, borderRadius: RADIUS.md, borderWidth: 1 },
+  viewAllTxt: { fontSize: 13, fontFamily: FONTS.medium },
 
   // Empty
-  emptyCard: { borderRadius: RADIUS.xxl, padding: 36, alignItems: 'center', gap: 10 },
-  emptyIllustrationImg: { width: 150, height: 140, marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontFamily: FONTS.bold, textAlign: 'center' },
+  emptyCard: { borderRadius: RADIUS.xl, padding: 32, alignItems: 'center', gap: 10 },
+  emptyIllustrationImg: { width: 130, height: 120, marginBottom: 4 },
+  emptyTitle: { fontSize: 17, fontFamily: FONTS.bold, textAlign: 'center' },
   emptySub: { fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 20 },
-  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 22, paddingVertical: 13, borderRadius: RADIUS.lg },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingHorizontal: 22, paddingVertical: 12, borderRadius: RADIUS.lg },
   emptyBtnTxt: { fontSize: 14, fontFamily: FONTS.bold, color: '#fff' },
 
   // Modal

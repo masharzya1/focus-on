@@ -23,60 +23,60 @@ export interface ThemeColors {
 }
 
 export const LightTheme: ThemeColors = {
-  bg:              '#FAF9FF',
-  bgCard:          '#FFFFFF',
-  bgSecondary:     '#F0EFFE',
-  border:          '#EAE8FF',
-  text:            '#2D2860',
-  textMuted:       '#7A76A0',
-  textFaint:       '#C0BCDE',
-  accent:          '#9B90FF',
-  accentDark:      '#7C6FF7',
+  bg:              '#FFFFFF',
+  bgCard:          '#F7F8FA',
+  bgSecondary:     '#F0F1F5',
+  border:          '#E8E9EF',
+  text:            '#111318',
+  textMuted:       '#6B7280',
+  textFaint:       '#B8BAC4',
+  accent:          '#5E6AD2',
+  accentDark:      '#4A55B8',
   accentFg:        '#FFFFFF',
-  accentSoft:      '#EDE9FF',
+  accentSoft:      '#EEF0FD',
   tabBg:           '#FFFFFF',
-  tabBorder:       '#EAE8FF',
-  inputBg:         '#F3F1FF',
-  destructive:     '#FF8095',
-  destructiveDark: '#F06080',
-  success:         '#4DD9B0',
-  successDark:     '#22C4A0',
-  streakColor:     '#FFA060',
-  xpColor:         '#FFD060',
-  xpDark:          '#F0B800',
+  tabBorder:       '#EBEBF0',
+  inputBg:         '#F4F5F8',
+  destructive:     '#EF4444',
+  destructiveDark: '#DC2626',
+  success:         '#22C55E',
+  successDark:     '#16A34A',
+  streakColor:     '#F97316',
+  xpColor:         '#EAB308',
+  xpDark:          '#CA8A04',
 };
 
 export const DarkTheme: ThemeColors = {
-  bg:              '#14112E',
-  bgCard:          '#1E1A48',
-  bgSecondary:     '#272458',
-  border:          '#322E6A',
-  text:            '#EAE8FF',
-  textMuted:       '#9490C8',
-  textFaint:       '#484478',
-  accent:          '#A89AF8',
-  accentDark:      '#9B90FF',
+  bg:              '#0F0F13',
+  bgCard:          '#1A1A20',
+  bgSecondary:     '#222229',
+  border:          '#2C2C36',
+  text:            '#F0F0F5',
+  textMuted:       '#8A8A99',
+  textFaint:       '#3C3C4A',
+  accent:          '#7B83E0',
+  accentDark:      '#5E6AD2',
   accentFg:        '#FFFFFF',
-  accentSoft:      '#2C2860',
-  tabBg:           '#1E1A48',
-  tabBorder:       '#322E6A',
-  inputBg:         '#1C1840',
-  destructive:     '#FF90A8',
-  destructiveDark: '#F07090',
-  success:         '#4DD9B0',
-  successDark:     '#22C4A0',
-  streakColor:     '#FFA060',
-  xpColor:         '#FFD060',
-  xpDark:          '#F0B800',
+  accentSoft:      '#1E1F3A',
+  tabBg:           '#1A1A20',
+  tabBorder:       '#2C2C36',
+  inputBg:         '#1C1C24',
+  destructive:     '#F87171',
+  destructiveDark: '#EF4444',
+  success:         '#4ADE80',
+  successDark:     '#22C55E',
+  streakColor:     '#FB923C',
+  xpColor:         '#FACC15',
+  xpDark:          '#EAB308',
 };
 
 export const RADIUS = {
-  xs:   6,
-  sm:   10,
-  md:   14,
-  lg:   18,
-  xl:   22,
-  xxl:  28,
+  xs:   4,
+  sm:   8,
+  md:   12,
+  lg:   16,
+  xl:   20,
+  xxl:  24,
   full: 999,
 };
 
@@ -92,8 +92,7 @@ export const SPACING = {
 
 import { Platform } from 'react-native';
 export const HEADER_TOP = Platform.OS === 'ios' ? 56 : 44;
-
-export const PROGRESS_HEIGHT = 6;
+export const PROGRESS_HEIGHT = 4;
 
 export const FONTS = {
   light:     'HindSiliguri_300Light',
@@ -106,17 +105,15 @@ export const FONTS = {
 };
 
 export const TYPE = {
-  largeTitle: { fontSize: 30, fontFamily: FONTS.bold,     letterSpacing: -0.5 },
-  title1:     { fontSize: 24, fontFamily: FONTS.bold,     letterSpacing: -0.3 },
-  title2:     { fontSize: 20, fontFamily: FONTS.bold,     letterSpacing: -0.2 },
-  title3:     { fontSize: 18, fontFamily: FONTS.bold                          },
-  headline:   { fontSize: 16, fontFamily: FONTS.bold                          },
-  body:       { fontSize: 15, fontFamily: FONTS.regular                       },
-  callout:    { fontSize: 14, fontFamily: FONTS.medium                        },
-  subhead:    { fontSize: 13, fontFamily: FONTS.semibold                      },
-  footnote:   { fontSize: 12, fontFamily: FONTS.regular                       },
-  caption:    { fontSize: 11, fontFamily: FONTS.medium,   letterSpacing: 0.5  },
-  label:      { fontSize: 11, fontFamily: FONTS.bold,     letterSpacing: 1,   textTransform: 'uppercase' as const },
+  largeTitle: { fontSize: 28, fontFamily: FONTS.bold,    letterSpacing: -0.5 },
+  title1:     { fontSize: 22, fontFamily: FONTS.bold,    letterSpacing: -0.3 },
+  title2:     { fontSize: 18, fontFamily: FONTS.bold,    letterSpacing: -0.2 },
+  title3:     { fontSize: 16, fontFamily: FONTS.bold                         },
+  headline:   { fontSize: 15, fontFamily: FONTS.bold                         },
+  body:       { fontSize: 14, fontFamily: FONTS.regular                      },
+  callout:    { fontSize: 13, fontFamily: FONTS.medium                       },
+  footnote:   { fontSize: 12, fontFamily: FONTS.regular                      },
+  caption:    { fontSize: 11, fontFamily: FONTS.medium,  letterSpacing: 0.3  },
 };
 
 export const BN_FONTS = {
@@ -130,10 +127,10 @@ export const BN_FONTS = {
 };
 
 export const SOFT_COLORS = {
-  mint:    { bg: '#E4FAF3', text: '#2E8A68', dot: '#30D9A4' },
-  lavender:{ bg: '#EAE8FF', text: '#3730A3', dot: '#7C6FF7' },
-  peach:   { bg: '#FFF0E6', text: '#B06020', dot: '#FF8C42' },
-  rose:    { bg: '#FFE8EE', text: '#C05080', dot: '#FF5F6D' },
-  sky:     { bg: '#E4F4FF', text: '#3A6E9B', dot: '#40AEFF' },
-  amber:   { bg: '#FFF8E0', text: '#AA7C20', dot: '#FFCB47' },
+  mint:    { bg: '#F0FDF8', text: '#166534', dot: '#22C55E' },
+  lavender:{ bg: '#EEF0FD', text: '#3730A3', dot: '#5E6AD2' },
+  peach:   { bg: '#FFF7ED', text: '#9A3412', dot: '#F97316' },
+  rose:    { bg: '#FFF1F2', text: '#9F1239', dot: '#F43F5E' },
+  sky:     { bg: '#F0F9FF', text: '#0C4A6E', dot: '#0EA5E9' },
+  amber:   { bg: '#FFFBEB', text: '#78350F', dot: '#EAB308' },
 };
