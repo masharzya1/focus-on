@@ -81,6 +81,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      safeAreaInsets={{ bottom: 0, top: 0 }}
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
@@ -108,11 +109,11 @@ export default function TabLayout() {
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          paddingVertical: 0,
-          paddingTop: 0,
-          paddingBottom: 0,
           flex: 1,
-          top: 0,
+          height: 62,
+          paddingBottom: 0,
+          paddingTop: 0,
+          margin: 0,
         },
       }}
     >

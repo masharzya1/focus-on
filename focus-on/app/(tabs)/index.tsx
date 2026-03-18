@@ -663,6 +663,8 @@ export default function HomeScreen() {
 
   const completedToday = todayTasks.filter((tk) => tk.completed).length;
   const accentColor = activeTask ? activeTask.subjectColor : c.accent;
+  const isNewUser = state.subjects.length === 0;
+  const hasSubjectsNoPlan = state.subjects.length > 0 && state.studyPlans.length === 0;
 
   return (
     <ScrollView
@@ -717,513 +719,428 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
-      {/* ── Hero Card ── */}
-      <Animated.View entering={FadeInDown.delay(40).springify()}>
-        <View style={[S.heroCard, { backgroundColor: c.accent }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={S.heroLabel}>TODAY'S GOAL</Text>
-            <Text style={S.heroTitle}>
-              {todayTasks.length > 0
-                ? `${completedToday}/${todayTasks.length} tasks`
-                : "Plan your day"}
-            </Text>
-            <View style={S.heroProgBg}>
-              <View
-                style={[
-                  S.heroProgFill,
-                  {
-                    width: `${Math.round(progress * 100)}%`,
-                    backgroundColor:
-                      progress >= 1 ? "#fff" : "rgba(255,255,255,0.9)",
-                  },
-                ]}
+      {/* ══════════════════════════════════════════════════════════════
+          NEW USER EXPERIENCE  (no subjects added yet)
+      ══════════════════════════════════════════════════════════════ */}
+      {isNewUser && (
+        <>
+          {/* Welcome hero — warm, no zeros */}
+          <Animated.View entering={FadeInDown.delay(40).springify()}>
+            <View style={[S.heroCard, { backgroundColor: c.accent, alignItems: 'center', paddingVertical: 28 }]}>
+              <Image
+                source={require('@/assets/images/illus-cat-books.webp')}
+                style={{ width: 100, height: 90, marginBottom: 14 }}
+                resizeMode="contain"
               />
-            </View>
-            <Text style={S.heroSub}>
-              {Math.round(progress * 100)}% · {todayMin}m studied today
-            </Text>
-            <TouchableOpacity
-              style={S.heroBtn}
-              onPress={() => router.push("/(tabs)/plan")}
-              activeOpacity={0.85}
-            >
-              <Text style={[S.heroBtnTxt, { color: c.accent }]}>
-                {todayTasks.length > 0 ? "View plan" : "Create plan"}
+              <Text style={[S.heroTitle, { textAlign: 'center', fontSize: 22, marginBottom: 6 }]}>
+                Welcome, {firstName}!
               </Text>
-              <Ionicons name="arrow-forward" size={13} color={c.accent} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Animated.View>
+              <Text style={[S.heroSub, { textAlign: 'center', opacity: 0.9 }]}>
+                Let's get your first study session set up. It only takes a minute.
+              </Text>
+            </View>
+          </Animated.View>
 
-      {/* ── Alert banners ── */}
-      {examDayPlans.map((p, i) => (
-        <Animated.View
-          key={p.id}
-          entering={FadeInDown.delay(60 + i * 20).springify()}
-        >
-          <TouchableOpacity
-            style={[
-              S.alertCard,
-              { backgroundColor: c.bgCard, borderColor: c.border },
-            ]}
-            onPress={() =>
-              router.push({ pathname: "/plan/[id]", params: { id: p.id } })
-            }
-          >
-            <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
-              <Ionicons name="flag" size={18} color={c.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: c.text }]}>
-                Exam day — {p.examName}!
+          {/* 3-step onboarding */}
+          <Animated.View entering={FadeInDown.delay(80).springify()}>
+            <View style={[S.onboardCard, { backgroundColor: c.bgCard, marginTop: 0 }]}>
+              <Text style={[S.onboardTitle, { color: c.text }]}>3 quick steps</Text>
+              <Text style={[S.onboardSub, { color: c.textMuted, marginBottom: 4 }]}>
+                Follow these to start your first focus session
               </Text>
-              <Text style={[S.alertSub, { color: c.textMuted }]}>
-                Focus on what you know. You've got this!
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
-          </TouchableOpacity>
-        </Animated.View>
-      ))}
-      {examSoonPlans.map((p, i) => (
-        <Animated.View
-          key={p.id}
-          entering={FadeInDown.delay(60 + i * 20).springify()}
-        >
-          <TouchableOpacity
-            style={[
-              S.alertCard,
-              { backgroundColor: c.bgCard, borderColor: c.border },
-            ]}
-            onPress={() =>
-              router.push({ pathname: "/plan/[id]", params: { id: p.id } })
-            }
-          >
-            <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
-              <Ionicons name="warning" size={18} color={c.destructive} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: c.text }]}>
-                Exam tomorrow — {p.examName}!
-              </Text>
-              <Text style={[S.alertSub, { color: c.textMuted }]}>
-                Last day to revise. Make it count.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
-          </TouchableOpacity>
-        </Animated.View>
-      ))}
-      {missedCount > 0 && examDayPlans.length === 0 && (
-        <Animated.View entering={FadeInDown.delay(60).springify()}>
-          <TouchableOpacity
-            style={[
-              S.alertCard,
-              { backgroundColor: c.bgCard, borderColor: c.border },
-            ]}
-            onPress={() => router.push("/(tabs)/plan")}
-          >
-            <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
-              <Ionicons name="alert-circle" size={18} color={c.destructive} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: c.text }]}>
-                {missedCount} missed task{missedCount > 1 ? "s" : ""}
-              </Text>
-              <Text style={[S.alertSub, { color: c.textMuted }]}>
-                Tap to reschedule from your plan
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-      {needsRoutine && (
-        <Animated.View entering={FadeInDown.delay(70).springify()}>
-          <TouchableOpacity
-            style={[
-              S.alertCard,
-              { backgroundColor: c.bgCard, borderColor: c.border },
-            ]}
-            onPress={() => setShowRoutine(true)}
-          >
-            <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
-              <Ionicons name="time" size={18} color={c.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[S.alertTitle, { color: c.text }]}>
-                {t.homeRoutineBannerTitle}
-              </Text>
-              <Text style={[S.alertSub, { color: c.textMuted }]}>
-                {t.homeRoutineBannerSub(unscheduledTasks.length)}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      {/* ── Active Task ── */}
-      {activeTask && (
-        <Animated.View entering={FadeInDown.delay(80).springify()}>
-          <ActiveTaskBanner
-            task={activeTask}
-            onPress={() => goToTimer(activeTask)}
-            t={t}
-          />
-        </Animated.View>
-      )}
-
-      {/* ── Start Focus ── */}
-      <Animated.View entering={FadeInDown.delay(100).springify()}>
-        <StartButton
-          onPress={() => goToTimer(activeTask ?? undefined)}
-          color={accentColor}
-          label={
-            activeTask ? `Study ${activeTask.topicName}` : t.homeStartFocus
-          }
-        />
-      </Animated.View>
-
-      {/* ── Quick Stats Row ── */}
-      <Animated.View
-        entering={FadeInDown.delay(120).springify()}
-        style={S.statsRow}
-      >
-        <View
-          style={[
-            S.statCard,
-            { backgroundColor: c.bgCard, borderColor: c.border },
-          ]}
-        >
-          <Ionicons name="time-outline" size={18} color={c.accent} />
-          <Text style={[S.statNum, { color: c.text }]}>{todayMin}m</Text>
-          <Text style={[S.statLabel, { color: c.textMuted }]}>Studied</Text>
-        </View>
-        <View
-          style={[
-            S.statCard,
-            { backgroundColor: c.bgCard, borderColor: c.border },
-          ]}
-        >
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={18}
-            color={c.accent}
-          />
-          <Text style={[S.statNum, { color: c.text }]}>{completedToday}</Text>
-          <Text style={[S.statLabel, { color: c.textMuted }]}>Done</Text>
-        </View>
-        <View
-          style={[
-            S.statCard,
-            { backgroundColor: c.bgCard, borderColor: c.border },
-          ]}
-        >
-          <Ionicons name="flame-outline" size={18} color={c.streakColor} />
-          <Text style={[S.statNum, { color: c.text }]}>{state.streak}d</Text>
-          <Text style={[S.statLabel, { color: c.textMuted }]}>Streak</Text>
-        </View>
-      </Animated.View>
-
-      {/* ── Today's Tasks ── */}
-      {todayTasks.length > 0 && (
-        <Animated.View entering={FadeInDown.delay(140).springify()}>
-          <View style={S.sectionHeader}>
-            <Text style={[S.sectionTitle, { color: c.text }]}>
-              {t.homeTodayPlan}
-            </Text>
-            {needsRoutine && (
-              <TouchableOpacity
-                style={[S.seeAllBtn, { backgroundColor: c.accentSoft }]}
-                onPress={() => setShowRoutine(true)}
-              >
-                <Ionicons name="time-outline" size={11} color={c.accent} />
-                <Text style={[S.seeAllTxt, { color: c.accent }]}>
-                  {t.homeSetTimes}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {todayTasks.map((task, i) => {
-            const subject = state.subjects.find((s) => s.id === task.subjectId);
-            const chapter = subject?.chapters.find(
-              (ch) => ch.id === task.chapterId,
-            );
-            const topic = chapter?.topics.find((tp) => tp.id === task.topicId);
-            const displayName = topic?.name ?? chapter?.name ?? "Task";
-            const isActive = activeTask?.taskId === task.id;
-            const p = pastelFor(i);
-
-            const subjectColor = subject?.color ?? c.accent;
-            return (
-              <Animated.View
-                key={task.id}
-                entering={FadeInDown.delay(150 + i * 35).springify()}
-              >
+              {([
+                {
+                  num: '1', color: '#7B83E0',
+                  title: 'Add your subjects',
+                  sub: 'Math, Physics, History — whatever you study',
+                  action: () => router.push('/(tabs)/subjects'),
+                },
+                {
+                  num: '2', color: '#F97316',
+                  title: 'Create a study plan',
+                  sub: 'Set your exam date and get a smart schedule',
+                  action: () => router.push('/(tabs)/plan'),
+                },
+                {
+                  num: '3', color: '#22C55E',
+                  title: 'Start the focus timer',
+                  sub: 'Study in focused sessions and earn XP',
+                  action: () => router.push('/(tabs)/timer'),
+                },
+              ] as const).map((step, i) => (
                 <TouchableOpacity
-                  style={[
-                    S.taskCard,
-                    { backgroundColor: c.bgCard, borderColor: c.border },
-                    task.completed && { opacity: 0.55 },
-                  ]}
-                  onPress={() => {
-                    if (!task.completed && subject) {
-                      router.push({
-                        pathname: "/(tabs)/timer",
-                        params: {
-                          taskId: task.id,
-                          topicId: task.topicId,
-                          chapterId: task.chapterId,
-                          subjectId: task.subjectId,
-                          topicName: displayName,
-                          subjectName: subject.name,
-                          subjectColor: subject.color,
-                          estimatedMinutes: String(task.estimatedMinutes ?? 40),
-                        },
-                      });
-                    }
-                  }}
-                  activeOpacity={0.82}
+                  key={step.num}
+                  style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: i > 0 ? 1 : 0 }]}
+                  onPress={step.action}
+                  activeOpacity={0.8}
                 >
-                  <View
-                    style={[S.taskStrip, { backgroundColor: subjectColor }]}
-                  />
+                  <View style={[S.stepNum, { backgroundColor: step.color + '18', borderColor: step.color + '30' }]}>
+                    <Text style={[S.stepNumTxt, { color: step.color }]}>{step.num}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.stepTitle, { color: c.text }]}>{step.title}</Text>
+                    <Text style={[S.stepSub, { color: c.textMuted }]}>{step.sub}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={step.color} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          HAS SUBJECTS BUT NO PLAN  (step 2 of onboarding)
+      ══════════════════════════════════════════════════════════════ */}
+      {hasSubjectsNoPlan && (
+        <>
+          {/* Encouraging hero */}
+          <Animated.View entering={FadeInDown.delay(40).springify()}>
+            <View style={[S.heroCard, { backgroundColor: '#F97316' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.heroLabel}>ALMOST READY</Text>
+                <Text style={S.heroTitle}>Create your study plan</Text>
+                <Text style={[S.heroSub, { marginTop: 4 }]}>
+                  Set your exam date and get a personalised schedule
+                </Text>
+                <TouchableOpacity
+                  style={S.heroBtn}
+                  onPress={() => router.push('/plan/create')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[S.heroBtnTxt, { color: '#F97316' }]}>Create Plan</Text>
+                  <Ionicons name="arrow-forward" size={13} color="#F97316" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Step progress card */}
+          <Animated.View entering={FadeInDown.delay(80).springify()}>
+            <View style={[S.onboardCard, { backgroundColor: c.bgCard }]}>
+              {/* Step 1 — done */}
+              <View style={[S.onboardCheckRow, { borderBottomColor: c.border, borderBottomWidth: 1, paddingBottom: 14, marginBottom: 2 }]}>
+                <View style={[S.checkDone, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
+                  <Ionicons name="checkmark" size={13} color="#22C55E" />
+                </View>
+                <Text style={[S.stepTitle, { color: c.textMuted, flex: 1, textDecorationLine: 'line-through' }]}>
+                  Subjects added
+                </Text>
+                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+              </View>
+
+              {/* Step 2 — active */}
+              <TouchableOpacity
+                style={[S.stepRow, { borderTopWidth: 0 }]}
+                onPress={() => router.push('/plan/create')}
+                activeOpacity={0.8}
+              >
+                <View style={[S.stepNum, { backgroundColor: '#F9731618', borderColor: '#F9731630' }]}>
+                  <Text style={[S.stepNumTxt, { color: '#F97316' }]}>2</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.stepTitle, { color: c.text }]}>Create a study plan</Text>
+                  <Text style={[S.stepSub, { color: c.textMuted }]}>Set an exam date and get a smart schedule</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#F97316" />
+              </TouchableOpacity>
+
+              {/* Step 3 — dimmed */}
+              <View style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: 1, opacity: 0.45 }]}>
+                <View style={[S.stepNum, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
+                  <Text style={[S.stepNumTxt, { color: '#22C55E' }]}>3</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.stepTitle, { color: c.text }]}>Start the focus timer</Text>
+                  <Text style={[S.stepSub, { color: c.textMuted }]}>Study and earn XP</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#22C55E" />
+              </View>
+            </View>
+          </Animated.View>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          RETURNING USER WITH PLANS
+      ══════════════════════════════════════════════════════════════ */}
+      {!isNewUser && !hasSubjectsNoPlan && (
+        <>
+          {/* ── Hero Card ── */}
+          <Animated.View entering={FadeInDown.delay(40).springify()}>
+            <View style={[S.heroCard, { backgroundColor: c.accent }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={S.heroLabel}>TODAY'S GOAL</Text>
+                <Text style={S.heroTitle}>
+                  {todayTasks.length > 0
+                    ? `${completedToday}/${todayTasks.length} tasks`
+                    : "Plan your day"}
+                </Text>
+                <View style={S.heroProgBg}>
                   <View
                     style={[
-                      S.taskCheck,
-                      task.completed
-                        ? { backgroundColor: c.success, borderColor: c.success }
-                        : {
-                            backgroundColor: "transparent",
-                            borderColor: c.border,
-                          },
+                      S.heroProgFill,
+                      {
+                        width: `${Math.round(progress * 100)}%`,
+                        backgroundColor:
+                          progress >= 1 ? "#fff" : "rgba(255,255,255,0.9)",
+                      },
                     ]}
-                  >
-                    {task.completed && (
-                      <Ionicons name="checkmark" size={11} color="#fff" />
-                    )}
-                  </View>
+                  />
+                </View>
+                <Text style={S.heroSub}>
+                  {Math.round(progress * 100)}% · {todayMin}m studied today
+                </Text>
+                <TouchableOpacity
+                  style={S.heroBtn}
+                  onPress={() => router.push("/(tabs)/plan")}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[S.heroBtnTxt, { color: c.accent }]}>
+                    {todayTasks.length > 0 ? "View plan" : "Create plan"}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={13} color={c.accent} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
 
-                  <View style={{ flex: 1 }}>
-                    <Text
+          {/* ── Alert banners ── */}
+          {examDayPlans.map((p, i) => (
+            <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
+              <TouchableOpacity
+                style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
+                onPress={() => router.push({ pathname: "/plan/[id]", params: { id: p.id } })}
+              >
+                <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
+                  <Ionicons name="flag" size={18} color={c.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.alertTitle, { color: c.text }]}>Exam day — {p.examName}!</Text>
+                  <Text style={[S.alertSub, { color: c.textMuted }]}>Focus on what you know. You've got this!</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+          {examSoonPlans.map((p, i) => (
+            <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
+              <TouchableOpacity
+                style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
+                onPress={() => router.push({ pathname: "/plan/[id]", params: { id: p.id } })}
+              >
+                <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
+                  <Ionicons name="warning" size={18} color={c.destructive} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.alertTitle, { color: c.text }]}>Exam tomorrow — {p.examName}!</Text>
+                  <Text style={[S.alertSub, { color: c.textMuted }]}>Last day to revise. Make it count.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+          {missedCount > 0 && examDayPlans.length === 0 && (
+            <Animated.View entering={FadeInDown.delay(60).springify()}>
+              <TouchableOpacity
+                style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
+                onPress={() => router.push("/(tabs)/plan")}
+              >
+                <View style={[S.alertIcon, { backgroundColor: c.bgSecondary }]}>
+                  <Ionicons name="alert-circle" size={18} color={c.destructive} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.alertTitle, { color: c.text }]}>
+                    {missedCount} missed task{missedCount > 1 ? "s" : ""}
+                  </Text>
+                  <Text style={[S.alertSub, { color: c.textMuted }]}>Tap to reschedule from your plan</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+          {needsRoutine && (
+            <Animated.View entering={FadeInDown.delay(70).springify()}>
+              <TouchableOpacity
+                style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
+                onPress={() => setShowRoutine(true)}
+              >
+                <View style={[S.alertIcon, { backgroundColor: c.accentSoft }]}>
+                  <Ionicons name="time" size={18} color={c.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[S.alertTitle, { color: c.text }]}>{t.homeRoutineBannerTitle}</Text>
+                  <Text style={[S.alertSub, { color: c.textMuted }]}>{t.homeRoutineBannerSub(unscheduledTasks.length)}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={c.textFaint} />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
+          {/* ── Active Task ── */}
+          {activeTask && (
+            <Animated.View entering={FadeInDown.delay(80).springify()}>
+              <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} t={t} />
+            </Animated.View>
+          )}
+
+          {/* ── Start Focus ── */}
+          <Animated.View entering={FadeInDown.delay(100).springify()}>
+            <StartButton
+              onPress={() => goToTimer(activeTask ?? undefined)}
+              color={accentColor}
+              label={activeTask ? `Study ${activeTask.topicName}` : t.homeStartFocus}
+            />
+          </Animated.View>
+
+          {/* ── Quick Stats Row ── */}
+          <Animated.View entering={FadeInDown.delay(120).springify()} style={S.statsRow}>
+            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="time-outline" size={18} color={c.accent} />
+              <Text style={[S.statNum, { color: c.text }]}>{todayMin}m</Text>
+              <Text style={[S.statLabel, { color: c.textMuted }]}>Studied</Text>
+            </View>
+            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={c.accent} />
+              <Text style={[S.statNum, { color: c.text }]}>{completedToday}</Text>
+              <Text style={[S.statLabel, { color: c.textMuted }]}>Done</Text>
+            </View>
+            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="flame-outline" size={18} color={c.streakColor} />
+              <Text style={[S.statNum, { color: c.text }]}>{state.streak}d</Text>
+              <Text style={[S.statLabel, { color: c.textMuted }]}>Streak</Text>
+            </View>
+          </Animated.View>
+
+          {/* ── Today's Tasks ── */}
+          {todayTasks.length > 0 ? (
+            <Animated.View entering={FadeInDown.delay(140).springify()}>
+              <View style={S.sectionHeader}>
+                <Text style={[S.sectionTitle, { color: c.text }]}>{t.homeTodayPlan}</Text>
+                {needsRoutine && (
+                  <TouchableOpacity
+                    style={[S.seeAllBtn, { backgroundColor: c.accentSoft }]}
+                    onPress={() => setShowRoutine(true)}
+                  >
+                    <Ionicons name="time-outline" size={11} color={c.accent} />
+                    <Text style={[S.seeAllTxt, { color: c.accent }]}>{t.homeSetTimes}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {todayTasks.map((task, i) => {
+                const subject = state.subjects.find((s) => s.id === task.subjectId);
+                const chapter = subject?.chapters.find((ch) => ch.id === task.chapterId);
+                const topic = chapter?.topics.find((tp) => tp.id === task.topicId);
+                const displayName = topic?.name ?? chapter?.name ?? "Task";
+                const isActive = activeTask?.taskId === task.id;
+                const subjectColor = subject?.color ?? c.accent;
+                return (
+                  <Animated.View key={task.id} entering={FadeInDown.delay(150 + i * 35).springify()}>
+                    <TouchableOpacity
                       style={[
-                        S.taskName,
-                        { color: task.completed ? c.textMuted : c.text },
-                        task.completed && {
-                          textDecorationLine: "line-through",
-                        },
+                        S.taskCard,
+                        { backgroundColor: c.bgCard, borderColor: c.border },
+                        task.completed && { opacity: 0.55 },
                       ]}
-                      numberOfLines={1}
-                    >
-                      {displayName}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        marginTop: 3,
+                      onPress={() => {
+                        if (!task.completed && subject) {
+                          router.push({
+                            pathname: "/(tabs)/timer",
+                            params: {
+                              taskId: task.id,
+                              topicId: task.topicId,
+                              chapterId: task.chapterId,
+                              subjectId: task.subjectId,
+                              topicName: displayName,
+                              subjectName: subject.name,
+                              subjectColor: subject.color,
+                              estimatedMinutes: String(task.estimatedMinutes ?? 40),
+                            },
+                          });
+                        }
                       }}
+                      activeOpacity={0.82}
                     >
+                      <View style={[S.taskStrip, { backgroundColor: subjectColor }]} />
                       <View
                         style={[
-                          S.subjectChip,
-                          { backgroundColor: c.bgSecondary },
+                          S.taskCheck,
+                          task.completed
+                            ? { backgroundColor: c.success, borderColor: c.success }
+                            : { backgroundColor: "transparent", borderColor: c.border },
                         ]}
                       >
-                        <View
-                          style={[
-                            S.subjectDot,
-                            { backgroundColor: subjectColor },
-                          ]}
-                        />
+                        {task.completed && <Ionicons name="checkmark" size={11} color="#fff" />}
+                      </View>
+                      <View style={{ flex: 1 }}>
                         <Text
-                          style={[S.subjectName, { color: c.textMuted }]}
+                          style={[
+                            S.taskName,
+                            { color: task.completed ? c.textMuted : c.text },
+                            task.completed && { textDecorationLine: "line-through" },
+                          ]}
                           numberOfLines={1}
                         >
-                          {subject?.name}
+                          {displayName}
                         </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+                          <View style={[S.subjectChip, { backgroundColor: c.bgSecondary }]}>
+                            <View style={[S.subjectDot, { backgroundColor: subjectColor }]} />
+                            <Text style={[S.subjectName, { color: c.textMuted }]} numberOfLines={1}>
+                              {subject?.name}
+                            </Text>
+                          </View>
+                          {task.startTime && (
+                            <Text style={[S.taskTime, { color: c.textFaint }]}>{task.startTime}</Text>
+                          )}
+                        </View>
                       </View>
-                      {task.startTime && (
-                        <Text style={[S.taskTime, { color: c.textFaint }]}>
-                          {task.startTime}
-                        </Text>
+                      {isActive && !task.completed && (
+                        <View style={[S.playBtn, { backgroundColor: c.accentSoft }]}>
+                          <Ionicons name="play" size={11} color={c.accent} />
+                        </View>
                       )}
-                    </View>
-                  </View>
+                      {task.completed && <Ionicons name="checkmark-circle" size={18} color={c.success} />}
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })}
 
-                  {isActive && !task.completed && (
-                    <View
-                      style={[S.playBtn, { backgroundColor: c.accentSoft }]}
-                    >
-                      <Ionicons name="play" size={11} color={c.accent} />
-                    </View>
-                  )}
-                  {task.completed && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color={c.success}
-                    />
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
-
-          <TouchableOpacity
-            style={[
-              S.viewAllBtn,
-              { borderColor: c.border, backgroundColor: c.bgCard },
-            ]}
-            onPress={() => router.push("/(tabs)/plan")}
-          >
-            <Text style={[S.viewAllTxt, { color: c.accent }]}>
-              See all tasks
-            </Text>
-            <Ionicons name="arrow-forward" size={13} color={c.accent} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      {/* ── Empty State / Onboarding ── */}
-      {todayTasks.length === 0 && (() => {
-        const hasSubjects = state.subjects.length > 0;
-        const hasPlans = state.studyPlans.length > 0;
-
-        // True new user — show full 3-step onboarding
-        if (!hasSubjects) {
-          const steps = [
-            {
-              num: '1', done: false, icon: 'book-outline' as const, color: '#7B83E0',
-              title: 'Add your subjects',
-              sub: 'Tell the app what you study — Math, Physics, History…',
-              action: () => router.push('/(tabs)/subjects'),
-              actionLabel: 'Go to Subjects →',
-            },
-            {
-              num: '2', done: false, icon: 'calendar-outline' as const, color: '#F97316',
-              title: 'Create a study plan',
-              sub: 'Set an exam date, pick topics, get a smart schedule.',
-              action: () => router.push('/(tabs)/plan'),
-              actionLabel: 'Go to Plan →',
-            },
-            {
-              num: '3', done: false, icon: 'timer-outline' as const, color: '#22C55E',
-              title: 'Start your focus timer',
-              sub: 'Begin studying with a Pomodoro timer and earn XP.',
-              action: () => router.push('/(tabs)/timer'),
-              actionLabel: 'Open Timer →',
-            },
-          ];
-          return (
-            <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <View style={[S.onboardCard, { backgroundColor: c.bgCard }]}>
-                <Image
-                  source={require('@/assets/images/illus-cat-books.webp')}
-                  style={{ width: 100, height: 90, alignSelf: 'center', marginBottom: 4 }}
-                  resizeMode="contain"
-                />
-                <Text style={[S.onboardTitle, { color: c.text }]}>Welcome! Let's get started</Text>
-                <Text style={[S.onboardSub, { color: c.textMuted }]}>
-                  3 quick steps to your first study session
-                </Text>
-                {steps.map((step, i) => (
-                  <TouchableOpacity
-                    key={step.num}
-                    style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: i > 0 ? 1 : 0 }]}
-                    onPress={step.action}
-                    activeOpacity={0.8}
-                  >
-                    <View style={[S.stepNum, { backgroundColor: step.color + '18', borderColor: step.color + '30' }]}>
-                      <Text style={[S.stepNumTxt, { color: step.color }]}>{step.num}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[S.stepTitle, { color: c.text }]}>{step.title}</Text>
-                      <Text style={[S.stepSub, { color: c.textMuted }]}>{step.sub}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={step.color} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <TouchableOpacity
+                style={[S.viewAllBtn, { borderColor: c.border, backgroundColor: c.bgCard }]}
+                onPress={() => router.push("/(tabs)/plan")}
+              >
+                <Text style={[S.viewAllTxt, { color: c.accent }]}>See all tasks</Text>
+                <Ionicons name="arrow-forward" size={13} color={c.accent} />
+              </TouchableOpacity>
             </Animated.View>
-          );
-        }
-
-        // Has subjects but no plans — show 2-step guide
-        if (!hasPlans) {
-          return (
-            <Animated.View entering={FadeInDown.delay(160).springify()}>
-              <View style={[S.onboardCard, { backgroundColor: c.bgCard }]}>
-                <View style={[S.onboardCheckRow, { borderBottomColor: c.border }]}>
-                  <View style={[S.checkDone, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
-                    <Ionicons name="checkmark" size={14} color="#22C55E" />
-                  </View>
-                  <Text style={[S.stepTitle, { color: c.textMuted, textDecorationLine: 'line-through' }]}>
-                    Subjects added
-                  </Text>
-                  <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
-                </View>
-                <TouchableOpacity
-                  style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: 1 }]}
-                  onPress={() => router.push('/plan/create')}
-                  activeOpacity={0.8}
-                >
-                  <View style={[S.stepNum, { backgroundColor: '#F97316' + '18', borderColor: '#F97316' + '30' }]}>
-                    <Text style={[S.stepNumTxt, { color: '#F97316' }]}>2</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[S.stepTitle, { color: c.text }]}>Create a study plan</Text>
-                    <Text style={[S.stepSub, { color: c.textMuted }]}>Set an exam date and get a smart schedule.</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#F97316" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: 1, opacity: 0.5 }]}
-                  activeOpacity={0.8}
-                >
-                  <View style={[S.stepNum, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
-                    <Text style={[S.stepNumTxt, { color: '#22C55E' }]}>3</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[S.stepTitle, { color: c.text }]}>Start your focus timer</Text>
-                    <Text style={[S.stepSub, { color: c.textMuted }]}>Begin studying and earn XP.</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#22C55E" />
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          );
-        }
-
-        // Has plans but nothing today — normal empty state
-        return (
-          <Animated.View
-            entering={FadeInDown.delay(160).springify()}
-            style={[S.emptyCard, { backgroundColor: c.bgCard }]}
-          >
-            <Image
-              source={require('@/assets/images/illus-cat-books.webp')}
-              style={S.emptyIllustrationImg}
-              resizeMode="contain"
-            />
-            <Text style={[S.emptyTitle, { color: c.text }]}>{t.homeNoPlan}</Text>
-            <Text style={[S.emptySub, { color: c.textMuted }]}>
-              No tasks scheduled for today. Rest up or review!
-            </Text>
-            <TouchableOpacity
-              style={[S.emptyBtn, { backgroundColor: c.accent }]}
-              onPress={() => router.push('/(tabs)/plan')}
+          ) : (
+            /* Nothing scheduled today — rest card */
+            <Animated.View
+              entering={FadeInDown.delay(140).springify()}
+              style={[S.emptyCard, { backgroundColor: c.bgCard }]}
             >
-              <Text style={S.emptyBtnTxt}>View Plan</Text>
-              <Ionicons name="arrow-forward" size={14} color="#fff" />
-            </TouchableOpacity>
-          </Animated.View>
-        );
-      })()}
+              <Image
+                source={require('@/assets/images/illus-cat-books.webp')}
+                style={S.emptyIllustrationImg}
+                resizeMode="contain"
+              />
+              <Text style={[S.emptyTitle, { color: c.text }]}>{t.homeNoPlan}</Text>
+              <Text style={[S.emptySub, { color: c.textMuted }]}>
+                No tasks scheduled for today. Rest up or review!
+              </Text>
+              <TouchableOpacity
+                style={[S.emptyBtn, { backgroundColor: c.accent }]}
+                onPress={() => router.push('/(tabs)/plan')}
+              >
+                <Text style={S.emptyBtnTxt}>View Plan</Text>
+                <Ionicons name="arrow-forward" size={14} color="#fff" />
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </>
+      )}
 
       <View style={{ height: 40 }} />
 
