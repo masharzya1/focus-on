@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert, Linking,
+  ScrollView, ActivityIndicator, Alert, Linking, TextInput,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { RADIUS } from '@/constants/theme';
+import { RADIUS, FONTS } from '@/constants/theme';
+import { useEffect } from 'react';
 import {
   initiateRupantorPayment,
   verifyRupantorPayment,
   openPaymentUrl,
   savePendingTransaction,
+  validateCoupon,
+  redeemCoupon,
   PRO_PRICE_BDT,
   PRO_PRICE_USD,
+  type CouponResult,
 } from '@/services/payment';
 
 const PRO_FEATURES = [
@@ -42,6 +46,78 @@ export default function PaywallModal({ visible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [method, setMethod] = useState<PayMethod>('rupantor');
   const [verifying, setVerifying] = useState(false);
+  // Coupon
+  const [couponInput, setCouponInput] = useState('');
+  const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const finalPriceBDT = (couponResult?.valid && couponResult.finalPriceBDT !== undefined)
+    ? couponResult.finalPriceBDT : PRO_PRICE_BDT;
+  const isFree = finalPriceBDT === 0;
+
+  // Auto-verify when Rupantor redirects back with transaction_id in URL
+  // Rupantor appends: focuson://payment/success?trx_id=XXXX or ?transaction_id=XXXX
+  useEffect(() => {
+    const handleUrl = async ({ url }: { url: string }) => {
+      if (!url.includes('payment/success')) return;
+      try {
+        const parsed = new URL(url);
+        const txId = parsed.searchParams.get('trx_id')
+          || parsed.searchParams.get('transaction_id')
+          || parsed.searchParams.get('txId');
+        if (!txId) return; // no TX id in URL — shouldn't happen with Rupantor
+        await autoVerify(txId);
+      } catch { /* URL parse failed — ignore */ }
+    };
+    const sub = Linking.addEventListener('url', handleUrl);
+    return () => sub.remove();
+  }, [user, couponInput]);
+
+  async function autoVerify(txId: string) {
+    setVerifying(true);
+    try {
+      const { verified } = await verifyRupantorPayment(txId);
+      if (verified) {
+        if (couponResult?.valid) await redeemCoupon(couponInput);
+        await grantPro(txId);
+        Alert.alert('🎉 Welcome to Pro!', 'Payment confirmed! You now have lifetime access.', [
+          { text: 'Awesome!', onPress: onClose },
+        ]);
+      } else {
+        // Payment gateway returned success URL but verification failed — rare
+        // Give user option to retry
+        Alert.alert(
+          'Verification pending',
+          'Payment received but not confirmed yet. This can take up to 1 minute.',
+          [
+            { text: 'Retry', onPress: () => autoVerify(txId) },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+      }
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    const result = await validateCoupon(couponInput.trim());
+    setCouponResult(result);
+    setCouponLoading(false);
+    if (result.valid && result.type === 'free') {
+      if (!user) {
+        Alert.alert('Sign in required', 'Please sign in first.',
+          [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign in', onPress: signInWithGoogle }]);
+        return;
+      }
+      await redeemCoupon(couponInput.trim());
+      await grantPro('coupon:' + couponInput.trim().toUpperCase());
+      Alert.alert('🎉 Welcome to Pro!', 'Coupon applied! You have lifetime access.', [
+        { text: 'Awesome!', onPress: onClose },
+      ]);
+    }
+  }
 
   async function handlePurchase() {
     // Step 1: Must be logged in
@@ -72,65 +148,21 @@ export default function PaywallModal({ visible, onClose }: Props) {
         user!.email || '',
         user!.uid
       );
-
       if (!result.success || !result.paymentUrl) {
         Alert.alert('Error', result.error || 'Could not start payment');
         return;
       }
-
-      // Open payment page
+      // Open Rupantor payment page in browser.
+      // When payment completes, Rupantor redirects to:
+      //   focuson://payment/success?trx_id=XXXXX
+      // The Linking event listener above catches this and auto-verifies.
       await openPaymentUrl(result.paymentUrl);
-
-      // After browser closes, ask user to verify
-      setTimeout(() => {
-        Alert.alert(
-          'Payment complete?',
-          'Did you complete the payment?',
-          [
-            { text: 'Not yet', style: 'cancel' },
-            {
-              text: 'Yes, verify',
-              onPress: () => promptVerify(),
-            },
-          ]
-        );
-      }, 2000);
     } finally {
       setLoading(false);
     }
   }
 
-  async function promptVerify() {
-    Alert.prompt(
-      'Enter Transaction ID',
-      'Enter the transaction ID from your payment confirmation (e.g. OVKPXW165414)',
-      async (txId) => {
-        if (!txId?.trim()) return;
-        setVerifying(true);
-        try {
-          const { verified } = await verifyRupantorPayment(txId.trim());
-          if (verified) {
-            await grantPro(txId.trim());
-            Alert.alert('🎉 Welcome to Pro!', 'You now have lifetime access to all Pro features.', [
-              { text: 'Awesome!', onPress: onClose },
-            ]);
-          } else {
-            Alert.alert(
-              'Not verified',
-              'Payment not confirmed yet. Please try again or contact support.',
-              [
-                { text: 'Try again', onPress: promptVerify },
-                { text: 'Cancel', style: 'cancel' },
-              ]
-            );
-          }
-        } finally {
-          setVerifying(false);
-        }
-      },
-      'plain-text'
-    );
-  }
+
 
   async function handleStripePay() {
     // Stripe requires @stripe/stripe-react-native — placeholder for now
@@ -143,7 +175,7 @@ export default function PaywallModal({ visible, onClose }: Props) {
           text: 'Continue',
           onPress: () => {
             // TODO: Replace with your Stripe payment link or backend URL
-            Linking.openURL('https://buy.stripe.com/YOUR_PAYMENT_LINK');
+            Alert.alert('Coming soon', 'International card payment will be available soon.');
           },
         },
       ]
@@ -177,10 +209,13 @@ export default function PaywallModal({ visible, onClose }: Props) {
             <Text style={[s.heroSub, { color: c.textMuted }]}>
               One-time payment. Lifetime access. No subscriptions.
             </Text>
-            <View style={[s.priceBadge, { backgroundColor: c.accentSoft }]}>
-              <Text style={[s.price, { color: c.accent }]}>৳{PRO_PRICE_BDT}</Text>
-              <Text style={[s.priceOr, { color: c.textMuted }]}> or </Text>
-              <Text style={[s.price, { color: c.accent }]}>${PRO_PRICE_USD}</Text>
+            <View style={[s.priceBadge, { backgroundColor: isFree ? '#F0FDF4' : c.accentSoft }]}>
+              {couponResult?.valid && couponResult.finalPriceBDT !== PRO_PRICE_BDT && (
+                <Text style={[s.priceStrike, { color: c.textFaint }]}>৳{PRO_PRICE_BDT}  </Text>
+              )}
+              <Text style={[s.price, { color: isFree ? '#22C55E' : c.accent }]}>
+                {isFree ? 'FREE 🎉' : `৳${finalPriceBDT}`}
+              </Text>
             </View>
           </Animated.View>
 
@@ -231,6 +266,39 @@ export default function PaywallModal({ visible, onClose }: Props) {
             </View>
           </Animated.View>
 
+          {/* Coupon code */}
+          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={[s.couponCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+            <Text style={[s.methodTitle, { color: c.textMuted }]}>HAVE A COUPON?</Text>
+            <View style={s.couponRow}>
+              <TextInput
+                style={[s.couponInput, { backgroundColor: c.bg, borderColor: couponResult?.valid === false ? '#EF4444' : couponResult?.valid ? '#22C55E' : c.border, color: c.text }]}
+                placeholder="Enter code"
+                placeholderTextColor={c.textFaint}
+                value={couponInput}
+                onChangeText={v => { setCouponInput(v.toUpperCase()); setCouponResult(null); }}
+                autoCapitalize="characters"
+              />
+              <TouchableOpacity
+                style={[s.couponApplyBtn, { backgroundColor: couponResult?.valid ? '#22C55E' : c.accent, opacity: couponLoading || !couponInput.trim() ? 0.6 : 1 }]}
+                onPress={applyCoupon}
+                disabled={couponLoading || !couponInput.trim()}
+              >
+                {couponLoading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={s.couponApplyTxt}>{couponResult?.valid ? '✓' : 'Apply'}</Text>
+                }
+              </TouchableOpacity>
+            </View>
+            {couponResult && !couponResult.valid && <Text style={s.couponError}>{couponResult.error}</Text>}
+            {couponResult?.valid && (
+              <Text style={s.couponSuccess}>
+                {couponResult.type === 'free' ? '🎉 100% off — Pro is free!'
+                  : couponResult.type === 'percent' ? `✅ ${couponResult.discount}% discount applied`
+                  : `✅ ৳${couponResult.discount} off applied`}
+              </Text>
+            )}
+          </Animated.View>
+
           {/* Sign in notice */}
           {!user && (
             <Animated.View entering={FadeInDown.delay(220).duration(400)} style={[s.signInNotice, { backgroundColor: c.accentSoft, borderColor: c.border }]}>
@@ -249,7 +317,7 @@ export default function PaywallModal({ visible, onClose }: Props) {
           {verifying ? (
             <View style={[s.buyBtn, { backgroundColor: c.accent }]}>
               <ActivityIndicator color="#fff" />
-              <Text style={s.buyBtnText}>Verifying payment...</Text>
+              <Text style={s.buyBtnText}>Verifying payment, please wait...</Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -262,7 +330,9 @@ export default function PaywallModal({ visible, onClose }: Props) {
                 : <Ionicons name="star" size={20} color="#fff" />
               }
               <Text style={s.buyBtnText}>
-                {!user ? 'Sign in & Purchase' : `Get Lifetime Pro — ${method === 'rupantor' ? `৳${PRO_PRICE_BDT}` : `$${PRO_PRICE_USD}`}`}
+                {!user ? 'Sign in & Purchase'
+                  : isFree ? 'Get Pro Free 🎉'
+                  : `Get Lifetime Pro — ৳${finalPriceBDT}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -304,4 +374,12 @@ const s = StyleSheet.create({
   buyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: RADIUS.xl, borderBottomWidth: 4 },
   buyBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   footerNote: { fontSize: 12, textAlign: 'center' },
+  priceStrike: { fontSize: 16, textDecorationLine: 'line-through', fontFamily: FONTS.regular },
+  couponCard: { marginHorizontal: 16, borderRadius: RADIUS.xl, borderWidth: 1, padding: 18, marginBottom: 12 },
+  couponRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 8 },
+  couponInput: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, fontSize: 15, fontFamily: FONTS.medium, letterSpacing: 1 },
+  couponApplyBtn: { height: 46, paddingHorizontal: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', minWidth: 70 },
+  couponApplyTxt: { color: '#fff', fontSize: 14, fontFamily: FONTS.bold },
+  couponError: { fontSize: 12, color: '#EF4444', fontFamily: FONTS.regular, marginTop: 6 },
+  couponSuccess: { fontSize: 12, color: '#22C55E', fontFamily: FONTS.semibold, marginTop: 6 },
 });

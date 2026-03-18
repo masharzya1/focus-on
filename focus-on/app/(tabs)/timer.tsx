@@ -13,6 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import { isChapterOnly, isSubjectTopicBased, type StudySession, type Subject, type Chapter, type Topic } from '@/types/study';
 import { scheduleTimerDoneNotification, cancelNotification } from '@/services/notifications';
+import AdBanner from '@/components/AdBanner';
 import { useT } from '@/contexts/LanguageContext';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
@@ -616,6 +617,7 @@ export default function TimerScreen() {
             <Text style={[styles.completeXp, { color: c.textMuted }]}>
               +{customFocus} XP earned
             </Text>
+            <AdBanner placement="session_complete" />
             <TouchableOpacity style={[styles.completeDoneBtn, { backgroundColor: accent }]}
               onPress={() => { setShowComplete(false); switchMode('break'); }}>
               <Text style={styles.completeDoneTxt}>{t.timerTakeBreak}</Text>

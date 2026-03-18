@@ -4,6 +4,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withDelay, withTiming, Fade
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStudy } from '@/contexts/StudyContext';
+import AdBanner from '@/components/AdBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
@@ -215,6 +216,7 @@ export default function AnalyticsScreen() {
           )}
         </Animated.View>
 
+        <AdBanner placement="analytics" />
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>

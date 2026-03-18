@@ -11,6 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useT } from '@/contexts/LanguageContext';
 import { RADIUS, FONTS } from '@/constants/theme';
 import type { StudyPlan } from '@/types/study';
+import AdBanner from '@/components/AdBanner';
 
 const CARD_ACCENTS = ['#7B83E0', '#F97316', '#22C55E', '#F43F5E', '#0EA5E9', '#EAB308', '#8B5CF6'];
 function accentFor(i: number) { return CARD_ACCENTS[i % CARD_ACCENTS.length]; }
@@ -204,6 +205,7 @@ export default function PlanScreen() {
           renderItem={renderPlan}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={<AdBanner placement="plan_list" />}
         />
       )}
     </View>

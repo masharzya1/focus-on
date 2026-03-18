@@ -199,25 +199,17 @@ class AppBlockerAccessibilityService : AccessibilityService() {
                 (0 until arr.length()).map { arr.getString(it) }.toSet()
             } catch (_: Exception) { emptySet<String>() }
 
-            if (reelsBlockSet.contains(pkg)) {
-                when (event.eventType) {
-                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                        val cls = event.className?.toString() ?: ""
-                        val shortCls = cls.substringAfterLast('.')
-                        if (REEL_ACTIVITY_CLASSES.any { it.endsWith(shortCls) || cls == it }) {
-                            Log.d(TAG, "Reels-block tab: activity block $pkg/$cls")
-                            showOverlay(pkg); return
-                        }
-                    }
-                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                        if (!(pkg == lastContentCheckPackage && now - lastContentCheckTime < CONTENT_CHECK_DEBOUNCE_MS)) {
-                            lastContentCheckPackage = pkg
-                            lastContentCheckTime = now
-                            if (isReelViewVisible()) {
-                                Log.d(TAG, "Reels-block tab: view block $pkg")
-                                showOverlay(pkg); return
-                            }
-                        }
+            // Only view ID detection — activity class is too broad
+            // (WatchWhileActivity fires for ALL YouTube videos, not just Shorts)
+            if (reelsBlockSet.contains(pkg) &&
+                event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+                if (!(pkg == lastContentCheckPackage && now - lastContentCheckTime < CONTENT_CHECK_DEBOUNCE_MS)) {
+                    lastContentCheckPackage = pkg
+                    lastContentCheckTime = now
+                    if (isReelViewVisible()) {
+                        Log.d(TAG, "Reels-block tab: view block $pkg")
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                        return
                     }
                 }
             }
@@ -239,29 +231,19 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             checkAndBlockWebsite()
         }
 
-        // Reel-only block
+        // Reel-only block — view ID detection only (activity class is too broad)
         val reelKey = "reels:$pkg"
         if (!blockedApps.contains(reelKey)) return
         if (pkg !in REEL_PACKAGES) return
 
-        when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                val cls = event.className?.toString() ?: return
-                val shortCls = cls.substringAfterLast('.')
-                if (REEL_ACTIVITY_CLASSES.any { it.endsWith(shortCls) || cls == it }) {
-                    Log.d(TAG, "Reel activity: $pkg / $cls")
-                    showOverlay(pkg)
-                }
-            }
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                if (pkg == lastContentCheckPackage &&
-                    now - lastContentCheckTime < CONTENT_CHECK_DEBOUNCE_MS) return
-                lastContentCheckPackage = pkg
-                lastContentCheckTime = now
-                if (isReelViewVisible()) {
-                    Log.d(TAG, "Reel view detected in $pkg")
-                    showOverlay(pkg)
-                }
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            if (pkg == lastContentCheckPackage &&
+                now - lastContentCheckTime < CONTENT_CHECK_DEBOUNCE_MS) return
+            lastContentCheckPackage = pkg
+            lastContentCheckTime = now
+            if (isReelViewVisible()) {
+                Log.d(TAG, "Reel view detected in $pkg")
+                performGlobalAction(GLOBAL_ACTION_BACK)
             }
         }
     }

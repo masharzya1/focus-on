@@ -32,6 +32,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +42,14 @@ app-example
 # generated native folders
 /ios
 /android
+
+# ─── SENSITIVE — never commit these ──────────────────────────────────────────
+# Firebase config files contain API keys — restrict key in Google Cloud Console
+# and never commit these to public repos
+google-services.json
+GoogleService-Info.plist
+
+# Any local secrets
+secrets.ts
+secrets.js
+*.secret.*

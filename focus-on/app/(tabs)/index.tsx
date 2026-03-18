@@ -958,9 +958,49 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* ── Alert banners ── */}
+          {/* ── Active Task (before Start button — sets context for the action) ── */}
+          {activeTask && (
+            <Animated.View entering={FadeInDown.delay(60).springify()}>
+              <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} t={t} />
+            </Animated.View>
+          )}
+
+          {/* ── Start Focus — PRIMARY CTA, always visible immediately ── */}
+          <Animated.View entering={FadeInDown.delay(80).springify()}>
+            <StartButton
+              onPress={() => goToTimer(activeTask ?? undefined)}
+              color={accentColor}
+              label={activeTask ? `Study ${activeTask.topicName}` : t.homeStartFocus}
+            />
+          </Animated.View>
+
+          {/* ── Quick Stats Row — lightweight chips, supporting info ── */}
+          <Animated.View entering={FadeInDown.delay(95).springify()} style={S.statsChipRow}>
+            <View style={[S.statChip, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="time-outline" size={13} color={c.accent} />
+              <Text style={[S.statChipVal, { color: c.text }]}>{todayMin}m</Text>
+              <Text style={[S.statChipLbl, { color: c.textMuted }]}>studied</Text>
+            </View>
+            <View style={[S.statChip, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="checkmark-circle-outline" size={13} color={c.accent} />
+              <Text style={[S.statChipVal, { color: c.text }]}>{completedToday}</Text>
+              <Text style={[S.statChipLbl, { color: c.textMuted }]}>done</Text>
+            </View>
+            <View style={[S.statChip, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="flame-outline" size={13} color={c.streakColor} />
+              <Text style={[S.statChipVal, { color: c.text }]}>{state.streak}d</Text>
+              <Text style={[S.statChipLbl, { color: c.textMuted }]}>streak</Text>
+            </View>
+            <View style={[S.statChip, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="star-outline" size={13} color={c.xpColor} />
+              <Text style={[S.statChipVal, { color: c.text }]}>{state.xp}</Text>
+              <Text style={[S.statChipLbl, { color: c.textMuted }]}>XP</Text>
+            </View>
+          </Animated.View>
+
+          {/* ── Alert banners — secondary context, below the action zone ── */}
           {examDayPlans.map((p, i) => (
-            <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
+            <Animated.View key={p.id} entering={FadeInDown.delay(110 + i * 20).springify()}>
               <TouchableOpacity
                 style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
                 onPress={() => router.push({ pathname: "/plan/[id]", params: { id: p.id } })}
@@ -977,7 +1017,7 @@ export default function HomeScreen() {
             </Animated.View>
           ))}
           {examSoonPlans.map((p, i) => (
-            <Animated.View key={p.id} entering={FadeInDown.delay(60 + i * 20).springify()}>
+            <Animated.View key={p.id} entering={FadeInDown.delay(110 + i * 20).springify()}>
               <TouchableOpacity
                 style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
                 onPress={() => router.push({ pathname: "/plan/[id]", params: { id: p.id } })}
@@ -994,7 +1034,7 @@ export default function HomeScreen() {
             </Animated.View>
           ))}
           {missedCount > 0 && examDayPlans.length === 0 && (
-            <Animated.View entering={FadeInDown.delay(60).springify()}>
+            <Animated.View entering={FadeInDown.delay(110).springify()}>
               <TouchableOpacity
                 style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
                 onPress={() => router.push("/(tabs)/plan")}
@@ -1013,7 +1053,7 @@ export default function HomeScreen() {
             </Animated.View>
           )}
           {needsRoutine && (
-            <Animated.View entering={FadeInDown.delay(70).springify()}>
+            <Animated.View entering={FadeInDown.delay(115).springify()}>
               <TouchableOpacity
                 style={[S.alertCard, { backgroundColor: c.bgCard, borderColor: c.border }]}
                 onPress={() => setShowRoutine(true)}
@@ -1029,41 +1069,6 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </Animated.View>
           )}
-
-          {/* ── Active Task ── */}
-          {activeTask && (
-            <Animated.View entering={FadeInDown.delay(80).springify()}>
-              <ActiveTaskBanner task={activeTask} onPress={() => goToTimer(activeTask)} t={t} />
-            </Animated.View>
-          )}
-
-          {/* ── Start Focus ── */}
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
-            <StartButton
-              onPress={() => goToTimer(activeTask ?? undefined)}
-              color={accentColor}
-              label={activeTask ? `Study ${activeTask.topicName}` : t.homeStartFocus}
-            />
-          </Animated.View>
-
-          {/* ── Quick Stats Row ── */}
-          <Animated.View entering={FadeInDown.delay(120).springify()} style={S.statsRow}>
-            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
-              <Ionicons name="time-outline" size={18} color={c.accent} />
-              <Text style={[S.statNum, { color: c.text }]}>{todayMin}m</Text>
-              <Text style={[S.statLabel, { color: c.textMuted }]}>Studied</Text>
-            </View>
-            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={c.accent} />
-              <Text style={[S.statNum, { color: c.text }]}>{completedToday}</Text>
-              <Text style={[S.statLabel, { color: c.textMuted }]}>Done</Text>
-            </View>
-            <View style={[S.statCard, { backgroundColor: c.bgCard, borderColor: c.border }]}>
-              <Ionicons name="flame-outline" size={18} color={c.streakColor} />
-              <Text style={[S.statNum, { color: c.text }]}>{state.streak}d</Text>
-              <Text style={[S.statLabel, { color: c.textMuted }]}>Streak</Text>
-            </View>
-          </Animated.View>
 
           {/* ── Today's Tasks ── */}
           {todayTasks.length > 0 ? (
@@ -1393,7 +1398,7 @@ const S = StyleSheet.create({
   },
   startTxt: { color: "#fff", fontSize: 16, fontFamily: FONTS.bold },
 
-  // Stats row
+  // Stats row (kept for reference)
   statsRow: { flexDirection: "row", gap: 10 },
   statCard: {
     flex: 1,
@@ -1405,6 +1410,25 @@ const S = StyleSheet.create({
   },
   statNum: { fontSize: 17, fontFamily: FONTS.bold },
   statLabel: { fontSize: 10, fontFamily: FONTS.medium },
+
+  // Compact chip stats — lightweight secondary info
+  statsChipRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  statChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  statChipVal: { fontSize: 13, fontFamily: FONTS.bold },
+  statChipLbl: { fontSize: 10, fontFamily: FONTS.regular },
 
   // Section
   sectionHeader: {

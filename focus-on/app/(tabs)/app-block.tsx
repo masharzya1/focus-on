@@ -272,6 +272,9 @@ export default function AppBlockScreen() {
   const [rMaxUnlocks, setRMaxUnlocks] = useState(3);
   const [rPassword, setRPassword]     = useState('');
 
+  // Permission disclosure modal
+  const [showDisclosure, setShowDisclosure] = useState(false);
+
   // Emergency unlock modal
   const [showEmergency, setShowEmergency]       = useState(false);
   const [emergencyRoutine, setEmergencyRoutine] = useState<AppBlockRoutine | null>(null);
@@ -472,7 +475,100 @@ export default function AppBlockScreen() {
   return (
     <View style={[styles.root, { backgroundColor: c.bg }]}>
 
-      {/* Header */}
+      {/* ── Permission Disclosure Modal ──────────────────────────────────── */}
+      <Modal
+        visible={showDisclosure}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDisclosure(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}
+          onPress={() => setShowDisclosure(false)}
+        >
+          <Pressable
+            style={[styles.disclosureSheet, { backgroundColor: c.bgCard }]}
+            onPress={e => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <View style={[styles.disclosureHandle, { backgroundColor: c.border }]} />
+
+            {/* Icon + Title */}
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <View style={[styles.disclosureIconCircle, { backgroundColor: c.accentSoft }]}>
+                <Ionicons name="shield-checkmark" size={28} color={c.accent} />
+              </View>
+              <Text style={[styles.disclosureTitle, { color: c.text }]}>
+                Accessibility Permission
+              </Text>
+              <Text style={[styles.disclosureSub, { color: c.textMuted }]}>
+                Focus On needs this to block distracting apps during study time
+              </Text>
+            </View>
+
+            {/* What it DOES */}
+            <View style={[styles.disclosureSection, { backgroundColor: c.bg, borderColor: c.border }]}>
+              <Text style={[styles.disclosureSectionTitle, { color: c.text }]}>
+                ✅  What this permission does
+              </Text>
+              {[
+                'Detects when a blocked app is opened during your study session',
+                'Shows a reminder screen so you can refocus on studying',
+                'Automatically turns off blocking when your study session ends',
+              ].map((item, i) => (
+                <View key={i} style={styles.disclosureBulletRow}>
+                  <View style={[styles.disclosureDot, { backgroundColor: c.accent }]} />
+                  <Text style={[styles.disclosureBullet, { color: c.textMuted }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* What it does NOT do */}
+            <View style={[styles.disclosureSection, { backgroundColor: c.bg, borderColor: c.border, marginTop: 10 }]}>
+              <Text style={[styles.disclosureSectionTitle, { color: c.text }]}>
+                🚫  What this permission does NOT do
+              </Text>
+              {[
+                'Read your messages, emails, or any personal content',
+                'Monitor or track your activity outside study sessions',
+                'Collect or store any usage data',
+                'Access passwords, payment info, or sensitive data',
+              ].map((item, i) => (
+                <View key={i} style={styles.disclosureBulletRow}>
+                  <View style={[styles.disclosureDot, { backgroundColor: '#EF4444' }]} />
+                  <Text style={[styles.disclosureBullet, { color: c.textMuted }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* You are in control note */}
+            <Text style={[styles.disclosureNote, { color: c.textFaint }]}>
+              You are always in control — you can disable blocking or revoke this permission at any time from Android Settings.
+            </Text>
+
+            {/* Buttons */}
+            <TouchableOpacity
+              style={[styles.disclosurePrimaryBtn, { backgroundColor: c.accent }]}
+              onPress={() => {
+                setShowDisclosure(false);
+                AppBlocking.openAccessibilitySettings();
+              }}
+            >
+              <Ionicons name="settings-outline" size={17} color="#fff" />
+              <Text style={styles.disclosurePrimaryTxt}>Enable in Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ alignItems: 'center', paddingVertical: 14 }}
+              onPress={() => setShowDisclosure(false)}
+            >
+              <Text style={[styles.disclosureCancelTxt, { color: c.textMuted }]}>
+                Maybe later — I'll use the app without blocking
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: c.text }]}>{t.appBlockTitle}</Text>
@@ -485,10 +581,7 @@ export default function AppBlockScreen() {
             if (activeTab === 'websites') { setShowAddWebsite(true); return; }
             if (activeTab === 'limits') { loadApps('limit'); return; }
             if (!accessEnabled) {
-              Alert.alert('Permission needed',
-                'Enable Accessibility permission so Focus On can block apps.',
-                [{ text: 'Open Settings', onPress: () => AppBlocking.openAccessibilitySettings() },
-                 { text: t.appBlockCancel, style: 'cancel' }]);
+              setShowDisclosure(true);
               return;
             }
             resetForm(); setShowCreate(true);
@@ -698,10 +791,7 @@ export default function AppBlockScreen() {
           ];
           const toggleReels = (pkg: string) => {
             if (!accessEnabled) {
-              Alert.alert('Permission needed',
-                'Enable Accessibility permission so Focus On can block reels.',
-                [{ text: 'Open Settings', onPress: () => AppBlocking.openAccessibilitySettings() },
-                 { text: t.appBlockCancel, style: 'cancel' }]);
+              setShowDisclosure(true);
               return;
             }
             const updated = reelsBlocked.includes(pkg)
@@ -1322,4 +1412,36 @@ const styles = StyleSheet.create({
   quickAddRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   quickChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: RADIUS.full, borderWidth: 1 },
   quickChipTxt: { fontSize: 12, fontWeight: '600', fontFamily: FONTS.semibold },
+
+  // ── Permission Disclosure Modal ───────────────────────────────────────────
+  disclosureSheet: {
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 44,
+  },
+  disclosureHandle: {
+    width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20,
+  },
+  disclosureIconCircle: {
+    width: 60, height: 60, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
+  disclosureTitle: { fontSize: 20, fontFamily: FONTS.bold, textAlign: 'center', marginBottom: 6 },
+  disclosureSub: { fontSize: 13, fontFamily: FONTS.regular, textAlign: 'center', lineHeight: 19, paddingHorizontal: 16 },
+  disclosureSection: {
+    borderRadius: 14, borderWidth: 1, padding: 14, gap: 0,
+  },
+  disclosureSectionTitle: { fontSize: 13, fontFamily: FONTS.semibold, marginBottom: 10 },
+  disclosureBulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  disclosureDot: { width: 6, height: 6, borderRadius: 3, marginTop: 5, flexShrink: 0 },
+  disclosureBullet: { fontSize: 13, fontFamily: FONTS.regular, lineHeight: 19, flex: 1 },
+  disclosureNote: {
+    fontSize: 11, fontFamily: FONTS.regular, textAlign: 'center',
+    lineHeight: 16, marginTop: 12, marginBottom: 4, paddingHorizontal: 8,
+  },
+  disclosurePrimaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, height: 52, borderRadius: 16, marginTop: 16,
+  },
+  disclosurePrimaryTxt: { fontSize: 15, fontFamily: FONTS.bold, color: '#fff' },
+  disclosureCancelTxt: { fontSize: 13, fontFamily: FONTS.regular },
 });
