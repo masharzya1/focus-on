@@ -491,15 +491,55 @@ export default function TimerScreen() {
       <Animated.View entering={FadeInDown.delay(180).springify()} style={styles.controls}>
         <IconButton icon="refresh" onPress={reset} bg={c.bgCard} color={c.textMuted} />
         <PlayButton running={running} onPress={toggle} accent={mode === 'focus' ? accent : c.success} accentDark={accentDark} />
-        <TimeBadgeButton
-          label={mode === 'focus' ? `${customFocus}m` : `${customBreak}m`}
-          onPress={() => setShowPicker(true)}
-          accent={mode === 'focus' ? accent : c.success}
-          tapLabel={t.timerTapToEdit}
-        />
+        <View style={{ alignItems: 'center', gap: 5 }}>
+          <TimeBadgeButton
+            label={mode === 'focus' ? `${customFocus}m` : `${customBreak}m`}
+            onPress={() => setShowPicker(true)}
+            accent={mode === 'focus' ? accent : c.success}
+            tapLabel={t.timerTapToEdit}
+          />
+          <Text style={{ fontSize: 10, fontFamily: FONTS.semibold, color: c.textFaint, letterSpacing: 0.3 }}>
+            TAP TO EDIT
+          </Text>
+        </View>
       </Animated.View>
 
-      <View style={{ height: Platform.OS === 'ios' ? 110 : 100 }} />
+      {/* Today's session stats */}
+      {(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todaySessions = state.sessions.filter(
+          s => s.type === 'focus' && s.completed && s.startTime?.startsWith(todayStr)
+        );
+        const sessionCount = todaySessions.length;
+        const totalMins = todaySessions.reduce((acc, s) => acc + (s.durationMinutes ?? 0), 0);
+        if (sessionCount === 0 && !running) return null;
+        return (
+          <Animated.View entering={FadeInDown.delay(220).springify()} style={styles.todayStrip}>
+            <View style={[styles.todayPill, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="checkmark-circle-outline" size={13} color={c.accent} />
+              <Text style={[styles.todayPillTxt, { color: c.textMuted }]}>
+                <Text style={{ color: c.text, fontFamily: FONTS.bold }}>{sessionCount}</Text>
+                {' '}session{sessionCount !== 1 ? 's' : ''} today
+              </Text>
+            </View>
+            <View style={[styles.todayPill, { backgroundColor: c.bgCard, borderColor: c.border }]}>
+              <Ionicons name="time-outline" size={13} color={c.accent} />
+              <Text style={[styles.todayPillTxt, { color: c.textMuted }]}>
+                <Text style={{ color: c.text, fontFamily: FONTS.bold }}>{totalMins}m</Text>
+                {' '}studied
+              </Text>
+            </View>
+            {sessionCount >= 4 && (
+              <View style={[styles.todayPill, { backgroundColor: '#FFF7ED', borderColor: '#F97316' + '30' }]}>
+                <Ionicons name="flame" size={13} color="#F97316" />
+                <Text style={[styles.todayPillTxt, { color: '#F97316' }]}>On fire!</Text>
+              </View>
+            )}
+          </Animated.View>
+        );
+      })()}
+
+      <View style={{ height: Platform.OS === 'ios' ? 90 : 80 }} />
 
       {/* Subject Picker */}
       <SubjectPicker
@@ -635,4 +675,7 @@ const styles = StyleSheet.create({
   completeDoneBtn: { height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, marginTop: 4 },
   completeDoneTxt: { color: '#fff', fontSize: 16, fontFamily: FONTS.bold },
   completeSkip: { fontSize: 13, fontFamily: FONTS.regular, marginTop: 4 },
+  todayStrip: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap', paddingHorizontal: 20 },
+  todayPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 99, borderWidth: 1 },
+  todayPillTxt: { fontSize: 12, fontFamily: FONTS.medium },
 });

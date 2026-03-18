@@ -1089,30 +1089,141 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* ── Empty State ── */}
-      {todayTasks.length === 0 && (
-        <Animated.View
-          entering={FadeInDown.delay(160).springify()}
-          style={[S.emptyCard, { backgroundColor: c.bgCard }]}
-        >
-          <Image
-            source={require("@/assets/images/illus-cat-books.webp")}
-            style={S.emptyIllustrationImg}
-            resizeMode="contain"
-          />
-          <Text style={[S.emptyTitle, { color: c.text }]}>{t.homeNoPlan}</Text>
-          <Text style={[S.emptySub, { color: c.textMuted }]}>
-            Create your first study plan to get started
-          </Text>
-          <TouchableOpacity
-            style={[S.emptyBtn, { backgroundColor: c.accent }]}
-            onPress={() => router.push("/(tabs)/plan")}
+      {/* ── Empty State / Onboarding ── */}
+      {todayTasks.length === 0 && (() => {
+        const hasSubjects = state.subjects.length > 0;
+        const hasPlans = state.studyPlans.length > 0;
+
+        // True new user — show full 3-step onboarding
+        if (!hasSubjects) {
+          const steps = [
+            {
+              num: '1', done: false, icon: 'book-outline' as const, color: '#7B83E0',
+              title: 'Add your subjects',
+              sub: 'Tell the app what you study — Math, Physics, History…',
+              action: () => router.push('/(tabs)/subjects'),
+              actionLabel: 'Go to Subjects →',
+            },
+            {
+              num: '2', done: false, icon: 'calendar-outline' as const, color: '#F97316',
+              title: 'Create a study plan',
+              sub: 'Set an exam date, pick topics, get a smart schedule.',
+              action: () => router.push('/(tabs)/plan'),
+              actionLabel: 'Go to Plan →',
+            },
+            {
+              num: '3', done: false, icon: 'timer-outline' as const, color: '#22C55E',
+              title: 'Start your focus timer',
+              sub: 'Begin studying with a Pomodoro timer and earn XP.',
+              action: () => router.push('/(tabs)/timer'),
+              actionLabel: 'Open Timer →',
+            },
+          ];
+          return (
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <View style={[S.onboardCard, { backgroundColor: c.bgCard }]}>
+                <Image
+                  source={require('@/assets/images/illus-cat-books.webp')}
+                  style={{ width: 100, height: 90, alignSelf: 'center', marginBottom: 4 }}
+                  resizeMode="contain"
+                />
+                <Text style={[S.onboardTitle, { color: c.text }]}>Welcome! Let's get started</Text>
+                <Text style={[S.onboardSub, { color: c.textMuted }]}>
+                  3 quick steps to your first study session
+                </Text>
+                {steps.map((step, i) => (
+                  <TouchableOpacity
+                    key={step.num}
+                    style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: i > 0 ? 1 : 0 }]}
+                    onPress={step.action}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[S.stepNum, { backgroundColor: step.color + '18', borderColor: step.color + '30' }]}>
+                      <Text style={[S.stepNumTxt, { color: step.color }]}>{step.num}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.stepTitle, { color: c.text }]}>{step.title}</Text>
+                      <Text style={[S.stepSub, { color: c.textMuted }]}>{step.sub}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={step.color} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Animated.View>
+          );
+        }
+
+        // Has subjects but no plans — show 2-step guide
+        if (!hasPlans) {
+          return (
+            <Animated.View entering={FadeInDown.delay(160).springify()}>
+              <View style={[S.onboardCard, { backgroundColor: c.bgCard }]}>
+                <View style={[S.onboardCheckRow, { borderBottomColor: c.border }]}>
+                  <View style={[S.checkDone, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
+                    <Ionicons name="checkmark" size={14} color="#22C55E" />
+                  </View>
+                  <Text style={[S.stepTitle, { color: c.textMuted, textDecorationLine: 'line-through' }]}>
+                    Subjects added
+                  </Text>
+                  <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                </View>
+                <TouchableOpacity
+                  style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: 1 }]}
+                  onPress={() => router.push('/plan/create')}
+                  activeOpacity={0.8}
+                >
+                  <View style={[S.stepNum, { backgroundColor: '#F97316' + '18', borderColor: '#F97316' + '30' }]}>
+                    <Text style={[S.stepNumTxt, { color: '#F97316' }]}>2</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.stepTitle, { color: c.text }]}>Create a study plan</Text>
+                    <Text style={[S.stepSub, { color: c.textMuted }]}>Set an exam date and get a smart schedule.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#F97316" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[S.stepRow, { borderTopColor: c.border, borderTopWidth: 1, opacity: 0.5 }]}
+                  activeOpacity={0.8}
+                >
+                  <View style={[S.stepNum, { backgroundColor: '#22C55E18', borderColor: '#22C55E30' }]}>
+                    <Text style={[S.stepNumTxt, { color: '#22C55E' }]}>3</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[S.stepTitle, { color: c.text }]}>Start your focus timer</Text>
+                    <Text style={[S.stepSub, { color: c.textMuted }]}>Begin studying and earn XP.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#22C55E" />
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          );
+        }
+
+        // Has plans but nothing today — normal empty state
+        return (
+          <Animated.View
+            entering={FadeInDown.delay(160).springify()}
+            style={[S.emptyCard, { backgroundColor: c.bgCard }]}
           >
-            <Text style={S.emptyBtnTxt}>{t.homeCreatePlan}</Text>
-            <Ionicons name="arrow-forward" size={14} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+            <Image
+              source={require('@/assets/images/illus-cat-books.webp')}
+              style={S.emptyIllustrationImg}
+              resizeMode="contain"
+            />
+            <Text style={[S.emptyTitle, { color: c.text }]}>{t.homeNoPlan}</Text>
+            <Text style={[S.emptySub, { color: c.textMuted }]}>
+              No tasks scheduled for today. Rest up or review!
+            </Text>
+            <TouchableOpacity
+              style={[S.emptyBtn, { backgroundColor: c.accent }]}
+              onPress={() => router.push('/(tabs)/plan')}
+            >
+              <Text style={S.emptyBtnTxt}>View Plan</Text>
+              <Ionicons name="arrow-forward" size={14} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
+        );
+      })()}
 
       <View style={{ height: 40 }} />
 
@@ -1420,6 +1531,31 @@ const S = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   emptyBtnTxt: { fontSize: 14, fontFamily: FONTS.bold, color: "#fff" },
+
+  // Onboarding
+  onboardCard: { borderRadius: RADIUS.xl, padding: 20, gap: 0, overflow: "hidden" },
+  onboardTitle: { fontSize: 17, fontFamily: FONTS.bold, textAlign: "center", marginBottom: 4 },
+  onboardSub: { fontSize: 13, fontFamily: FONTS.regular, textAlign: "center", lineHeight: 19, marginBottom: 12 },
+  onboardCheckRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 14, borderBottomWidth: 1,
+  },
+  checkDone: {
+    width: 28, height: 28, borderRadius: 8,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
+  },
+  stepRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingVertical: 14,
+  },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 8,
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  },
+  stepNumTxt: { fontSize: 13, fontFamily: FONTS.bold },
+  stepTitle: { fontSize: 13, fontFamily: FONTS.semibold, marginBottom: 2 },
+  stepSub: { fontSize: 12, fontFamily: FONTS.regular, lineHeight: 17 },
 
   // Modal
   modalBg: {
