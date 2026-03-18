@@ -1476,6 +1476,48 @@ const S = StyleSheet.create({
   },
   viewAllTxt: { fontSize: 13, fontFamily: FONTS.medium },
 
+  // Intro Section (ADD THIS)
+introCard: {
+  borderRadius: RADIUS.xl,
+  padding: 18,
+  borderWidth: 1,
+  gap: 0,
+  overflow: "hidden",
+},
+
+introHeading: {
+  fontSize: 16,
+  fontFamily: FONTS.bold,
+  marginBottom: 10,
+},
+
+introRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+  paddingVertical: 12,
+},
+
+introIcon: {
+  width: 36,
+  height: 36,
+  borderRadius: 10,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+introTitle: {
+  fontSize: 13,
+  fontFamily: FONTS.semibold,
+  marginBottom: 2,
+},
+
+introSub: {
+  fontSize: 12,
+  fontFamily: FONTS.regular,
+  lineHeight: 17,
+},
+
   // Empty
   emptyCard: {
     borderRadius: RADIUS.xl,
